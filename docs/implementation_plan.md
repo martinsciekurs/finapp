@@ -97,8 +97,7 @@ The following is the suggested starting stack. It is not rigid - popular, well-m
 | Email            | Resend (transactional emails for reminders)      |
 | Bot              | Telegram Bot API (Grammy)                        |
 | Testing          | Vitest + React Testing Library + Playwright      |
-| Deployment       | Vercel (primary) or Docker self-host (see Section 22) |
-| Containerization | Docker + docker-compose (for self-hosting and local dev) |
+| Deployment       | Vercel                                           |
 | PWA              | next-pwa (or `@serwist/next`)                    |
 
 ---
@@ -138,7 +137,11 @@ A single reusable trigger function is created in the first migration and applied
        "reminder_days_before": 1
      }
      ```
+   - `budget_80_notified_at` (timestamptz, nullable - last time 80% **overall** budget alert was sent)
+   - `budget_100_notified_at` (timestamptz, nullable - last time 100% **overall** budget alert was sent)
    - `created_at`, `updated_at`
+   
+   Note: Profile-level `budget_*_notified_at` tracks the **overall** `monthly_budget` threshold. Per-category budget alert timestamps live on the **categories** table separately.
 3. **`003_trigger.sql`**: Auto-creates profile row on user signup (role=user, tier=free, default banner, onboarding_completed=false).
 4. **`004_categories.sql`**: User-defined budget buckets. Columns: `id` (UUIDv7), `user_id`, `name`, `type` (`'expense' | 'income'`), `icon` (lucide icon name), `color`, `budget_limit` (nullable, only meaningful for expense categories), `sort_order`, `budget_80_notified_at` (timestamptz, nullable), `budget_100_notified_at` (timestamptz, nullable), `created_at`, `updated_at`. Income categories (Salary, Freelance, Investments, Debt Repayment, Gifts, Refunds, Other Income) have no budget_limit.
 5. **`005_transactions.sql`**: Unified financial ledger for both expenses and income. Columns: `id` (UUIDv7), `user_id`, `category_id`, `amount` (always positive), `type` (`'expense' | 'income'`), `description`, `date`, `source` (`'web' | 'telegram' | 'voice'`), `ai_generated` (boolean), `created_at`, `updated_at`. Budget calculations and spending summaries filter by `type = 'expense'`. Income examples: salary, freelance payment, debt repayment received, refund.
@@ -149,7 +152,7 @@ A single reusable trigger function is created in the first migration and applied
 10. **`010_seeds.sql`**: Default expense categories (Food, Transport, Bills, Entertainment, Shopping, Health, Education, Subscriptions, Debt Payment, Other), default income categories (Salary, Freelance, Investments, Debt Repayment, Gifts, Refunds, Other Income), and initial banner presets (colors, gradients, images).
 11. **`011_subscriptions.sql`**: Stripe subscription tracking. Columns: `id` (UUIDv7), `user_id`, `stripe_subscription_id`, `status`, `current_period_end`, `created_at`, `updated_at`.
 12. **`012_daily_usage.sql`**: AI credit tracking. Columns: `user_id`, `credits_used` (integer), `date` (date). Unique constraint on `(user_id, date)`. Every AI interaction (suggest, action, transcribe, Telegram AI message) costs 1 credit.
-13. **`013_ai_memories.sql`**: Per-user AI learning. Columns: `id` (UUIDv7), `user_id`, `keyword` (text, e.g., "chocolate"), `mapped_category` (text, e.g., "Groceries"), `source` (`'auto' | 'manual'`), `created_at`, `updated_at`. Unique constraint on `(user_id, keyword)` - enables deduplication via UPSERT (new rule for the same keyword replaces the old one). The keyword is the trigger word from the transaction description; the mapped_category is the category name the AI should suggest when that keyword appears.
+13. **`013_ai_memories.sql`**: Per-user AI learning. Columns: `id` (UUIDv7), `user_id`, `rule` (text - natural language, e.g., "When the user mentions chocolate or sweets at a supermarket, categorize as Groceries, not Snacks"), `source` (`'auto' | 'manual'`), `created_at`, `updated_at`. Rules are free-text written by the LLM during synthesis (auto) or by the user directly (manual). No keyword/category columns - the LLM reads and writes these naturally, handling deduplication and merging during synthesis.
 14. **`014_attachments.sql`**: Generic file attachments for any record type. Columns: `id` (UUIDv7), `user_id`, `record_type` (`'transaction' | 'debt' | 'reminder'`), `record_id` (UUIDv7), `file_path` (text), `file_name` (text), `file_size` (integer - bytes), `mime_type` (text), `created_at`, `updated_at`. Max 3 files per record. RLS: `auth.uid() = user_id`.
 15. **`015_telegram_sessions.sql`**: Telegram bot conversation state. Columns: `chat_id` (bigint, primary key), `user_id` (FK to profiles), `messages` (JSONB array), `pending_action` (JSONB, nullable), `created_at`, `updated_at`. Messages are append-only; only the **last 5** are fetched for LLM context (sufficient for immediate conversational continuity while keeping token usage low). No auto-pruning - full history retained.
 16. **`016_notifications.sql`**: In-app notification store. Columns: `id` (UUIDv7), `user_id`, `type` (`'budget_80' | 'budget_100' | 'reminder_due' | 'debt_settled'`), `title` (text), `message` (text), `is_read` (boolean, default `false`), `data` (JSONB, nullable - stores contextual info like category_id, reminder_id, etc.), `created_at`. No `updated_at` - notifications are immutable except for the `is_read` flag. RLS: `auth.uid() = user_id`. Index on `(user_id, is_read, created_at)` for efficient unread count + paginated listing.
@@ -206,12 +209,32 @@ The `currency` field on profiles is a **display label only** (e.g., "EUR", "USD"
 
 - `/auth/login` - Email/password entry with a hero image background.
 - `/auth/sign-up` - Account creation with display name.
-- `/auth/sign-up-success` - "Check your email" confirmation.
+
+**No email confirmation**: Supabase Auth is configured with `enable_confirmations = false`. Users can log in immediately after sign-up — no verification email is sent. This avoids requiring a custom SMTP / email domain setup for now. If email confirmation is needed later, enable it in the Supabase dashboard and add a `/auth/sign-up-success` "check your email" page.
+
+**Password reset**: Deferred for v1. Requires a configured email provider (Supabase sends a reset link via email). Until then, users who forget their password contact the admin, who can reset it via the Supabase dashboard or admin panel. Add a "Forgot password?" link to the login page that shows a message: "Password reset is not yet available. Contact support."
 
 ### Post-Auth Routing
-- After login, check `profiles.onboarding_completed`.
-- If `false`, redirect to `/onboarding`.
-- If `true`, redirect to `/dashboard`.
+- After sign-up: auto-login → redirect to `/onboarding` (since `onboarding_completed` is `false`).
+- After login: check `profiles.onboarding_completed`.
+  - If `false`, redirect to `/onboarding`.
+  - If `true`, redirect to `/dashboard`.
+
+### Route Protection (Middleware)
+
+`middleware.ts` handles session validation and route-based access control:
+
+| Route Pattern              | Access           | Behavior                                           |
+| -------------------------- | ---------------- | -------------------------------------------------- |
+| `/`                        | Public           | Landing page. If authenticated, show "Go to Dashboard" instead of sign-up CTA. |
+| `/auth/*`                  | Public only      | Login, sign-up. If already authenticated, redirect to `/dashboard`. |
+| `/onboarding`              | Authenticated    | Redirect to `/auth/login` if no session. Redirect to `/dashboard` if `onboarding_completed = true`. |
+| `/dashboard/*`             | Authenticated    | Redirect to `/auth/login` if no session. Redirect to `/onboarding` if `onboarding_completed = false`. |
+| `/dashboard/admin/*`       | Admin only       | Authenticated + `profiles.role = 'admin'`. Return 403 if not admin. |
+| `/api/ai/*`, `/api/export/*` | Authenticated  | Validate session from cookie/header. Return 401 if no session. |
+| `/api/telegram/webhook`    | Telegram secret  | No session auth. Validates `X-Telegram-Bot-Api-Secret-Token` header. |
+| `/api/stripe/webhook`      | Stripe signature | No session auth. Validates Stripe webhook signature. |
+| `/api/cron/*`              | Cron secret      | No session auth. Validates `CRON_SECRET` header.   |
 
 ---
 
@@ -382,6 +405,133 @@ All forms use Zod schemas for validation, shared between client and server:
 - **AI output**: Zod schemas with `zod-to-json-schema` for Vercel AI SDK structured outputs, ensuring AI responses are type-safe. AI output schema includes a `type` field (`'expense' | 'income'`) so the AI can distinguish between spending and receiving money.
 - Validation errors appear inline below fields with a subtle fade-in. Never alert dialogs.
 
+### Screens & User Actions
+
+Concise reference of every screen. Layout specifics, spacing, and animation details are left to the implementor.
+
+#### Public Screens
+
+**`/` — Landing Page**
+- Hero section with value prop, 3-4 feature highlight cards, pricing table (Free vs Pro), footer
+- Actions: Sign up, Log in
+
+**`/auth/login`**
+- Email + password form, hero image background, link to sign-up
+- Actions: Submit → authenticate → redirect to `/dashboard` (or `/onboarding` if first time)
+
+**`/auth/sign-up`**
+- Display name + email + password form, link to login
+- Actions: Submit → create account → redirect to sign-up-success
+
+**`/auth/sign-up-success`**
+- "Check your email" confirmation message. Informational only.
+
+#### Protected — Onboarding
+
+**`/onboarding`**
+- Multi-step wizard (4 steps) with progress indicator, slide transitions
+- Step 1 — Welcome: greeting with display name, brief value prop, single "Let's get started" CTA
+- Step 2 — Categories: grid of default expense categories (toggleable, all pre-selected), "Add custom" inline field with icon picker, minimum 2 required
+- Step 3 — Monthly budget: large number input + currency label, skip option ("I'll set this later")
+- Step 4 — Banner: color/gradient preset grid (no photos — keep it fast)
+- Actions per step: Next, Back, Skip (step 3 only), Toggle category, Add custom category, Set budget, Pick banner, Complete → save all → redirect to `/dashboard` + launch guided tour
+
+#### Protected — Dashboard
+
+**Global elements** (present on all dashboard pages):
+- Hero banner (configurable, "Change cover" on hover)
+- Navigation: bottom pill bar (mobile/tablet) or sidebar (desktop) — Overview, Transactions, Budget, Reminders, Debts, Settings
+- `NotificationBell` in top bar: unread count badge, dropdown with recent notifications, mark as read, click → navigate to relevant page
+- Budget warning banner (dismissible) when any category exceeds 80%
+
+---
+
+**`/dashboard` — Overview**
+- Summary cards: Total Spent (this month), Total Income (this month), Net Balance, Upcoming Bills count
+- Budget vs Actual bar chart (expense categories only)
+- Recent transactions list (last 5)
+- Actions: Click summary card → navigate to relevant page, Click transaction → go to `/dashboard/transactions`
+
+---
+
+**`/dashboard/transactions`**
+- `TransactionForm`: inline input row with expense/income type toggle, natural language input field, `AiSuggestChip` below, attachment button, submit button
+- `VoiceInput`: mic FAB (mobile) or button beside input (desktop)
+- Filter tabs: All / Expenses / Income
+- `TransactionList`: grouped by date (newest first), staggered entrance animation
+- Each row: type indicator (color/icon), amount, category badge (icon + color), description, date, paperclip icon if attachments
+- Actions:
+  - Add: type text or use voice → accept/dismiss AI chip → submit
+  - Inline edit: click row → expand edit view (amount, category, description, date, type) → save/cancel
+  - Delete: icon button on row (desktop) or swipe (mobile) → confirmation
+  - Attachments: add/view/remove files on any transaction
+
+---
+
+**`/dashboard/budget`**
+- Expense category cards in a grid (sorted by `sort_order`)
+- Each card: icon, name, progress bar, spent / limit amounts (e.g., "EUR 160 / EUR 300")
+- Progress bar color: green (<80%), amber (80–99%), red (≥100%)
+- Categories with no `budget_limit` show spending total only, no bar
+- "Add Category" button
+- Actions:
+  - Inline edit budget limit: click the limit amount → number input → save
+  - Add category: modal/inline form (name, icon picker, color, optional budget limit)
+  - Edit category: name, icon, color
+  - Delete category: only if 0 transactions reference it, confirmation required
+  - Reorder: drag-and-drop or sort order buttons
+
+**How budgets work**: Budgets operate on a **monthly calendar cycle** (1st of the month to the last day). Each expense category can have an optional `budget_limit` — the maximum the user intends to spend in that category per month. The `profiles.monthly_budget` is a separate **overall** spending cap across all categories. Both are independent: per-category is "I want to spend ≤EUR 300 on Food"; overall is "I want to spend ≤EUR 2,000 total". A category with no `budget_limit` is untracked but its spending still counts toward the overall budget. Progress = `SUM(transactions.amount WHERE type='expense' AND category_id=X AND date in current month)` / `budget_limit`. At month rollover, spending resets to 0 naturally (new queries return new sums). No rollover, no carry-forward.
+
+---
+
+**`/dashboard/reminders`**
+- Reminder list grouped by status: Upcoming (sorted by due date), Overdue, Paid this cycle
+- Each row: title, amount, due date, frequency badge (monthly/weekly/yearly/one-time), category badge, paid status
+- "Add Reminder" button
+- Actions:
+  - Add: title, amount, due_date, frequency, category (form or modal)
+  - Mark as paid: toggle button on row → sets `is_paid = true`
+  - Edit: inline or modal (title, amount, due_date, frequency, category)
+  - Delete: confirmation required
+
+---
+
+**`/dashboard/debts`**
+- Summary bar at top: "You owe EUR X" / "You're owed EUR Y" / "Net: ±EUR Z"
+- Active debts grouped by direction: "I owe" section, "They owe me" section
+- Settled debts: collapsed section at bottom, expandable
+- Each `DebtCard`: counterparty name, original amount, remaining amount, progress bar, "Log payment" button
+- "Add Debt" button
+- Actions:
+  - Add debt: counterparty name, amount, direction (I owe / they owe me), optional description
+  - Log payment: inline form on card (amount, optional note) → creates debt payment + linked transaction → updates remaining amount → auto-settles if remaining = 0
+  - View payment history: expandable section on card showing all payments with dates and notes
+  - Add/view attachments on debt
+  - Delete debt: confirmation required
+
+---
+
+**`/dashboard/settings`**
+
+Sectioned single page (or tabs). Each section is a distinct card/group:
+
+- **Profile**: Display name (inline edit), currency selector dropdown, monthly budget (inline edit with number input)
+- **Appearance**: Theme toggle (System / Light / Dark), hero banner picker (opens `BannerPicker` sheet)
+- **Notifications**: Toggle switch per notification type (reminder_due_dates, budget_80_percent, budget_100_percent), `reminder_days_before` number stepper (1–7)
+- **AI Preferences**: List of learned rules (auto/manual badge), delete button per rule, "Add rule" inline text field for manual rules
+- **Telegram**: Connect button → shows 6-char code with instructions, or "Connected" status with disconnect button
+- **Subscription**: Current plan display, usage summary (transactions this month, AI credits today), Upgrade button → Stripe Checkout, or Manage → Stripe Customer Portal
+- **Your Data**: Export transactions — date range picker (presets: This month, Last 3 months, This year, All time + custom), type filter (All/Expenses/Income), Download CSV button
+- **Danger Zone**: Red "Delete Account" button → confirmation modal ("This will permanently delete your account and all data. Type DELETE to confirm.") → cascade delete → sign out → redirect to `/`
+
+---
+
+**`/dashboard/admin`** (admin role only, service-role client)
+- **Users tab**: paginated table (display name, email, tier, created_at), deactivate toggle per user
+- **Banner Presets tab**: CRUD list for colors, gradients, images — add/edit/delete presets
+- **Analytics tab**: total users, active users (30d), revenue summary, total transactions, AI credits used today
+
 ---
 
 ## 10. Voice Input
@@ -502,27 +652,34 @@ Grammy uses a **Supabase-backed session storage adapter** (`telegram_sessions` t
 
 ### 11.4 AI Memories (Per-User Learning)
 
-The AI improves per user over time by learning their categorization preferences.
+The AI improves per user over time by learning their categorization preferences. Instead of mechanical keyword extraction, the **LLM itself synthesizes and manages memory rules**, producing more nuanced and context-aware learning.
 
-**Auto-learning**: When a user corrects an AI suggestion, the correction is stored as a rule in `ai_memories`. This happens silently on save - no extra UI step. The exact mechanism:
+**Auto-learning flow**:
 
 1. User types in `TransactionForm` → AI suggests a category via `AiSuggestChip` (e.g., "Snacks" for "50 chocolate at store").
-2. The AI-suggested category ID is stored temporarily in the form state (e.g., `aiSuggestedCategoryId`).
+2. The AI-suggested category ID is stored temporarily in the form state (`aiSuggestedCategoryId`).
 3. User changes the category from "Snacks" to "Groceries" and clicks Save.
-4. The Server Action that creates the transaction compares `aiSuggestedCategoryId` with the final `savedCategoryId`.
-5. If they differ, the Server Action performs an UPSERT into `ai_memories`: `keyword = "chocolate"`, `mapped_category = "Groceries"`, `source = 'auto'`.
-6. The keyword is extracted from the transaction description - the primary noun/phrase (e.g., "chocolate" from "50 chocolate at store"). For simple descriptions, the entire description minus numbers is used.
-7. Next time the user mentions "chocolate", the AI's system prompt includes this rule and will suggest "Groceries" instead.
+4. The Server Action creates the transaction, then detects the correction (`aiSuggestedCategoryId !== savedCategoryId`).
+5. If they differ, the Server Action fires a **background LLM synthesis call**:
+   - Input: the user's current `ai_memories` rules (all of them) + the correction context (description: "chocolate at store", AI suggested: "Snacks", user chose: "Groceries").
+   - Prompt: *"Here are the user's current memory rules. The user just categorized '[description]' as '[category]' — the AI had suggested '[old_category]'. Synthesize an updated rule set. You may add new rules, merge overlapping rules, update existing ones, or leave them unchanged. Do not modify rules marked as [manual]. Return the complete updated list."*
+   - Output: an updated list of rule strings.
+6. The Server Action replaces all `source = 'auto'` memories with the LLM's output (manual rules are untouched).
+7. Next time the AI runs, these rules are in the system prompt and it produces better suggestions.
+
+This approach lets the LLM produce nuanced rules like *"When the user buys chocolate or sweets at a store, categorize as Groceries — but chocolate at a cinema is Entertainment"* rather than a flat `chocolate → Groceries` mapping. The LLM also handles deduplication and conflict resolution naturally during synthesis.
+
+**Cost**: Each synthesis call costs **1 AI credit**. It runs only when a correction is detected (not on every save), and runs in the background — the user doesn't wait for it.
 
 **Manual rules**: In `/dashboard/settings`, an "AI Preferences" section shows a simple list of learned rules. Users can:
-- View all rules (e.g., "chocolate → Groceries", "uber → Transport") with a badge showing source (auto/manual)
+- View all rules with a badge showing source (auto/manual)
 - Delete rules they don't want
-- Add manual rules via a simple inline form ("When I say ___, categorize as ___")
+- Add manual rules via a simple inline text field (e.g., "Always categorize Uber rides as Transport"). Manual rules are marked `source = 'manual'` and are never modified by the LLM synthesis.
 
-**How it works**:
-- Before every AI call (suggest, action, transcribe), the user's rules (max 50 on Pro, 20 on Free) are fetched and injected into the system prompt as context, formatted as: `"User preferences: chocolate → Groceries, uber → Transport, ..."`.
-- `source` field tracks whether a rule was `auto` (from correction) or `manual` (user-created).
-- **Deduplication**: The `ai_memories` table has a unique constraint on `(user_id, keyword)`. When a new rule is created for a keyword that already has a rule, the UPSERT replaces the old `mapped_category` value. For example, if "chocolate → Snacks" exists and the user corrects to "Groceries", the UPSERT updates the existing row to "chocolate → Groceries". No duplicate rows, no manual cleanup needed.
+**How rules are used**:
+- Before every AI call (suggest, action, transcribe), the user's rules (max 50 on Pro, 20 on Free) are fetched and injected into the system prompt as context.
+- Rules are free-text strings. The LLM interprets them naturally — no structured parsing needed.
+- `source` field tracks whether a rule was `auto` (LLM-synthesized from corrections) or `manual` (user-created).
 
 ---
 
@@ -585,8 +742,8 @@ Each notification type can be independently enabled/disabled by the user in sett
 | Notification             | Default | Description                                          |
 | ------------------------ | ------- | ---------------------------------------------------- |
 | `reminder_due_dates`     | On      | Email + in-app notification X days before a bill/reminder is due. |
-| `budget_80_percent`      | On      | Email + in-app notification when spending in **any category** reaches 80% of that category's budget. |
-| `budget_100_percent`     | On      | Email + in-app notification when spending in **any category** reaches 100% of that category's budget. |
+| `budget_80_percent`      | On      | Email + in-app when spending hits 80% — fires **per-category** (each category's `budget_limit`) **and** for the **overall** `monthly_budget`. |
+| `budget_100_percent`     | On      | Email + in-app when spending hits 100% — same dual scope as above.  |
 
 Additional setting: `reminder_days_before` (integer, default `1`) - how many days before due date to send the reminder notification.
 
@@ -604,13 +761,15 @@ In `/dashboard/settings`, a "Notifications" section shows each notification type
 3. The route handler validates the secret, runs the notification logic, and returns.
 4. If the function takes longer than the Vercel function timeout (default 10s on Hobby, 60s on Pro), it will be killed - so the cron job must be efficient.
 
-This is the standard approach for serverless deployments. If self-hosting with Docker (see Section 22), a traditional Linux cron or a process scheduler like `node-cron` can be used instead.
+This is the standard approach for serverless deployments.
 
 **Cron job implementation** (`/api/cron/reminders`):
 - Protected by `CRON_SECRET` header validation - rejects requests without a valid secret to prevent unauthorized invocation.
 - For each user, it checks their `notification_preferences` and only sends enabled notification types.
 - **Reminder emails**: queries reminders where `due_date - reminder_days_before = today` and `last_notified_at` is null or older than the current cycle. Sends email via Resend, creates an in-app notification in the `notifications` table, updates `reminders.last_notified_at`.
-- **Budget alerts (per-category)**: For each user, queries expense-type transactions for the current month grouped by category. For each category that has a `budget_limit` set, checks if spending has crossed the 80% or 100% threshold. **Deduplication is per-category**: only sends if `categories.budget_80_notified_at` (or `budget_100_notified_at`) is null or belongs to a previous month. After sending, updates the category's timestamp to `now()`. Resets naturally each month since the check compares against the current month. Example: if Food reaches 80%, user gets "Food budget: 80% reached (EUR 160 of EUR 200)". Later, if Subscriptions hits 100%, a separate alert fires: "Subscriptions budget: 100% reached (EUR 15 of EUR 15)".
+- **Budget alerts** run at two scopes:
+  - **Per-category**: queries expense-type transactions for the current month grouped by category. For each category with a `budget_limit`, checks if spending has crossed 80% or 100%. Dedup via `categories.budget_80_notified_at` / `budget_100_notified_at` — only sends if null or from a previous month; updates to `now()` after sending. Resets naturally each month. Example: Food reaches 80% → "Food budget: 80% reached (EUR 160 of EUR 200)". Later Subscriptions hits 100% → separate alert.
+  - **Overall**: sums all expense-type transactions for the current month against `profiles.monthly_budget`. Dedup via `profiles.budget_80_notified_at` / `budget_100_notified_at` — same logic. Example: total spending crosses EUR 1,600 of EUR 2,000 overall budget → "Overall budget: 80% reached".
 - Email template: Clean, minimal HTML matching the app's earthy aesthetic. Includes a deep link back to the app. One-click unsubscribe link in footer (sets the specific notification to `false`).
 
 ### In-App Notifications
@@ -887,7 +1046,7 @@ Critical user flows only - these are the most expensive to maintain:
 29. Feature gating: Server-side enforcement for all gated actions (expenses, AI credits, Telegram, attachments, storage)
 30. Notification preferences: Per-notification toggle UI in settings
 31. Email reminders: Resend integration, Vercel Cron job (with CRON_SECRET protection), reminder templates, one-click unsubscribe
-32. Budget alerts: Per-category 80% and 100% email + in-app notifications with dedup via `categories.budget_*_notified_at` timestamps
+32. Budget alerts: Per-category + overall 80%/100% email + in-app notifications with dedup via `categories.budget_*_notified_at` and `profiles.budget_*_notified_at` timestamps
 33. In-app notification system: `notifications` table, `NotificationBell` component, notification dropdown panel, mark as read
 34. Hero banner system: Preset library, picker UI, admin management
 35. Landing page: Marketing single-page with pricing (public tiers only)
@@ -922,9 +1081,7 @@ Critical user flows only - these are the most expensive to maintain:
 
 ---
 
-## 22. Deployment & Infrastructure
-
-### Why Supabase Instead of Standard Postgres?
+## 22. Why Supabase Instead of Standard Postgres?
 
 Supabase is used instead of a standalone Postgres instance because it bundles several services the app needs under one platform:
 
@@ -937,48 +1094,10 @@ Supabase is used instead of a standalone Postgres instance because it bundles se
 | Realtime subscriptions   | Need to add a pub/sub layer (e.g., pg_notify + WebSocket server) | Built-in Realtime (used for Telegram linking status) |
 | Admin dashboard          | pgAdmin or similar                              | Full web dashboard: table editor, SQL editor, logs, auth management |
 | Client libraries         | Write raw SQL or use an ORM                     | `@supabase/supabase-js` with typed client generation via CLI |
-| Edge Functions           | N/A                                             | Available if needed (not used in v1)            |
 
 **The trade-off**: Supabase adds a dependency and its own abstractions. But for this project's scope, the alternatives (setting up Auth + Storage + RLS policies + client libraries manually) would take significantly more time with no real benefit. The Postgres underneath is still standard Postgres - all SQL, migrations, triggers, and RLS policies are standard and portable. If we ever need to migrate away from Supabase, the database itself transfers cleanly.
 
-### Deploying Supabase
-
-Two options:
-
-1. **Supabase Cloud (Managed)** - Recommended for production. Free tier available (2 projects, 500MB DB, 1GB storage). Pro plan at $25/mo. Zero infrastructure management. Automatic backups, monitoring, and scaling.
-
-2. **Self-hosted with Docker** - Supabase provides an official `docker-compose.yml` that runs the full stack locally or on a VPS: Postgres, Auth (GoTrue), Storage, Realtime, PostgREST (API), Kong (API gateway), Studio (dashboard). Useful for development (`supabase start` via the Supabase CLI spins this up) and for self-hosted production deployments where you want full control.
-
-### Docker Deployment (Self-Hosting Option)
-
-For users who prefer self-hosting over Vercel + Supabase Cloud, the app includes a Docker setup:
-
-**`docker-compose.yml`** at the project root orchestrates:
-
-| Service      | Image / Build              | Purpose                                      |
-| ------------ | -------------------------- | -------------------------------------------- |
-| `app`        | Custom Dockerfile (Next.js)| The Next.js application, built as a standalone Node.js server (`output: 'standalone'` in `next.config.js`) |
-| `supabase-db`| `supabase/postgres`        | Postgres database with Supabase extensions   |
-| `supabase-auth`| `supabase/gotrue`        | Authentication service (GoTrue)              |
-| `supabase-storage`| `supabase/storage-api`| File storage API                            |
-| `supabase-rest`| `postgrest/postgrest`    | Auto-generated REST API from Postgres schema |
-| `supabase-studio`| `supabase/studio`      | Admin dashboard (optional, can be disabled in production) |
-
-**`Dockerfile`** for the Next.js app:
-- Multi-stage build: `deps` → `build` → `runner`.
-- Final image based on `node:20-alpine` (~100MB).
-- Runs `next start` in standalone mode.
-- Environment variables for Supabase URL, keys, Stripe keys, etc., passed at runtime.
-
-**Cron jobs in self-hosted mode**: Since there's no Vercel Cron, use one of:
-- A `cron` service in `docker-compose.yml` that runs `curl http://app:3000/api/cron/reminders` on a schedule (using `ofelia` or a simple Alpine container with cron).
-- Or `node-cron` integrated into the Next.js server for in-process scheduling.
-
-**When to self-host vs. use Vercel**:
-- **Vercel + Supabase Cloud**: Best for most users. Zero ops, automatic deployments, global CDN, generous free tiers. Recommended default.
-- **Docker self-host**: For users who need full data sovereignty, want to run on their own VPS, or prefer to avoid vendor lock-in. Requires managing your own server, backups, SSL, and updates.
-
-Both paths use the same codebase - no code changes needed, only environment variables differ.
+**Deployment**: Supabase Cloud (managed). Free tier available (2 projects, 500MB DB, 1GB storage). Pro plan at $25/mo. Zero infrastructure management. For local development, the Supabase CLI (`supabase start`) spins up the full stack via Docker automatically.
 
 ---
 
