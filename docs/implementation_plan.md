@@ -3,6 +3,7 @@
 # Project Specification: Personal Finance Dashboard
 
 **Target Audience**: Busy Young Professionals
+
 **Core Philosophy**: Clean, fast, inline-first UX with a warm, sophisticated aesthetic. AI-augmented where it genuinely helps. Subtle animations that make the experience feel alive. Mobile-first, installable as a PWA.
 
 ---
@@ -729,7 +730,7 @@ Users can export their expense data from `/dashboard/settings` -> "Your Data" se
 - **Format**: CSV with columns: date, amount, category, description, source.
 - **Endpoint**: `GET /api/export?format=csv` - server-side generation, streams the file as a download.
 - **Scope**: All expenses for the authenticated user. No date filtering for v1 (export everything).
-- **Rate limit**: Max 1 export per hour (prevent abuse). Simple check via a timestamp in the response headers or a short-lived DB flag.
+- **Rate limit**: None for v1 (endpoint is authenticated, returns only the user's own data - low abuse risk). Add rate limiting later if needed.
 
 ### Account Deletion
 
@@ -760,7 +761,7 @@ The app is installable as a PWA so users can add it to their phone's home screen
 - Offline support is not a priority for v1 (data is live from Supabase), but the PWA shell (nav, layout) should render offline with a "You're offline" message.
 
 ### Install Prompt
-- Show a subtle, dismissible banner on mobile web suggesting "Add to Home Screen" (only after 2+ visits). Don't be aggressive.
+- Rely on the browser's native PWA install prompt (Chrome, Edge, etc. show this automatically when criteria are met). No custom install banner for v1 - keeps it simple and non-intrusive.
 
 ### App Icons
 - 192x192 and 512x512 PNG icons matching the app's branding (dark olive primary color, simple finance-related mark).
@@ -903,3 +904,6 @@ Design inspiration (not strict templates - make it better):
 ![](reference-images/05-example.png)
 ![](reference-images/06-example.png)
 ![](reference-images/07-example.png)
+![](reference-images/img.png)
+![](reference-images/img_1.png)
+![](reference-images/img_2.png)
