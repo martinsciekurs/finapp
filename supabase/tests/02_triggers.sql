@@ -804,19 +804,13 @@ returns uuid language plpgsql security definer as $$
 begin return auth.uid(); end;
 $$;
 
--- Set JWT claims to u2
-select set_config('request.jwt.claims',
-  json_build_object('sub', current_setting('test.onboard_u2')::uuid, 'role', 'authenticated')::text,
-  true
-);
-select set_config('request.jwt.claim.sub', current_setting('test.onboard_u2'), true);
+-- Authenticate as u2 and attempt to append to u1's profile — should fail
+select authenticate_as(current_setting('test.onboard_u2')::uuid);
 
--- Verify: auth.uid() returns u2 (not u1) inside SECURITY DEFINER context,
--- proving the unauthorized check in append_onboarding_step would reject
-select isnt(
-  test_secdef_auth_uid(),
-  current_setting('test.onboard_uid')::uuid,
-  'append_onboarding_step: SECURITY DEFINER auth check rejects different user'
+select throws_matching(
+  format('select public.append_onboarding_step(%L, ''categories'')', current_setting('test.onboard_uid')::uuid),
+  'Unauthorized',
+  'append_onboarding_step: different user cannot append to another user''s profile'
 );
 
 select reset_role();

@@ -116,19 +116,19 @@
 
 ## Tests Written
 
-### Vitest Unit Tests (139 tests / 13 files)
+### Vitest Unit Tests (141 tests / 13 files)
 - [x] Transaction schema tests (24 tests) — valid/invalid amounts, types, dates, defaults, source enum (web/telegram/voice), ai_generated, updateTransactionSchema (partial validation)
 - [x] AI schema tests (18 tests) — `aiInputSchema` (word count, char limit, empty, whitespace, trim) + `aiSuggestionSchema` (type enum, nullable fields, confidence bounds, missing fields)
 - [x] Auth schema tests (11 tests) — login/signup validation
 - [x] Debt schema tests (16 tests) — valid debts/payments, validation rules, counterparty max length (100), description max length (500), note max length (500), invalid UUID, zero/negative amounts
-- [x] Config tests (27 tests) — categories (groups, fallback), banners (colors, gradients), plan limits (tiers, attachments, AI credits), safeParseInt defaults
-- [x] Onboarding server action tests (17 tests) — `completeOnboarding` (auth, validation, banner regex, min categories, sanitization, DB errors), `updateOnboardingStep` (valid/invalid steps, auth, RPC)
+- [x] Config tests (26 tests) — categories (groups, fallback), banners (colors, gradients), plan limits (tiers, attachments, AI credits), safeParseInt defaults
+- [x] Onboarding server action tests (19 tests) — `completeOnboarding` (auth, validation, banner regex, min categories, sanitization, DB errors), `updateOnboardingStep` (valid/invalid steps, auth, RPC)
 - [x] Middleware tests (6 tests) — `updateSession` (env vars, client creation, auth/unauth, cookie sync)
 - [x] Supabase client tests (13 tests) — `server.ts` (env vars, client creation, cookie delegation, setAll error handling), `admin.ts` (env vars, service role key, client return), `client.ts` (env vars, browser client creation)
 - [x] Utility tests (8 tests) — `cn()` (merge, conditional, undefined/null, empty, Tailwind conflict resolution, arrays, objects)
 
-### pgTAP Database Tests (167 tests / 4 files)
-- [x] RLS policy tests (80 tests) — all 12 tables: owner CRUD, cross-user denial (SELECT/INSERT/UPDATE/DELETE), anon lockout, missing policy enforcement, owner UPDATE + DELETE on all applicable tables, subscriptions UPDATE blocked
+### pgTAP Database Tests (168 tests / 4 files)
+- [x] RLS policy tests (82 tests) — all 12 tables: owner CRUD, cross-user denial (SELECT/INSERT/UPDATE/DELETE), anon lockout, missing policy enforcement, owner UPDATE + DELETE on all applicable tables, subscriptions UPDATE blocked
 - [x] Trigger & function tests (49 tests) — `set_updated_at` on 5 tables (profiles, categories, transactions, debts, ai_memories), `handle_new_user` (metadata, email fallback, null email, default currency/role/onboarding_completed_steps), `is_admin`, `update_debt_remaining_on_change` (insert/update/delete/overpayment), `daily_usage_update_guard` (5 immutability checks), `notifications_update_guard` (7 field checks), `attachments_parent_check` (transaction/debt/reminder/nonexistent/cross-user), `attachments_parent_cleanup` (reminder/transaction/debt parents), `append_onboarding_step` (append/idempotent/auth)
 - [x] FK & constraint tests (37 tests) — 4 composite FKs with ON DELETE behavior, CHECK constraints (amounts, enums, bounds, counterparty, debts.original_amount, banner_presets.type, reminders.frequency), UNIQUE constraints (categories name+user+type, stripe subscription ID, daily_usage user+date, telegram chat_id)
 
@@ -139,10 +139,10 @@
 - [x] 404 page test (1 test) — renders for unknown routes
 
 ### Summary
-- **Vitest**: 139 tests passing
-- **pgTAP**: 167 tests passing
+- **Vitest**: 141 tests passing
+- **pgTAP**: 168 tests passing
 - **E2E**: 12 tests defined
-- **Total**: 318 tests
+- **Total**: 321 tests
 
 ## Configuration Files
 - [x] `.env.local.example` — all environment variables documented

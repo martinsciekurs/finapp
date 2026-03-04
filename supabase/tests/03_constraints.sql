@@ -519,10 +519,10 @@ select throws_ok(
   'check: debts.original_amount rejects 0'
 );
 
--- Negative original_amount
+-- Negative original_amount (remaining_amount is valid so only original_amount fires)
 select throws_ok(
   format(
-    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type) values (%L, ''Bad'', -100, -100, ''i_owe'')',
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type) values (%L, ''Bad'', -100, 0, ''i_owe'')',
     u1()
   ),
   '23514'::char(5),

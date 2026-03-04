@@ -139,5 +139,12 @@ describe("updateSession", () => {
 
     // Should set on the request
     expect(request.cookies.set).toHaveBeenCalledWith("sb-refresh", "refreshed");
+
+    // Should also set on the response (called with separate args: name, value, options)
+    expect(mockNextResponseCookiesSet).toHaveBeenCalledWith(
+      "sb-refresh",
+      "refreshed",
+      { path: "/" }
+    );
   });
 });

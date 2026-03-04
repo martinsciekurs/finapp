@@ -196,9 +196,12 @@ describe("updateTransactionSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts an empty object (all fields optional)", () => {
+  it("accepts an empty object (all fields optional) without materializing defaults", () => {
     const result = updateTransactionSchema.safeParse({});
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({});
+    }
   });
 
   it("validates field constraints when present", () => {
