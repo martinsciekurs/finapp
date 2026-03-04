@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(61);
+select plan(80);
 
 -- ===========================
 -- Setup: create two test users
@@ -261,6 +261,34 @@ select throws_ok(
   'categories: user cannot insert category for another user'
 );
 
+-- Owner can update own category
+select lives_ok(
+  format(
+    'update public.categories set name = ''Food Updated'' where user_id = %L and name = ''Food''',
+    u1()
+  ),
+  'categories: owner can update own category'
+);
+
+-- Cross-user UPDATE: cannot update another user's category (silently 0 rows)
+update public.categories set name = 'Hacked' where user_id = u2();
+select reset_role();
+select isnt(
+  (select name from public.categories where user_id = u2() limit 1),
+  'Hacked',
+  'categories: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own category (delete the Transport one we inserted)
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.categories where user_id = %L and name = ''Transport''',
+    u1()
+  ),
+  'categories: owner can delete own category'
+);
+
 -- Cannot delete another user's category
 select is(
   (select count(*)::int from public.categories where user_id = u2()),
@@ -294,7 +322,39 @@ select throws_ok(
   'transactions: user cannot insert for another user'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.transactions set amount = 999 where user_id = u2();
 select reset_role();
+select isnt(
+  (select amount from public.transactions where user_id = u2() limit 1),
+  999::numeric,
+  'transactions: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own transaction
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.transactions where user_id = %L',
+    u1()
+  ),
+  'transactions: owner can delete own transaction'
+);
+
+select reset_role();
+-- Re-insert transaction for u1 so downstream tests still work
+insert into public.transactions (user_id, category_id, amount, type)
+values (u1(), cat1(), 25, 'expense');
+-- Re-insert attachment for u1 (was cleaned up when parent transaction was deleted)
+do $$
+declare
+  _t1 uuid;
+begin
+  select id into _t1 from public.transactions where user_id = u1() limit 1;
+  insert into public.attachments (user_id, record_type, record_id, file_path, file_name, file_size, mime_type)
+  values (u1(), 'transaction', _t1, '/files/a.pdf', 'a.pdf', 1024, 'application/pdf');
+end;
+$$;
 
 -- ===========================================================================
 -- 4. REMINDERS — standard CRUD isolation
@@ -320,7 +380,29 @@ select throws_ok(
   'reminders: user cannot insert for another user'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.reminders set title = 'Hacked' where user_id = u2();
 select reset_role();
+select isnt(
+  (select title from public.reminders where user_id = u2() limit 1),
+  'Hacked',
+  'reminders: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own reminder
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.reminders where user_id = %L',
+    u1()
+  ),
+  'reminders: owner can delete own reminder'
+);
+
+select reset_role();
+-- Re-insert for downstream tests
+insert into public.reminders (user_id, title, amount, due_date, frequency)
+values (u1(), 'Rent', 800, current_date + 30, 'monthly');
 
 -- ===========================================================================
 -- 5. DEBTS — standard CRUD isolation
@@ -346,7 +428,41 @@ select throws_ok(
   'debts: user cannot insert for another user'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.debts set counterparty = 'Hacked' where user_id = u2();
 select reset_role();
+select isnt(
+  (select counterparty from public.debts where user_id = u2() limit 1),
+  'Hacked',
+  'debts: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own debt
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.debts where user_id = %L',
+    u1()
+  ),
+  'debts: owner can delete own debt'
+);
+
+select reset_role();
+-- Re-insert debt for downstream tests (CASCADE deleted debt_payments too)
+insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type)
+values (u1(), 'Alice debt peer', 500, 500, 'i_owe');
+do $$
+begin
+  perform set_config(
+    'test.debt1_id',
+    (select id::text from public.debts where user_id = u1() limit 1),
+    true
+  );
+end;
+$$;
+-- Re-insert debt_payment for u1 (was cascade-deleted with the debt)
+insert into public.debt_payments (user_id, debt_id, amount)
+values (u1(), debt1(), 100);
 
 -- ===========================================================================
 -- 6. DEBT PAYMENTS — standard CRUD isolation
@@ -372,7 +488,16 @@ select throws_ok(
   'debt_payments: user cannot insert for another user'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.debt_payments set amount = 999 where user_id = u2();
 select reset_role();
+select isnt(
+  (select amount from public.debt_payments where user_id = u2() limit 1),
+  999::numeric,
+  'debt_payments: cross-user UPDATE silently blocked'
+);
+
+select authenticate_as(u1());
 
 -- ===========================================================================
 -- 7. BANNER PRESETS — admin-gated writes, all authenticated can read
@@ -448,6 +573,16 @@ select throws_ok(
   'new row violates row-level security policy for table "subscriptions"',
   'subscriptions: user cannot insert subscription'
 );
+
+-- Cannot update (no UPDATE policy — silently 0 rows)
+update public.subscriptions set status = 'canceled' where user_id = u1();
+select reset_role();
+select is(
+  (select status from public.subscriptions where user_id = u1() limit 1),
+  'active',
+  'subscriptions: UPDATE silently blocked — no UPDATE policy'
+);
+select authenticate_as(u1());
 
 -- Cannot delete (silently 0 rows — no DELETE policy)
 delete from public.subscriptions where user_id = u1();
@@ -526,7 +661,28 @@ select throws_ok(
   'ai_memories: user cannot insert for another user'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.ai_memories set rule = 'hacked' where user_id = u2();
 select reset_role();
+select isnt(
+  (select rule from public.ai_memories where user_id = u2() limit 1),
+  'hacked',
+  'ai_memories: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own ai memory
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.ai_memories where user_id = %L',
+    u1()
+  ),
+  'ai_memories: owner can delete own memory'
+);
+
+select reset_role();
+-- Re-insert for downstream tests
+insert into public.ai_memories (user_id, rule, source) values (u1(), 'likes coffee', 'auto');
 
 -- ===========================================================================
 -- 11. ATTACHMENTS — standard CRUD isolation
@@ -542,6 +698,25 @@ select is(
   (select count(*)::int from public.attachments where user_id = u2()),
   0,
   'attachments: user cannot read another user''s attachments'
+);
+
+-- Cross-user UPDATE: silently 0 rows
+update public.attachments set file_name = 'hacked.pdf' where user_id = u2();
+select reset_role();
+select isnt(
+  (select file_name from public.attachments where user_id = u2() limit 1),
+  'hacked.pdf',
+  'attachments: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own attachment
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.attachments where user_id = %L',
+    u1()
+  ),
+  'attachments: owner can delete own attachment'
 );
 
 select reset_role();
@@ -568,6 +743,25 @@ select throws_ok(
   ),
   'new row violates row-level security policy for table "telegram_sessions"',
   'telegram_sessions: user cannot insert for another user'
+);
+
+-- Cross-user UPDATE: silently 0 rows
+update public.telegram_sessions set chat_id = 8888 where user_id = u2();
+select reset_role();
+select isnt(
+  (select chat_id from public.telegram_sessions where user_id = u2() limit 1),
+  8888::bigint,
+  'telegram_sessions: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own session
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.telegram_sessions where user_id = %L',
+    u1()
+  ),
+  'telegram_sessions: owner can delete own session'
 );
 
 select reset_role();
@@ -605,7 +799,29 @@ select lives_ok(
   'notifications: owner can update own notification'
 );
 
+-- Cross-user UPDATE: silently 0 rows
+update public.notifications set is_read = true where user_id = u2();
 select reset_role();
+select is(
+  (select is_read from public.notifications where user_id = u2() limit 1),
+  false,
+  'notifications: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own notification
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.notifications where user_id = %L',
+    u1()
+  ),
+  'notifications: owner can delete own notification'
+);
+
+select reset_role();
+-- Re-insert for downstream tests
+insert into public.notifications (user_id, type, title, message)
+values (u1(), 'budget_80', 'Budget warning', 'You used 80%');
 
 -- ===========================================================================
 -- 14. ANON ACCESS — verify anon is locked out of all user-scoped tables

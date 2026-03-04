@@ -18,7 +18,7 @@
 -- ===========================================================================
 
 begin;
-select plan(37);
+select plan(49);
 
 select reset_role();
 
@@ -58,6 +58,112 @@ select ok(
    from public.profiles
    where id = current_setting('test.upd_uid')::uuid),
   'set_updated_at: updated_at is set on INSERT'
+);
+
+-- set_updated_at on categories
+do $$
+declare
+  _cid uuid;
+begin
+  _cid := create_test_category(current_setting('test.upd_uid')::uuid, 'Updated Cat', 'expense');
+  perform set_config('test.upd_cat', _cid::text, true);
+end;
+$$;
+
+update public.categories
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_cat')::uuid;
+
+update public.categories
+set name = 'Updated Cat Changed'
+where id = current_setting('test.upd_cat')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.categories
+   where id = current_setting('test.upd_cat')::uuid),
+  'set_updated_at: works on categories'
+);
+
+-- set_updated_at on transactions
+do $$
+declare
+  _tid uuid;
+begin
+  _tid := create_test_transaction(
+    current_setting('test.upd_uid')::uuid,
+    current_setting('test.upd_cat')::uuid,
+    50, 'expense'
+  );
+  perform set_config('test.upd_txn', _tid::text, true);
+end;
+$$;
+
+update public.transactions
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_txn')::uuid;
+
+update public.transactions
+set amount = 75
+where id = current_setting('test.upd_txn')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.transactions
+   where id = current_setting('test.upd_txn')::uuid),
+  'set_updated_at: works on transactions'
+);
+
+-- set_updated_at on debts
+do $$
+declare
+  _did uuid;
+begin
+  _did := create_test_debt(current_setting('test.upd_uid')::uuid, 'Updated Peer', 300, 'i_owe');
+  perform set_config('test.upd_debt', _did::text, true);
+end;
+$$;
+
+update public.debts
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_debt')::uuid;
+
+update public.debts
+set counterparty = 'Updated Peer Changed'
+where id = current_setting('test.upd_debt')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.debts
+   where id = current_setting('test.upd_debt')::uuid),
+  'set_updated_at: works on debts'
+);
+
+-- set_updated_at on ai_memories
+do $$
+declare
+  _mid uuid;
+begin
+  insert into public.ai_memories (user_id, rule, source)
+  values (current_setting('test.upd_uid')::uuid, 'test rule', 'auto')
+  returning id into _mid;
+  perform set_config('test.upd_mem', _mid::text, true);
+end;
+$$;
+
+update public.ai_memories
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_mem')::uuid;
+
+update public.ai_memories
+set rule = 'test rule updated'
+where id = current_setting('test.upd_mem')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.ai_memories
+   where id = current_setting('test.upd_mem')::uuid),
+  'set_updated_at: works on ai_memories'
 );
 
 -- ===========================================================================
@@ -101,6 +207,45 @@ select is(
   (select currency from public.profiles where id = current_setting('test.newuser_uid')::uuid),
   'EUR',
   'handle_new_user: profile has default currency EUR'
+);
+
+-- Default role is 'user'
+select is(
+  (select role from public.profiles where id = current_setting('test.newuser_uid')::uuid),
+  'user',
+  'handle_new_user: profile has default role user'
+);
+
+-- Default onboarding_completed_steps is empty array
+select is(
+  (select onboarding_completed_steps from public.profiles where id = current_setting('test.newuser_uid')::uuid),
+  '[]'::jsonb,
+  'handle_new_user: profile has empty onboarding_completed_steps'
+);
+
+-- Empty email fallback: should use empty string (third COALESCE branch)
+do $$
+declare
+  _uid uuid := extensions.gen_random_uuid();
+begin
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_user_meta_data, created_at, updated_at
+  ) values (
+    '00000000-0000-0000-0000-000000000000',
+    _uid, 'authenticated', 'authenticated',
+    null,  -- null email
+    extensions.crypt('password123', extensions.gen_salt('bf')),
+    now(), '{}'::jsonb, now(), now()
+  );
+  perform set_config('test.nullemail_uid', _uid::text, true);
+end;
+$$;
+
+select is(
+  (select display_name from public.profiles where id = current_setting('test.nullemail_uid')::uuid),
+  '',
+  'handle_new_user: null email falls back to empty string display_name'
 );
 
 -- ===========================================================================
@@ -452,6 +597,16 @@ select lives_ok(
   'attachments_parent_check: valid debt parent accepted'
 );
 
+-- Valid parent: reminder
+select lives_ok(
+  format(
+    'insert into public.attachments (user_id, record_type, record_id, file_path, file_name, file_size, mime_type)
+     values (%L, ''reminder'', %L, ''/f/r.pdf'', ''r.pdf'', 100, ''application/pdf'')',
+    current_setting('test.attach_uid')::uuid, current_setting('test.attach_rem')::uuid
+  ),
+  'attachments_parent_check: valid reminder parent accepted'
+);
+
 -- Invalid parent: nonexistent record_id (use throws_matching for UUID in message)
 select throws_matching(
   format(
@@ -522,6 +677,68 @@ select is(
   (select count(*)::int from public.attachments where id = current_setting('test.cleanup_attachment')::uuid),
   0,
   'attachments_cleanup: attachment deleted when parent reminder is deleted'
+);
+
+-- 8b. attachments_parent_cleanup for transactions
+do $$
+declare
+  _uid uuid := current_setting('test.attach_uid')::uuid;
+  _cat uuid;
+  _tid uuid;
+  _aid uuid;
+begin
+  _cat := create_test_category(_uid, 'Cleanup Txn Cat', 'expense');
+  _tid := create_test_transaction(_uid, _cat, 75, 'expense');
+  insert into public.attachments (user_id, record_type, record_id, file_path, file_name, file_size, mime_type)
+  values (_uid, 'transaction', _tid, '/f/cleanup-txn.pdf', 'cleanup-txn.pdf', 100, 'application/pdf')
+  returning id into _aid;
+  perform set_config('test.cleanup_txn', _tid::text, true);
+  perform set_config('test.cleanup_txn_att', _aid::text, true);
+end;
+$$;
+
+select is(
+  (select count(*)::int from public.attachments where id = current_setting('test.cleanup_txn_att')::uuid),
+  1,
+  'attachments_cleanup: transaction attachment exists before delete'
+);
+
+delete from public.transactions where id = current_setting('test.cleanup_txn')::uuid;
+
+select is(
+  (select count(*)::int from public.attachments where id = current_setting('test.cleanup_txn_att')::uuid),
+  0,
+  'attachments_cleanup: attachment deleted when parent transaction is deleted'
+);
+
+-- 8c. attachments_parent_cleanup for debts
+do $$
+declare
+  _uid uuid := current_setting('test.attach_uid')::uuid;
+  _did uuid;
+  _aid uuid;
+begin
+  _did := create_test_debt(_uid, 'Cleanup Debt Peer', 200, 'they_owe');
+  insert into public.attachments (user_id, record_type, record_id, file_path, file_name, file_size, mime_type)
+  values (_uid, 'debt', _did, '/f/cleanup-debt.pdf', 'cleanup-debt.pdf', 100, 'application/pdf')
+  returning id into _aid;
+  perform set_config('test.cleanup_debt', _did::text, true);
+  perform set_config('test.cleanup_debt_att', _aid::text, true);
+end;
+$$;
+
+select is(
+  (select count(*)::int from public.attachments where id = current_setting('test.cleanup_debt_att')::uuid),
+  1,
+  'attachments_cleanup: debt attachment exists before delete'
+);
+
+delete from public.debts where id = current_setting('test.cleanup_debt')::uuid;
+
+select is(
+  (select count(*)::int from public.attachments where id = current_setting('test.cleanup_debt_att')::uuid),
+  0,
+  'attachments_cleanup: attachment deleted when parent debt is deleted'
 );
 
 -- ===========================================================================
