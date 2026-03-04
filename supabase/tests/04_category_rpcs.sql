@@ -15,7 +15,7 @@
 -- ===========================================================================
 
 begin;
-select plan(24);
+select plan(26);
 
 -- ---------------------------------------------------------------------------
 -- Setup: two test users
@@ -430,6 +430,24 @@ select is(
   (select count(*)::int from public.categories where id = current_setting('test.rpc_del_cat_tgt')::uuid),
   1,
   'cross-user: category still exists after other user''s delete attempt'
+);
+
+-- delete_group_with_reassign: u2 can't delete u1's group (Del Group Tgt still exists)
+select authenticate_as(current_setting('test.rpc_u2')::uuid);
+
+select lives_ok(
+  format(
+    'select public.delete_group_with_reassign(%L)',
+    current_setting('test.rpc_del_grp_tgt')::uuid
+  ),
+  'cross-user: delete_group_with_reassign is no-op for other user'
+);
+
+select reset_role();
+select is(
+  (select count(*)::int from public.category_groups where id = current_setting('test.rpc_del_grp_tgt')::uuid),
+  1,
+  'cross-user: group still exists after other user''s delete attempt'
 );
 
 -- ===========================================================================
