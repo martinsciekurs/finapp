@@ -785,9 +785,6 @@ select is(
 );
 
 -- Unauthorized: different user cannot append to another's profile.
--- The function is SECURITY DEFINER and checks auth.uid() internally.
--- We verify the auth check works by confirming that auth.uid() (set to u2)
--- IS DISTINCT FROM the target profile_id (u1) in a SECURITY DEFINER context.
 select reset_role();
 do $$
 declare
@@ -796,12 +793,6 @@ begin
   _u2 := create_test_user('onboard-other@test.com', 'Other Onboard');
   perform set_config('test.onboard_u2', _u2::text, true);
 end;
-$$;
-
--- Helper: check auth.uid() inside a SECURITY DEFINER context
-create or replace function test_secdef_auth_uid()
-returns uuid language plpgsql security definer as $$
-begin return auth.uid(); end;
 $$;
 
 -- Authenticate as u2 and attempt to append to u1's profile — should fail
