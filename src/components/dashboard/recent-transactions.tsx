@@ -120,7 +120,7 @@ export function RecentTransactions({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">
+        <CardTitle className="font-serif text-base font-semibold">
           Recent Transactions
         </CardTitle>
         <CardAction>

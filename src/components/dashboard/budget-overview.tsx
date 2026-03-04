@@ -139,7 +139,7 @@ export function BudgetOverview({ categories, currency }: BudgetOverviewProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">
+        <CardTitle className="font-serif text-base font-semibold">
           Budget Overview
         </CardTitle>
       </CardHeader>

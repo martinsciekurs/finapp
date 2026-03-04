@@ -34,11 +34,15 @@ export async function fetchUserCurrency(): Promise<string> {
 
   if (!user) return "EUR";
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("currency")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch user currency: ${error.message}`);
+  }
 
   return profile?.currency ?? "EUR";
 }
@@ -60,11 +64,15 @@ export async function fetchMonthlySummary(): Promise<{
   // isn't truncated at the month boundary (e.g. March 3 → Feb 25).
   const earliest = start < weekStart ? start : weekStart;
 
-  const { data: transactions } = await supabase
+  const { data: transactions, error } = await supabase
     .from("transactions")
     .select("amount, type, category_id, date")
     .gte("date", earliest)
     .lt("date", end);
+
+  if (error) {
+    throw new Error(`Failed to fetch monthly transactions: ${error.message}`);
+  }
 
   const txList = transactions ?? [];
 
@@ -104,10 +112,14 @@ export async function fetchMonthlySummary(): Promise<{
 export async function fetchUpcomingRemindersCount(): Promise<number> {
   const supabase = await createClient();
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("reminders")
     .select("id", { count: "exact", head: true })
     .eq("is_paid", false);
+
+  if (error) {
+    throw new Error(`Failed to fetch reminders count: ${error.message}`);
+  }
 
   return count ?? 0;
 }
@@ -121,12 +133,16 @@ export async function fetchBudgetCategories(
 ): Promise<BudgetCategoryData[]> {
   const supabase = await createClient();
 
-  const { data: categories } = await supabase
+  const { data: categories, error } = await supabase
     .from("categories")
     .select("id, name, icon, color, budget_limit")
     .eq("type", "expense")
     .not("budget_limit", "is", null)
     .order("sort_order", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch budget categories: ${error.message}`);
+  }
 
   return (categories ?? []).map((cat) => ({
     id: cat.id,
@@ -146,12 +162,16 @@ export async function fetchRecentTransactions(
 ): Promise<RecentTransactionData[]> {
   const supabase = await createClient();
 
-  const { data: rows } = await supabase
+  const { data: rows, error } = await supabase
     .from("transactions")
     .select("id, amount, type, description, date, categories(name, icon, color)")
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (error) {
+    throw new Error(`Failed to fetch recent transactions: ${error.message}`);
+  }
 
   return (rows ?? []).map((tx) => {
     const cat = parseCategoryJoin(tx.categories);

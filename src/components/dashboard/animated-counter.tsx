@@ -55,8 +55,10 @@ export function AnimatedCounter({
     }
   }, [isInView, value, motionValue, prefersReducedMotion, formatFn]);
 
-  // Subscribe to spring updates and write to the DOM directly
-  // (avoids React re-renders on every animation frame)
+  // Subscribe to spring updates and write to the visual DOM span directly
+  // (avoids React re-renders on every animation frame).
+  // The live region span is separate and only updated via React render
+  // so screen readers receive one announcement per value change, not per tick.
   useEffect(() => {
     if (prefersReducedMotion) return;
 
@@ -69,8 +71,15 @@ export function AnimatedCounter({
   }, [springValue, prefersReducedMotion, formatFn]);
 
   return (
-    <span ref={ref} className={className} aria-live="polite">
-      {formatFn(prefersReducedMotion ? value : 0)}
-    </span>
+    <>
+      {/* Visual span — animated per-frame, hidden from screen readers */}
+      <span ref={ref} className={className} aria-hidden="true">
+        {formatFn(prefersReducedMotion ? value : 0)}
+      </span>
+      {/* Live region — receives the final value via React render, not per-tick */}
+      <span className="sr-only" aria-live="polite">
+        {formatFn(value)}
+      </span>
+    </>
   );
 }

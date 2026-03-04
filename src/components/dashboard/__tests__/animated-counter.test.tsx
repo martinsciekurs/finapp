@@ -30,26 +30,36 @@ vi.mock("framer-motion", () => ({
 
 import { AnimatedCounter } from "../animated-counter";
 
-function getCounterSpan(container: HTMLElement): HTMLSpanElement {
+/** The visual span is aria-hidden and receives per-frame animation updates. */
+function getVisualSpan(container: HTMLElement): HTMLSpanElement {
+  const span = container.querySelector<HTMLSpanElement>(
+    "span[aria-hidden='true']"
+  );
+  if (!span) throw new Error("Visual span not found");
+  return span;
+}
+
+/** The live region span is sr-only and receives the final value via React render. */
+function getLiveSpan(container: HTMLElement): HTMLSpanElement {
   const span = container.querySelector<HTMLSpanElement>("span[aria-live]");
-  if (!span) throw new Error("Counter span not found");
+  if (!span) throw new Error("Live region span not found");
   return span;
 }
 
 describe("AnimatedCounter", () => {
-  it("renders with formatted initial value", () => {
+  it("renders visual span with initial animated value", () => {
     const formatter = (n: number) => `$${n.toFixed(2)}`;
     const { container } = render(
       <AnimatedCounter value={100} formatValue={formatter} />
     );
 
-    const span = getCounterSpan(container);
-    expect(span).toBeInTheDocument();
-    // Initial render shows $0.00 (animation hasn't run yet in mock)
-    expect(span.textContent).toBe("$0.00");
+    const visual = getVisualSpan(container);
+    expect(visual).toBeInTheDocument();
+    // Visual span starts at 0 (animation hasn't run yet in mock)
+    expect(visual.textContent).toBe("$0.00");
   });
 
-  it("applies custom className", () => {
+  it("applies custom className to the visual span", () => {
     const formatter = (n: number) => `${n}`;
     const { container } = render(
       <AnimatedCounter
@@ -59,18 +69,21 @@ describe("AnimatedCounter", () => {
       />
     );
 
-    const span = getCounterSpan(container);
-    expect(span).toHaveClass("text-xl", "font-bold");
+    const visual = getVisualSpan(container);
+    expect(visual).toHaveClass("text-xl", "font-bold");
   });
 
-  it("has aria-live attribute for accessibility", () => {
-    const formatter = (n: number) => `${n}`;
+  it("renders a separate live region for screen readers", () => {
+    const formatter = (n: number) => `$${n.toFixed(2)}`;
     const { container } = render(
       <AnimatedCounter value={100} formatValue={formatter} />
     );
 
-    const span = getCounterSpan(container);
-    expect(span).toHaveAttribute("aria-live", "polite");
+    const live = getLiveSpan(container);
+    expect(live).toHaveAttribute("aria-live", "polite");
+    expect(live).toHaveClass("sr-only");
+    // Live region always shows the final formatted value
+    expect(live.textContent).toBe("$100.00");
   });
 
   it("shows final value immediately when reduced motion is preferred", () => {
@@ -80,19 +93,22 @@ describe("AnimatedCounter", () => {
       <AnimatedCounter value={250} formatValue={formatter} />
     );
 
-    // With reduced motion, the span should show the final value directly
-    const span = getCounterSpan(container);
-    expect(span.textContent).toBe("$250.00");
+    // With reduced motion, the visual span shows the final value directly
+    const visual = getVisualSpan(container);
+    expect(visual.textContent).toBe("$250.00");
   });
 
-  it("starts from 0 when animation is enabled", () => {
+  it("starts visual span from 0 when animation is enabled", () => {
     const formatter = (n: number) => `$${n.toFixed(2)}`;
     const { container } = render(
       <AnimatedCounter value={500} formatValue={formatter} />
     );
 
-    // Without reduced motion, initial render shows formatted 0
-    const span = getCounterSpan(container);
-    expect(span.textContent).toBe("$0.00");
+    // Without reduced motion, visual starts at formatted 0
+    const visual = getVisualSpan(container);
+    expect(visual.textContent).toBe("$0.00");
+    // But the live region has the correct final value for screen readers
+    const live = getLiveSpan(container);
+    expect(live.textContent).toBe("$500.00");
   });
 });
