@@ -117,7 +117,7 @@ export async function completeOnboarding(data: OnboardingData) {
     .select("id, name, type")
     .eq("user_id", user.id);
 
-  if (fetchGroupsError || !createdGroups) {
+  if (fetchGroupsError || !createdGroups || createdGroups.length === 0) {
     return { success: false, error: "Failed to fetch category groups" };
   }
 
@@ -127,6 +127,9 @@ export async function completeOnboarding(data: OnboardingData) {
     groupLookup.set(`${g.type}:${g.name}`, g.id);
   }
 
+  // Guaranteed non-empty after the check above
+  const fallbackGroupId = createdGroups[0].id;
+
   // Create all selected categories — sanitize fields to prevent injection
   const categoriesToInsert = data.categories.map((cat, index) => {
     const catType = cat.type === "income" ? "income" as const : "expense" as const;
@@ -135,11 +138,11 @@ export async function completeOnboarding(data: OnboardingData) {
     const groupName = catType === "income" ? "Income" : (cat.group || "Other");
     const groupId = groupLookup.get(`${catType}:${groupName}`)
       ?? groupLookup.get(`${catType}:Other`)
-      ?? createdGroups[0]?.id; // fallback
+      ?? fallbackGroupId;
 
     return {
       user_id: user.id,
-      group_id: groupId!,
+      group_id: groupId,
       name: cat.name.slice(0, 100),
       type: catType,
       icon: cat.icon.slice(0, 50),

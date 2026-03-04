@@ -138,6 +138,7 @@ export async function fetchBudgetCategories(
 ): Promise<BudgetCategoryData[]> {
   // TODO(Phase 2D-ii): Query category_budgets for current month,
   // merge with spending data, and return BudgetCategoryData[].
+  void _spentByCategory;
   return [];
 }
 

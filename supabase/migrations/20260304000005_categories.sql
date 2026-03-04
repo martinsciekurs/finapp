@@ -95,3 +95,24 @@ create trigger check_category_group_type_trigger
   before insert or update on public.categories
   for each row
   execute function public.check_category_group_type();
+
+-- Trigger: prevent changing a group's type when it has categories
+create or replace function public.check_category_group_type_on_group_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.type <> new.type then
+    if exists (select 1 from public.categories where group_id = old.id) then
+      raise exception 'Cannot change group type (% -> %) while categories exist', old.type, new.type;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger prevent_category_group_type_change_trigger
+  before update on public.category_groups
+  for each row
+  execute function public.check_category_group_type_on_group_update();
