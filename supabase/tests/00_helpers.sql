@@ -101,6 +101,7 @@ begin
     '{}'::text,
     true
   );
+  perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('role', 'anon', true);
 end;
 $$;

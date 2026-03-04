@@ -31,7 +31,7 @@ supabase db push
 
 > Your **project ref** is the subdomain in your Supabase project URL (`https://<project-ref>.supabase.co`). Find it in the Supabase dashboard under **Settings > General > Reference ID**.
 
-This applies all 16 migration files (schema, RLS policies, triggers).
+This applies all migration files in `supabase/migrations/` (schema, RLS policies, triggers).
 
 After pushing, regenerate TypeScript types:
 
