@@ -1,46 +1,24 @@
-import { readFileSync } from "fs";
 import { resolve } from "path";
+import { config } from "dotenv";
 import type { Page, APIRequestContext } from "@playwright/test";
 
 // ── Supabase Config ────────────────────────────────────────
 
-let _supabaseConfig: { url: string; anonKey: string } | null = null;
+// Load .env.local so Supabase vars are available in local dev.
+// In CI, these are set via $GITHUB_ENV and process.env already has them.
+config({ path: resolve(process.cwd(), ".env.local") });
 
 function getSupabaseConfig(): { url: string; anonKey: string } {
-  if (_supabaseConfig) return _supabaseConfig;
-
-  // Try process.env first (CI or pre-set vars)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && anonKey) {
-    _supabaseConfig = { url, anonKey };
-    return _supabaseConfig;
-  }
 
-  // Fall back to .env.local (local development)
-  const envPath = resolve(process.cwd(), ".env.local");
-  const content = readFileSync(envPath, "utf-8");
-  const env: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    env[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
-  }
-
-  _supabaseConfig = {
-    url: env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  };
-
-  if (!_supabaseConfig.url || !_supabaseConfig.anonKey) {
+  if (!url || !anonKey) {
     throw new Error(
       "Missing Supabase config. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
     );
   }
 
-  return _supabaseConfig;
+  return { url, anonKey };
 }
 
 // ── Test Data ──────────────────────────────────────────────
@@ -106,7 +84,11 @@ export async function signUpViaUI(
 
   await page.goto("/auth/sign-up");
   await page.getByLabel("Display Name").fill(displayName);
-  await page.getByLabel("Email").fill(email);
+  // WebKit needs explicit waitFor + clear before fill on type="email" inputs
+  const emailField = page.getByLabel("Email");
+  await emailField.waitFor({ state: "visible" });
+  await emailField.clear();
+  await emailField.fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Start Journey" }).click();
 
@@ -122,7 +104,7 @@ export async function loginViaUI(
   credentials: { email: string; password: string }
 ): Promise<void> {
   await page.goto("/auth/login");
-  // Wait for form to be interactive before filling
+  // WebKit needs explicit waitFor + clear before fill on type="email" inputs
   const emailField = page.getByLabel("Email");
   await emailField.waitFor({ state: "visible" });
   await emailField.clear();
@@ -134,6 +116,7 @@ export async function loginViaUI(
 /**
  * Completes the 3-step onboarding wizard using all defaults.
  * Assumes the page is already on /onboarding.
+ * Does NOT wait for the redirect — callers should assert `toHaveURL(/\/dashboard/)`.
  */
 export async function completeOnboardingViaUI(page: Page): Promise<void> {
   // Step 0: Welcome — click Next

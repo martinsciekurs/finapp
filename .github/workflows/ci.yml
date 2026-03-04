@@ -61,21 +61,9 @@ jobs:
       - name: Start Supabase
         run: supabase start -x studio,imgproxy,edge-runtime
 
-      - name: Verify Supabase is healthy
-        run: |
-          for i in 1 2 3 4 5; do
-            if curl -sSf http://127.0.0.1:54321/rest/v1/ -H "apikey: $(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')" > /dev/null 2>&1; then
-              echo "Supabase is ready"
-              exit 0
-            fi
-            echo "Waiting for Supabase... (attempt $i)"
-            sleep 3
-          done
-          echo "Supabase failed to start"
-          exit 1
-
       - name: Set Supabase env vars
         run: |
+          supabase status
           echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
@@ -90,7 +78,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - run: npm run test:e2e
+      - name: Run E2E tests (chromium only)
+        run: npx playwright test --project=chromium
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

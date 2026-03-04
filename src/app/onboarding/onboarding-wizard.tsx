@@ -109,16 +109,8 @@ export function OnboardingWizard({
         setIsSubmitting(false);
       }
     } catch (error) {
-      // Re-throw redirect errors so Next.js can handle the navigation
-      if (
-        error &&
-        typeof error === "object" &&
-        "digest" in error &&
-        typeof (error as { digest: unknown }).digest === "string" &&
-        (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
-      ) {
-        throw error;
-      }
+      // Re-throw Next.js internal errors (redirect, notFound, etc.)
+      if (error instanceof Error && "digest" in error) throw error;
       toast.error("Something went wrong");
       setIsSubmitting(false);
     }
