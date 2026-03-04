@@ -52,17 +52,18 @@
 - [x] pgTAP: constraint test — replaced `budget_limit` CHECK test with `group_id NOT NULL` test
 - [x] Onboarding unit tests — updated all mocks for `category_groups`, added 2 new error-path tests
 - [x] Zod schema tests — 48 tests covering all schemas (create/update/delete category, create/update/delete group, reorder, enums)
-- [x] Server action tests — 34 tests covering all 10 actions (auth, validation, CRUD, duplicate detection, reassign flows, count queries)
+- [x] Server action tests — 36 tests covering all 10 actions (auth, validation, CRUD, duplicate detection, reassign flows, self-reassign guards, count queries, RPC mocks)
 - [x] Component tests — 13 tests (CategoryManager: tab switching, group/category rendering, empty states, action buttons; CategoriesSkeleton: structure)
-- [x] All 177 pgTAP tests passing
-- [x] All 450 Vitest tests passing
+- [x] pgTAP RPC tests — 24 tests for 6 RPC functions (auto sort_order, batch reorder, delete-with-reassign, cross-user isolation)
+- [x] All 204 pgTAP tests passing (was 180)
+- [x] All 452 Vitest tests passing (was 450)
 - [x] TypeScript strict mode: zero errors
 - [x] ESLint: zero errors, zero warnings
 
 ## Test Summary
-- **Phase 2D-i tests added**: 113 new Vitest tests (48 schema + 34 action + 13 manager + 3 skeleton + 11 combobox + 4 form)
-- **Cumulative Vitest total**: 450 tests (up from 337)
-- **Cumulative pgTAP total**: 177 tests (unchanged)
+- **Phase 2D-i tests added**: 115 new Vitest tests (48 schema + 36 action + 13 manager + 3 skeleton + 11 combobox + 4 form), 24 pgTAP RPC tests
+- **Cumulative Vitest total**: 452 tests (up from 337)
+- **Cumulative pgTAP total**: 204 tests (up from 180)
 
 ## Files Created/Modified
 ### New files
@@ -86,6 +87,10 @@
 - `src/app/dashboard/settings/categories/__tests__/actions.test.ts` — Action tests
 - `src/components/categories/__tests__/categories-skeleton.test.tsx` — Skeleton tests
 - `src/components/categories/__tests__/category-manager.test.tsx` — Manager tests
+- `supabase/migrations/20260304000018_category_management_rpcs.sql` — 6 RPC functions for atomic operations
+- `supabase/tests/04_category_rpcs.sql` — 24 pgTAP tests for RPC functions
+- `src/lib/types/actions.ts` — Shared ActionResult<T> type
+- `e2e/categories.spec.ts` — 14 Playwright E2E tests (page structure, CRUD, DnD, navigation)
 
 ### Modified files
 - `src/lib/validations/index.ts` — Added category export

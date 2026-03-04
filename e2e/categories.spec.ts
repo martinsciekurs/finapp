@@ -26,7 +26,7 @@ async function createCategoryInGroup(
   catName: string
 ) {
   await page
-    .getByRole("button", { name: `Add category to ${groupName}` })
+    .getByRole("button", { name: `Add category to ${groupName}`, exact: true })
     .click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name").fill(catName);
@@ -41,6 +41,12 @@ async function createCategoryInGroup(
  * distance 8 px) because we move the pointer in small increments.
  */
 async function performDrag(page: Page, source: Locator, target: Locator) {
+  // Scroll both elements into view so mouse coordinates are within the viewport
+  await source.scrollIntoViewIfNeeded();
+  await target.scrollIntoViewIfNeeded();
+  // Re-scroll source since target scroll may have moved it
+  await source.scrollIntoViewIfNeeded();
+
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox)
@@ -64,25 +70,18 @@ async function performDrag(page: Page, source: Locator, target: Locator) {
     );
   }
 
-  // Give dnd-kit a frame to settle the final drop position
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+  // Give dnd-kit two frames to settle the final drop position
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  );
 
-  // Drop and wait for the reorder server action to complete
-  const [response] = await Promise.all([
-    page.waitForResponse(
-      (resp) =>
-        resp.url().includes("/dashboard/settings/categories") &&
-        resp.request().method() === "POST" &&
-        resp.status() === 200,
-      { timeout: 5000 }
-    ).catch(() => null), // Don't fail if no-op drop (same position)
-    page.mouse.up(),
-  ]);
+  // Drop
+  await page.mouse.up();
 
-  // If a server action fired, wait one more frame for React to reconcile
-  if (response) {
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
-  }
+  // Wait for the server action (fired inside startTransition) to complete.
+  // networkidle alone isn't sufficient because startTransition defers the fetch.
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1000);
 }
 
 // ────────────────────────────────────────────
@@ -123,8 +122,10 @@ test.describe("Category management", () => {
       page.getByText("Organize your expense and income categories into groups.")
     ).toBeVisible();
 
-    // Back link to settings
-    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    // Back link to settings (scoped to main content to avoid matching sidebar/bottom-nav)
+    await expect(
+      page.locator("#main-content").getByRole("link", { name: "Settings" })
+    ).toBeVisible();
   });
 
   test("shows expense tab active by default with onboarding groups", async ({
@@ -139,7 +140,7 @@ test.describe("Category management", () => {
       page.getByRole("button", { name: /add group/i })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /add category/i })
+      page.getByRole("button", { name: "Add Category", exact: true })
     ).toBeVisible();
   });
 
@@ -182,7 +183,7 @@ test.describe("Category management", () => {
 
     // Open the group actions menu
     await page
-      .getByRole("button", { name: "Actions for Rename Me group" })
+      .getByRole("button", { name: "Actions for Rename Me group", exact: true })
       .click();
     await page.getByRole("menuitem", { name: /rename group/i }).click();
 
@@ -209,7 +210,7 @@ test.describe("Category management", () => {
 
     // Open group actions and delete
     await page
-      .getByRole("button", { name: "Actions for Delete Me group" })
+      .getByRole("button", { name: "Actions for Delete Me group", exact: true })
       .click();
     await page.getByRole("menuitem", { name: /delete group/i }).click();
 
@@ -235,7 +236,7 @@ test.describe("Category management", () => {
 
     // Click the "+" button on the group to add a category
     await page
-      .getByRole("button", { name: "Add category to My Group" })
+      .getByRole("button", { name: "Add category to My Group", exact: true })
       .click();
 
     // Category form dialog should open
@@ -261,7 +262,7 @@ test.describe("Category management", () => {
     await dialog.getByRole("button", { name: /create|save|add/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 5000 });
 
-    await page.getByRole("button", { name: "Add category to Edit Group" }).click();
+    await page.getByRole("button", { name: "Add category to Edit Group", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name").fill("Edit Me Cat");
     await dialog.getByRole("button", { name: /create|save|add/i }).click();
@@ -269,7 +270,7 @@ test.describe("Category management", () => {
     await expect(page.getByText("Edit Me Cat")).toBeVisible({ timeout: 5000 });
 
     // Open category actions menu
-    await page.getByRole("button", { name: "Actions for Edit Me Cat" }).click();
+    await page.getByRole("button", { name: "Actions for Edit Me Cat", exact: true }).click();
     await page.getByRole("menuitem", { name: /edit/i }).click();
 
     // Edit dialog
@@ -292,7 +293,7 @@ test.describe("Category management", () => {
     await dialog.getByRole("button", { name: /create|save|add/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 5000 });
 
-    await page.getByRole("button", { name: "Add category to Del Cat Group" }).click();
+    await page.getByRole("button", { name: "Add category to Del Cat Group", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name").fill("Delete This Cat");
     await dialog.getByRole("button", { name: /create|save|add/i }).click();
@@ -300,7 +301,7 @@ test.describe("Category management", () => {
     await expect(page.getByText("Delete This Cat")).toBeVisible({ timeout: 5000 });
 
     // Delete the category
-    await page.getByRole("button", { name: "Actions for Delete This Cat" }).click();
+    await page.getByRole("button", { name: "Actions for Delete This Cat", exact: true }).click();
     await page.getByRole("menuitem", { name: /delete/i }).click();
 
     const deleteDialog = page.getByRole("dialog");
@@ -316,7 +317,7 @@ test.describe("Category management", () => {
   // ── Navigation ──
 
   test("navigates back to settings hub via breadcrumb", async ({ page }) => {
-    await page.getByRole("link", { name: "Settings" }).click();
+    await page.locator("#main-content").getByRole("link", { name: "Settings" }).click();
     await expect(page).toHaveURL(/\/dashboard\/settings$/);
   });
 
@@ -351,8 +352,8 @@ test.describe("Category management", () => {
     expect(alphaY).toBeLessThan(betaY);
 
     // Drag Beta Cat above Alpha Cat
-    const betaHandle = page.getByRole("button", { name: "Drag Beta Cat" });
-    const alphaHandle = page.getByRole("button", { name: "Drag Alpha Cat" });
+    const betaHandle = page.getByRole("button", { name: "Drag Beta Cat", exact: true });
+    const alphaHandle = page.getByRole("button", { name: "Drag Alpha Cat", exact: true });
     await performDrag(page, betaHandle, alphaHandle);
 
     // Reload to verify the new order was persisted to the server
@@ -383,11 +384,22 @@ test.describe("Category management", () => {
     // Drag Second DnD Group above First DnD Group
     const secondHandle = page.getByRole("button", {
       name: "Drag Second DnD Group group",
+      exact: true,
     });
     const firstHandle = page.getByRole("button", {
       name: "Drag First DnD Group group",
+      exact: true,
     });
     await performDrag(page, secondHandle, firstHandle);
+
+    // Verify optimistic update happened before reload
+    const postDragFirstY = (
+      await page.getByText("First DnD Group").boundingBox()
+    )!.y;
+    const postDragSecondY = (
+      await page.getByText("Second DnD Group").boundingBox()
+    )!.y;
+    expect(postDragSecondY).toBeLessThan(postDragFirstY);
 
     // Reload to verify persistence
     await page.reload();
