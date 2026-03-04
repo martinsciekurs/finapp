@@ -1,0 +1,188 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  formatDate,
+  formatRelativeTime,
+  formatDateForInput,
+  getCurrentMonthRange,
+  getLast7DaysStart,
+  getCurrentMonthLabel,
+} from "../date";
+
+/** Helper: compute expected output using the same Intl settings as formatDate */
+function expectedDate(
+  dateStr: string,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = new Date(dateStr + "T00:00:00");
+  const defaults: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  return new Intl.DateTimeFormat("en-US", options ?? defaults).format(date);
+}
+
+describe("formatDate", () => {
+  it("formats ISO date string to readable format", () => {
+    expect(formatDate("2026-03-04")).toBe(expectedDate("2026-03-04"));
+  });
+
+  it("formats January date correctly", () => {
+    expect(formatDate("2026-01-15")).toBe(expectedDate("2026-01-15"));
+  });
+
+  it("formats December date correctly", () => {
+    expect(formatDate("2025-12-31")).toBe(expectedDate("2025-12-31"));
+  });
+
+  it("accepts custom Intl options", () => {
+    const opts: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    };
+    const result = formatDate("2026-03-04", opts);
+    expect(result).toBe(expectedDate("2026-03-04", opts));
+  });
+});
+
+describe("formatRelativeTime", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns "Today" for today\'s date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-04")).toBe("Today");
+  });
+
+  it('returns "Yesterday" for yesterday', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-03")).toBe("Yesterday");
+  });
+
+  it('returns "X days ago" for recent dates', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-01")).toBe("3 days ago");
+  });
+
+  it('returns "1 week ago" for 7-13 days', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-14T12:00:00"));
+    expect(formatRelativeTime("2026-03-04")).toBe("1 week ago");
+  });
+
+  it('returns "X weeks ago" for 14-29 days', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-20T12:00:00"));
+    expect(formatRelativeTime("2026-03-04")).toBe("2 weeks ago");
+  });
+
+  it("falls back to formatted date for older dates", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00"));
+    expect(formatRelativeTime("2026-03-04")).toBe(expectedDate("2026-03-04"));
+  });
+
+  it('returns "Tomorrow" for tomorrow\'s date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-05")).toBe("Tomorrow");
+  });
+
+  it('returns "in X days" for future dates beyond tomorrow', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-07")).toBe("in 3 days");
+  });
+});
+
+describe("formatDateForInput", () => {
+  it("formats date string to YYYY-MM-DD", () => {
+    expect(formatDateForInput("2026-03-04")).toBe("2026-03-04");
+  });
+
+  it("pads single-digit month and day", () => {
+    expect(formatDateForInput("2026-01-05")).toBe("2026-01-05");
+  });
+
+  it("accepts a Date object", () => {
+    const date = new Date(2026, 2, 4); // March 4, 2026
+    expect(formatDateForInput(date)).toBe("2026-03-04");
+  });
+});
+
+describe("getCurrentMonthRange", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns correct range for March 2026", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    const { start, end } = getCurrentMonthRange();
+    expect(start).toBe("2026-03-01");
+    expect(end).toBe("2026-04-01");
+  });
+
+  it("handles year boundary (December -> January)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-12-15T12:00:00"));
+    const { start, end } = getCurrentMonthRange();
+    expect(start).toBe("2025-12-01");
+    expect(end).toBe("2026-01-01");
+  });
+
+  it("handles January", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00"));
+    const { start, end } = getCurrentMonthRange();
+    expect(start).toBe("2026-01-01");
+    expect(end).toBe("2026-02-01");
+  });
+});
+
+describe("getLast7DaysStart", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns date 6 days before today (inclusive 7-day window)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-10T12:00:00"));
+    expect(getLast7DaysStart()).toBe("2026-03-04");
+  });
+
+  it("handles month boundary", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-03T12:00:00"));
+    expect(getLast7DaysStart()).toBe("2026-02-25");
+  });
+
+  it("handles year boundary", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T12:00:00"));
+    expect(getLast7DaysStart()).toBe("2025-12-27");
+  });
+});
+
+describe("getCurrentMonthLabel", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns human-readable month label", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    expect(getCurrentMonthLabel()).toBe("March 2026");
+  });
+
+  it("returns correct label for December", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-12-01T12:00:00"));
+    expect(getCurrentMonthLabel()).toBe("December 2025");
+  });
+});
