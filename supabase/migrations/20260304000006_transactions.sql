@@ -1,4 +1,4 @@
--- 005: Transactions table
+-- 006: Transactions table
 -- =============================================================================
 
 create table public.transactions (

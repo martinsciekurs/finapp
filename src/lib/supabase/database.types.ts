@@ -72,15 +72,53 @@ export type Database = {
         }
         Relationships: []
       }
-      categories: {
+      category_groups: {
         Row: {
           id: string
           user_id: string
           name: string
           type: Database["public"]["Enums"]["category_type"]
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          type: Database["public"]["Enums"]["category_type"]
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["category_type"]
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          id: string
+          user_id: string
+          group_id: string
+          name: string
+          type: Database["public"]["Enums"]["category_type"]
           icon: string
           color: string
-          budget_limit: number | null
           sort_order: number
           budget_80_notified_at: string | null
           budget_100_notified_at: string | null
@@ -90,11 +128,11 @@ export type Database = {
         Insert: {
           id?: string
           user_id: string
+          group_id: string
           name: string
           type: Database["public"]["Enums"]["category_type"]
           icon?: string
           color?: string
-          budget_limit?: number | null
           sort_order?: number
           budget_80_notified_at?: string | null
           budget_100_notified_at?: string | null
@@ -104,11 +142,11 @@ export type Database = {
         Update: {
           id?: string
           user_id?: string
+          group_id?: string
           name?: string
           type?: Database["public"]["Enums"]["category_type"]
           icon?: string
           color?: string
-          budget_limit?: number | null
           sort_order?: number
           budget_80_notified_at?: string | null
           budget_100_notified_at?: string | null
@@ -122,6 +160,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_categories_group"
+            columns: ["group_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "category_groups"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }

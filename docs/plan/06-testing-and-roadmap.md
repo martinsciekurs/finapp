@@ -47,7 +47,7 @@ Critical user flows only - these are the most expensive to maintain:
 
 ### Test Infrastructure
 - `vitest.config.ts` with path aliases matching `tsconfig.json`.
-- pgTAP enabled via `supabase/migrations/20240101000099_enable_pgtap.sql`. Test helpers in `supabase/tests/00_helpers.sql` provide `create_test_user()`, `authenticate_as()`, `reset_role()`, and factory functions.
+- pgTAP enabled via migration. Test helpers in `supabase/tests/00_helpers.sql` provide `create_test_user()`, `authenticate_as()`, `reset_role()`, and factory functions (`create_test_category_group`, `create_test_category`, etc.).
 - Supabase test helpers: factory functions for creating test users, expenses, categories, debts (using Supabase's local dev stack or mocked client).
 - Playwright config: run against local dev server. Use Supabase local instance for E2E.
 - CI: Run unit tests + pgTAP database tests + lint on every PR. E2E tests on PRs targeting main.
@@ -90,11 +90,71 @@ Critical user flows only - these are the most expensive to maintain:
 18. Empty state + loading skeleton for transactions
 19. Tests: Transaction CRUD E2E (expense + income), form component unit tests, schema unit tests
 
-### Phase 2D: Budget Management
-20. Category cards with progress bars
-21. Inline budget edit (expense categories only)
-22. Empty state + loading skeleton for budget view
-23. Tests: Budget management E2E, progress bar unit tests
+### Phase 2D-i: Category Management
+
+**Design**: Categories are organized into user-managed groups. Every category must belong to a group (`group_id NOT NULL`). `type` stays on categories as a denormalized field (needed for composite FKs from transactions + unique constraints + direct filtering). Budget data lives in a separate `category_budgets` table (Phase 2D-ii), not on categories.
+
+**Database**:
+- New `category_groups` table: `id`, `user_id`, `name`, `type` (expense/income), `sort_order`. Constraints: `UNIQUE(id, user_id)` for composite FK, `UNIQUE(user_id, type, name)`. RLS: `auth.uid() = user_id`.
+- Altered `categories`: added `group_id uuid NOT NULL` with composite FK `(group_id, user_id) → category_groups(id, user_id)`. Dropped `budget_limit`. Added `check_category_group_type` trigger ensuring category type matches group type.
+
+**Onboarding**: Backend only (no UI change). `completeOnboarding` creates default expense groups ("Essentials", "Lifestyle", "Health & Growth", "Financial", "Other") + "Income" group, then assigns `group_id` to categories via lookup.
+
+**Settings > Categories page** (`/dashboard/settings/categories`):
+- Tab toggle: Expense | Income. Groups in sort_order, each containing its categories.
+- Category CRUD: Add/edit dialog (name, icon picker, color picker, group dropdown). Delete with reassign if transactions exist.
+- Group CRUD: Add/rename/delete (reassign categories if non-empty). Reorder via sort_order.
+- Components: `CategoryManager`, `CategoryGroupSection`, `CategoryRow`, `AddCategoryDialog`, `EditCategoryDialog`, `DeleteCategoryDialog`, `AddGroupDialog`, `EditGroupDialog`, `DeleteGroupDialog`, `IconPicker`, `ColorPicker`.
+
+**Server Actions** (`/dashboard/settings/categories/actions.ts`): `createCategory`, `updateCategory`, `deleteCategory`, `createGroup`, `updateGroup`, `deleteGroup`, `reorderCategories`, `reorderGroups`. All return `{ success, data?, error? }`.
+
+**Zod Schemas** (`src/lib/validations/category.ts`): create/update/delete schemas for categories and groups. Name 1-50 chars, color hex regex, IDs as uuid.
+
+**Queries** (`src/lib/queries/categories.ts`): `fetchCategoriesWithGroups(type)`, `fetchCategoryTransactionCount(id)`.
+
+**Roadmap items**:
+20. Database: `category_groups` table + `group_id` (NOT NULL) on categories + drop `budget_limit`
+21. Zod schemas + server actions for category and group CRUD
+22. Settings > Categories page: group sections, category rows, add/edit/delete dialogs, icon/color pickers
+23. Update onboarding to auto-create default groups and assign `group_id`
+24. Update dashboard code referencing removed `budget_limit`
+25. Loading skeleton + empty states for categories page
+26. Tests: Zod schema, component unit, server action integration, pgTAP (RLS, FKs, constraints)
+
+### Phase 2D-ii: Budget System
+
+**Design Philosophy**: Income-driven budgeting (YNAB-style). User sets expected monthly income, assigns budgets to expense categories, "left to assign" = income - assigned. Two modes: Track (how am I doing?) and Plan (how much do I want to spend?). Smart suggestions auto-fill from spending history.
+
+**Database**:
+- `category_budgets`: `id`, `category_id`, `user_id`, `year_month` (text, regex-checked), `amount` (positive). FK `(category_id, user_id) → categories(id, user_id)`. `UNIQUE(category_id, year_month)`.
+- `monthly_income_targets`: `id`, `user_id`, `year_month`, `amount` (positive). `UNIQUE(user_id, year_month)`.
+- RLS on both: `auth.uid() = user_id`.
+
+**Track Mode** (`/dashboard/budget`):
+- Period selector (presets: this month, last 3, quarter, YTD, year; custom month range via URL params).
+- Income-driven summary card: expected income, spent/budgeted progress bar, left to assign, left to spend, conversational insight.
+- Category cards grouped by `category_groups`: progress bars for budgeted categories, dashed border + nudge for unbudgeted. Inline edit for budget amount. Multi-month: aggregate with expandable breakdown.
+
+**Plan Mode**:
+- Year selector with Overview (table: categories x 12 months, all cells editable inline) and By Category (scrollable pills, 12-month grid, past months show actuals).
+- Bulk actions: set all months, copy from year, fill from spending history, apply to remaining months.
+
+**Smart Suggestions**: Query last 12 months of spending by category. Past months: actual spending rounded to nearest 10. Future months: 3-month average rounded up. Preview modal before applying.
+
+**Server Actions** (`/dashboard/budget/actions.ts`): `upsertCategoryBudget`, `removeCategoryBudget`, `bulkUpsertCategoryBudgets`, `bulkUpsertAllCategoryBudgets`, `upsertIncomeTarget`, `removeIncomeTarget`, `bulkUpsertIncomeTargets`.
+
+**Zod Schemas** (`src/lib/validations/budget.ts`): `yearMonthSchema` (regex), upsert/bulk schemas for budgets and income targets.
+
+**Queries** (`src/lib/queries/budget.ts`): `fetchBudgetPageData(from, to)`, `fetchPlannerData(year)`, `fetchSpendingSuggestions()`, `fetchIncomeAverage()`.
+
+**Roadmap items**:
+27. Database: `category_budgets` table (per-month per-category) + `monthly_income_targets` table
+28. Track mode: period selector (presets + custom month range), income-driven summary card, grouped category cards with progress bars, inline budget edit
+29. Plan mode: yearly table overview (all categories x 12 months) + by-category detail view + bulk actions (set all, copy from year, fill from spending, apply to remaining)
+30. Smart suggestions: auto-suggest budgets from spending history (3-month average)
+31. Income target management: per-month expected income, auto-suggest from income transactions
+32. Empty states + loading skeletons for budget views
+33. Tests: Budget management E2E, progress bar unit tests, Zod schema tests, pgTAP
 
 ### Phase 2E: Reminders
 24. Reminder list with due date display

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
-import type { BudgetCategoryData } from "../budget-overview";
+import type { BudgetCategoryData } from "@/lib/types/dashboard";
 
 // Mock framer-motion
 vi.mock("framer-motion", () => ({

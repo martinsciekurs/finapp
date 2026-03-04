@@ -1,4 +1,4 @@
--- 008: Debt payments table
+-- 009: Debt payments table
 -- =============================================================================
 
 create table public.debt_payments (

@@ -1,4 +1,4 @@
--- 009: Banner presets table
+-- 010: Banner presets table
 -- =============================================================================
 
 create table public.banner_presets (

@@ -77,15 +77,80 @@ export async function completeOnboarding(data: OnboardingData) {
     return { success: false, error: "At least 2 expense categories required" };
   }
 
+  // Create default category groups first
+  const expenseGroupPresets = [
+    "Essentials",
+    "Lifestyle",
+    "Health & Growth",
+    "Financial",
+    "Other",
+  ];
+  const groupsToInsert = [
+    ...expenseGroupPresets.map((name, i) => ({
+      user_id: user.id,
+      name,
+      type: "expense" as const,
+      sort_order: i,
+    })),
+    {
+      user_id: user.id,
+      name: "Income",
+      type: "income" as const,
+      sort_order: 0,
+    },
+  ];
+
+  const { error: groupsError } = await supabase
+    .from("category_groups")
+    .upsert(groupsToInsert, {
+      onConflict: "user_id,type,name",
+      ignoreDuplicates: true,
+    });
+
+  if (groupsError) {
+    return { success: false, error: "Failed to create category groups" };
+  }
+
+  // Fetch created groups to get their IDs for category assignment
+  const { data: createdGroups, error: fetchGroupsError } = await supabase
+    .from("category_groups")
+    .select("id, name, type")
+    .eq("user_id", user.id);
+
+  if (fetchGroupsError || !createdGroups || createdGroups.length === 0) {
+    return { success: false, error: "Failed to fetch category groups" };
+  }
+
+  // Build a lookup: "type:name" -> group_id
+  const groupLookup = new Map<string, string>();
+  for (const g of createdGroups) {
+    groupLookup.set(`${g.type}:${g.name}`, g.id);
+  }
+
+  // Per-type fallbacks so an income category never gets an expense group (or vice versa)
+  const fallbackExpenseId = createdGroups.find((g) => g.type === "expense")?.id ?? createdGroups[0].id;
+  const fallbackIncomeId = createdGroups.find((g) => g.type === "income")?.id ?? createdGroups[0].id;
+
   // Create all selected categories — sanitize fields to prevent injection
-  const categoriesToInsert = data.categories.map((cat, index) => ({
-    user_id: user.id,
-    name: cat.name.slice(0, 100),
-    type: cat.type === "income" ? "income" as const : "expense" as const,
-    icon: cat.icon.slice(0, 50),
-    color: cat.color.slice(0, 20),
-    sort_order: index,
-  }));
+  const categoriesToInsert = data.categories.map((cat, index) => {
+    const catType = cat.type === "income" ? "income" as const : "expense" as const;
+
+    // For expense categories, use the preset's group field. For income, use "Income".
+    const groupName = catType === "income" ? "Income" : (cat.group || "Other");
+    const groupId = groupLookup.get(`${catType}:${groupName}`)
+      ?? groupLookup.get(`${catType}:Other`)
+      ?? (catType === "income" ? fallbackIncomeId : fallbackExpenseId);
+
+    return {
+      user_id: user.id,
+      group_id: groupId,
+      name: cat.name.slice(0, 100),
+      type: catType,
+      icon: cat.icon.slice(0, 50),
+      color: cat.color.slice(0, 20),
+      sort_order: index,
+    };
+  });
 
   // Upsert for idempotency — safe on retry if profile update below fails
   const { error: categoriesError } = await supabase

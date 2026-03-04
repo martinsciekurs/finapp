@@ -18,7 +18,7 @@
 -- ===========================================================================
 
 begin;
-select plan(49);
+select plan(52);
 
 select reset_role();
 
@@ -802,6 +802,71 @@ select throws_matching(
   format('select public.append_onboarding_step(%L, ''categories'')', current_setting('test.onboard_uid')::uuid),
   'Unauthorized',
   'append_onboarding_step: different user cannot append to another user''s profile'
+);
+
+select reset_role();
+
+-- ===========================================================================
+-- check_category_group_type / prevent_category_group_type_change
+-- ===========================================================================
+
+-- Create a test user for category-group trigger tests
+select reset_role();
+do $$
+declare uid uuid;
+begin
+  uid := create_test_user('catgrp-trig@test.com', 'Cat Group Trigger');
+  perform set_config('test.catgrp_uid', uid::text, true);
+end;
+$$;
+
+select authenticate_as(current_setting('test.catgrp_uid')::uuid);
+
+-- Create a group and a category in it
+do $$
+declare gid uuid;
+begin
+  insert into public.category_groups (user_id, name, type, sort_order)
+    values (current_setting('test.catgrp_uid')::uuid, 'Test Group', 'expense', 0)
+    returning id into gid;
+  perform set_config('test.catgrp_gid', gid::text, true);
+
+  insert into public.categories (user_id, group_id, name, type, icon, color, sort_order)
+    values (current_setting('test.catgrp_uid')::uuid, gid, 'Test Cat', 'expense', 'circle', '#000', 0);
+end;
+$$;
+
+-- Test: category type must match group type on insert
+select throws_matching(
+  format(
+    'insert into public.categories (user_id, group_id, name, type, icon, color, sort_order) values (%L, %L, ''Bad Cat'', ''income'', ''circle'', ''#000'', 1)',
+    current_setting('test.catgrp_uid')::uuid,
+    current_setting('test.catgrp_gid')::uuid
+  ),
+  'Category type .* must match group type',
+  'check_category_group_type: rejects category type mismatch on insert'
+);
+
+-- Test: cannot change group type while categories exist
+select throws_matching(
+  format(
+    'update public.category_groups set type = ''income'' where id = %L',
+    current_setting('test.catgrp_gid')::uuid
+  ),
+  'Cannot change group type .* while categories exist',
+  'prevent_category_group_type_change: rejects group type change when categories exist'
+);
+
+-- Test: can change group type when no categories remain
+delete from public.categories
+  where group_id = current_setting('test.catgrp_gid')::uuid;
+
+select lives_ok(
+  format(
+    'update public.category_groups set type = ''income'' where id = %L',
+    current_setting('test.catgrp_gid')::uuid
+  ),
+  'prevent_category_group_type_change: allows group type change when no categories'
 );
 
 select reset_role();

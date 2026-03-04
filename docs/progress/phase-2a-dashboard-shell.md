@@ -42,7 +42,7 @@
 - [x] Reused `BANNER_VALUE_RE` from shared config in onboarding actions (eliminated duplication)
 
 ## New Dependencies (shadcn/ui)
-- `skeleton`, `separator`, `tooltip`, `badge`, `sheet`, `avatar`
+- `skeleton`, `tooltip`
 
 ## Test Summary
 - **Vitest**: 206 tests passing (65 new)

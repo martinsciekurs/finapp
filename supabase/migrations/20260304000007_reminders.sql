@@ -1,4 +1,4 @@
--- 006: Reminders table
+-- 007: Reminders table
 -- =============================================================================
 
 create table public.reminders (
