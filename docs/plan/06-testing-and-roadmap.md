@@ -36,11 +36,21 @@ Critical user flows only - these are the most expensive to maintain:
 | Stripe upgrade                | Click upgrade -> Stripe checkout (test mode) -> tier updates. |
 | Account deletion              | Settings -> Delete Account -> confirm -> account removed. |
 
+### Database Tests (pgTAP)
+
+| What to test                  | Examples                                              |
+| ----------------------------- | ----------------------------------------------------- |
+| RLS policies                  | Owner CRUD on all 12 tables, cross-user denial, anon lockout, missing policy enforcement (no DELETE on profiles/subscriptions/daily_usage). |
+| Triggers & functions          | `set_updated_at`, `handle_new_user`, `is_admin`, `update_debt_remaining_on_change` (overpayment guard), `daily_usage_update_guard`, `notifications_update_guard`, `attachments_parent_check/cleanup`, `append_onboarding_step`. |
+| FK constraints                | Composite FK enforcement (type mismatch, cross-user), ON DELETE behavior (RESTRICT, CASCADE, SET NULL). |
+| CHECK & UNIQUE constraints    | Amount > 0, enum values, counterparty non-empty, remaining_amount bounds, duplicate category names. |
+
 ### Test Infrastructure
 - `vitest.config.ts` with path aliases matching `tsconfig.json`.
+- pgTAP enabled via `supabase/migrations/20240101000099_enable_pgtap.sql`. Test helpers in `supabase/tests/00_helpers.sql` provide `create_test_user()`, `authenticate_as()`, `reset_role()`, and factory functions.
 - Supabase test helpers: factory functions for creating test users, expenses, categories, debts (using Supabase's local dev stack or mocked client).
 - Playwright config: run against local dev server. Use Supabase local instance for E2E.
-- CI: Run unit + integration tests on every PR. E2E tests on merge to main.
+- CI: Run unit tests + pgTAP database tests + lint on every PR. E2E tests on PRs targeting main.
 
 ### Coverage Targets
 - Unit/Integration: 80%+ coverage on `lib/` and `components/` directories.

@@ -34,7 +34,8 @@ src/
 ├── test/                   # Test setup files
 supabase/
 ├── config.toml             # Supabase local config
-└── migrations/             # 16 SQL migration files with RLS
+├── migrations/             # 17 SQL migration files with RLS + pgTAP extension
+└── tests/                  # pgTAP database tests (RLS, triggers, constraints)
 e2e/                        # Playwright E2E tests
 docs/
 ├── plan/                   # Implementation plan (6 documents)
@@ -59,10 +60,22 @@ docs/
 - Currency is display-only (no conversion). Stored in `profiles.currency`
 
 ### Testing
-- Unit tests: Vitest + React Testing Library. Files: `*.test.ts(x)` next to source
-- E2E tests: Playwright in `e2e/` directory
-- Run: `npm test` (unit), `npm run test:e2e` (e2e)
+- **Unit tests**: Vitest + React Testing Library. Files: `*.test.ts(x)` next to source
+- **Database tests**: pgTAP in `supabase/tests/`. Tests RLS policies, triggers, functions, FK/CHECK/UNIQUE constraints
+- **E2E tests**: Playwright in `e2e/` directory
+- Run: `npm test` (unit), `supabase test db` (database), `npm run test:e2e` (e2e)
 - Coverage target: 80%+ on `lib/` and `components/`
+
+### Database Testing (pgTAP)
+- Test files live in `supabase/tests/` and run via `supabase test db`
+- `00_helpers.sql` provides shared utilities: `create_test_user()`, `authenticate_as()`, `reset_role()`, factory functions for categories/transactions/debts/reminders
+- `01_rls_policies.sql` — RLS isolation tests for all 12 tables (owner access, cross-user denial, anon denial, missing policy enforcement)
+- `02_triggers.sql` — trigger and function tests (`set_updated_at`, `handle_new_user`, `is_admin`, `update_debt_remaining_on_change`, `daily_usage_update_guard`, `notifications_update_guard`, `attachments_parent_check/cleanup`, `append_onboarding_step`)
+- `03_constraints.sql` — FK enforcement (composite FKs, ON DELETE behavior), CHECK constraints (amounts, enums, bounds), UNIQUE constraints
+- Each test file wraps in `begin; ... rollback;` for automatic cleanup
+- Use `authenticate_as(uid)` / `reset_role()` to switch between user contexts. Always call `reset_role()` before creating test users (the `authenticated` role cannot insert into `auth.users`)
+- Use `throws_ok(sql, errcode::char(5), null, description)` for constraint errors — the `::char(5)` cast is required to select the errcode overload
+- Use `throws_matching(sql, regex, description)` when error messages contain dynamic values (e.g., UUIDs)
 
 ### Fonts
 - Headings: Playfair Display (serif) — `font-serif` class
@@ -81,6 +94,7 @@ npm run dev          # Start dev server
 npm run build        # Production build
 npm test             # Run unit tests
 npm run test:watch   # Run unit tests in watch mode
+supabase test db     # Run pgTAP database tests
 npm run test:e2e     # Run Playwright E2E tests
 npm run lint         # ESLint
 ```

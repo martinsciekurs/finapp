@@ -110,16 +110,37 @@
 - [x] Test setup file with jest-dom matchers
 - [x] Playwright config (chromium + mobile, webServer integration)
 - [x] npm scripts: `test`, `test:watch`, `test:coverage`, `test:e2e`, `test:e2e:ui`
+- [x] pgTAP enabled via migration (`20240101000099_enable_pgtap.sql`)
+- [x] pgTAP test helpers (`supabase/tests/00_helpers.sql`): `create_test_user()`, `authenticate_as()`, `reset_role()`, factory functions
+- [x] CI workflow updated with `test-db` job for pgTAP tests
 
 ## Tests Written
+
+### Vitest Unit Tests (74 tests / 9 files)
 - [x] Transaction schema tests (11 tests) — valid/invalid amounts, types, dates, defaults
 - [x] AI input schema tests (5 tests) — word count, char limit, empty input
+- [x] Auth schema tests (11 tests) — login/signup validation
 - [x] Debt schema tests (6 tests) — valid debts/payments, validation rules
-- [x] Format utility tests (11 tests) — currency, dates, month ranges
+- [x] Config tests (18 tests) — categories, banners, plan limits
+- [x] Onboarding server action tests (17 tests) — `completeOnboarding` (auth, validation, banner regex, min categories, sanitization, DB errors), `updateOnboardingStep` (valid/invalid steps, auth, RPC)
+- [x] Middleware tests (6 tests) — `updateSession` (env vars, client creation, auth/unauth, cookie sync)
+
+### pgTAP Database Tests (129 tests / 4 files)
+- [x] RLS policy tests (61 tests) — all 12 tables: owner CRUD, cross-user denial, anon lockout, missing policy enforcement (no DELETE on profiles/subscriptions/daily_usage, no INSERT on profiles, admin-gated banner_presets)
+- [x] Trigger & function tests (37 tests) — `set_updated_at`, `handle_new_user` (metadata + email fallback), `is_admin`, `update_debt_remaining_on_change` (insert/update/delete/overpayment), `daily_usage_update_guard` (5 immutability checks), `notifications_update_guard` (7 field checks), `attachments_parent_check` (valid/invalid/cross-user), `attachments_parent_cleanup`, `append_onboarding_step` (append/idempotent/auth)
+- [x] FK & constraint tests (30 tests) — 4 composite FKs with ON DELETE behavior, CHECK constraints (amounts, enums, bounds, counterparty), UNIQUE constraints
+
+### E2E Tests (Playwright)
 - [x] Auth E2E tests (8 tests) — page rendering, form validation, navigation, redirects
 - [x] Onboarding E2E tests (1 test) — auth requirement
 - [x] Landing page E2E tests (2 tests) — rendering, CTA navigation
-- **Total: 33 unit tests passing, 11 E2E tests defined**
+- [x] 404 page test (1 test) — renders for unknown routes
+
+### Summary
+- **Vitest**: 74 tests passing
+- **pgTAP**: 129 tests passing
+- **E2E**: 12 tests defined
+- **Total**: 215 tests
 
 ## Configuration Files
 - [x] `.env.local.example` — all environment variables documented
