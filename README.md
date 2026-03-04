@@ -43,6 +43,7 @@ npm run dev             # http://localhost:3000
 | `npm run test:e2e` | E2E tests (Playwright) |
 | `npx playwright test --headed` | E2E in headful (visible browser) mode |
 | `npx playwright test --ui` | E2E interactive UI debugger |
+| `supabase test db` | Database tests (pgTAP) |
 | `supabase start` | Start local Supabase |
 | `supabase stop` | Stop local Supabase |
 | `supabase db reset` | Reset DB and re-run migrations |
