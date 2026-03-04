@@ -53,3 +53,61 @@ alter table public.debt_payments
   add constraint fk_debt_payments_transaction
   foreign key (transaction_id, user_id) references public.transactions (id, user_id)
   on delete set null (transaction_id);
+
+-- Index to support the composite FK on (transaction_id, user_id)
+create index idx_debt_payments_transaction_user
+  on public.debt_payments (transaction_id, user_id);
+
+-- Trigger: atomically adjust debts.remaining_amount on payment changes
+create or replace function public.update_debt_remaining_on_change()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_remaining numeric;
+begin
+  -- On DELETE or UPDATE (old debt): restore the old amount
+  if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and (OLD.debt_id != NEW.debt_id or OLD.amount != NEW.amount)) then
+    update public.debts
+    set remaining_amount = remaining_amount + OLD.amount
+    where id = OLD.debt_id;
+  end if;
+
+  -- On INSERT or UPDATE (new debt): subtract the new amount
+  if TG_OP = 'INSERT' or (TG_OP = 'UPDATE' and (OLD.debt_id != NEW.debt_id or OLD.amount != NEW.amount)) then
+    -- Lock the debt row to serialize concurrent changes
+    select remaining_amount into v_remaining
+    from public.debts
+    where id = NEW.debt_id
+    for update;
+
+    if v_remaining - NEW.amount < 0 then
+      raise exception 'Payment of % would make remaining_amount negative (current: %)', NEW.amount, v_remaining;
+    end if;
+
+    update public.debts
+    set remaining_amount = remaining_amount - NEW.amount
+    where id = NEW.debt_id;
+  end if;
+
+  if TG_OP = 'DELETE' then
+    return OLD;
+  end if;
+  return NEW;
+end;
+$$;
+
+create trigger trg_debt_payments_remaining_insert
+  after insert on public.debt_payments
+  for each row
+  execute function public.update_debt_remaining_on_change();
+
+create trigger trg_debt_payments_remaining_update
+  after update on public.debt_payments
+  for each row
+  execute function public.update_debt_remaining_on_change();
+
+create trigger trg_debt_payments_remaining_delete
+  after delete on public.debt_payments
+  for each row
+  execute function public.update_debt_remaining_on_change();

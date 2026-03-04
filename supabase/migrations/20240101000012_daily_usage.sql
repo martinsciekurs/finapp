@@ -49,6 +49,9 @@ begin
   if NEW.credits_used < OLD.credits_used then
     raise exception 'credits_used can only increase';
   end if;
+  if NEW.created_at != OLD.created_at then
+    raise exception 'Cannot change created_at on daily_usage';
+  end if;
   return NEW;
 end;
 $$;

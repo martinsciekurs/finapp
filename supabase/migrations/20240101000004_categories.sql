@@ -8,7 +8,7 @@ create table public.categories (
   type                  text        not null check (type in ('expense', 'income')),
   icon                  text        not null default 'circle',
   color                 text        not null default '#2d4a3e',
-  budget_limit          numeric,
+  budget_limit          numeric     check (budget_limit >= 0),
   sort_order            int         not null default 0,
   budget_80_notified_at  timestamptz,
   budget_100_notified_at timestamptz,
@@ -51,3 +51,7 @@ alter table public.categories
 
 alter table public.categories
   add constraint uq_categories_user_type_name unique (user_id, type, name);
+
+-- Unique constraint for composite FK from transactions (id, user_id, type)
+alter table public.categories
+  add constraint uq_categories_id_user_type unique (id, user_id, type);

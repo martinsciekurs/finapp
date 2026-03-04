@@ -26,6 +26,10 @@ create policy "Users can update own notifications"
   on public.notifications for update
   using (auth.uid() = user_id);
 
+create policy "Users can insert own notifications"
+  on public.notifications for insert
+  with check (auth.uid() = user_id);
+
 create policy "Users can delete own notifications"
   on public.notifications for delete
   using (auth.uid() = user_id);

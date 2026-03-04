@@ -23,3 +23,7 @@ updates:
       actions:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - major
+          - patch

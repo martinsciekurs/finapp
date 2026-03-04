@@ -4,7 +4,8 @@
 create table public.debts (
   id                uuid        primary key default gen_random_uuid(),
   user_id           uuid        not null references public.profiles (id) on delete cascade,
-  counterparty      text        not null,
+  counterparty      text        not null
+                                check (char_length(trim(counterparty)) > 0),
   type              text        not null check (type in ('i_owe', 'they_owe')),
   original_amount   numeric     not null check (original_amount > 0),
   remaining_amount  numeric     not null check (remaining_amount >= 0 and remaining_amount <= original_amount),

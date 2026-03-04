@@ -26,6 +26,15 @@ export async function completeOnboarding(data: OnboardingData) {
     return { success: false, error: "Not authenticated" };
   }
 
+  // Validate banner payload shape before reading nested values
+  if (
+    typeof data.banner !== "object" ||
+    data.banner === null ||
+    typeof data.banner.value !== "string"
+  ) {
+    return { success: false, error: "Invalid banner value" };
+  }
+
   // Validate banner value to prevent XSS via style injection
   if (!BANNER_VALUE_RE.test(data.banner.value)) {
     return { success: false, error: "Invalid banner value" };
@@ -105,30 +114,14 @@ export async function updateOnboardingStep(step: OnboardingStep) {
     return { success: false, error: "Not authenticated" };
   }
 
-  // Get current steps
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("onboarding_completed_steps")
-    .eq("id", user.id)
-    .single();
+  // Atomically append the step to avoid read-then-write race conditions
+  const { error } = await supabase.rpc("append_onboarding_step", {
+    profile_id: user.id,
+    step,
+  });
 
-  if (profileError || !profile) {
-    return { success: false, error: "Failed to read profile" };
-  }
-
-  const currentSteps = (profile.onboarding_completed_steps as string[]) || [];
-
-  if (!currentSteps.includes(step)) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        onboarding_completed_steps: [...currentSteps, step],
-      })
-      .eq("id", user.id);
-
-    if (error) {
-      return { success: false, error: "Failed to update step" };
-    }
+  if (error) {
+    return { success: false, error: "Failed to update step" };
   }
 
   return { success: true };

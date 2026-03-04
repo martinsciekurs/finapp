@@ -34,13 +34,11 @@ interface AuthPageProps {
 export function AuthPage({ defaultTab = "sign-in" }: AuthPageProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
+  const router = useRouter();
+
   function switchTab(tab: "sign-in" | "create-account") {
     setActiveTab(tab);
-    window.history.replaceState(
-      null,
-      "",
-      tab === "sign-in" ? "/auth/login" : "/auth/sign-up"
-    );
+    router.replace(tab === "sign-in" ? "/auth/login" : "/auth/sign-up");
   }
 
   return (

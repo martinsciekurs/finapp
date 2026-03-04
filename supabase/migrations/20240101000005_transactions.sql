@@ -51,10 +51,10 @@ create index idx_transactions_user_type_date
 create index idx_transactions_category_id
   on public.transactions (category_id);
 
--- Composite FK: enforce category belongs to same user
+-- Composite FK: enforce category belongs to same user AND type matches
 alter table public.transactions
   add constraint fk_transactions_category
-  foreign key (category_id, user_id) references public.categories (id, user_id) on delete restrict;
+  foreign key (category_id, user_id, type) references public.categories (id, user_id, type) on delete restrict;
 
 -- Unique constraint for composite FK from debt_payments
 alter table public.transactions

@@ -598,7 +598,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      append_onboarding_step: {
+        Args: {
+          profile_id: string
+          step: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       user_role: "admin" | "user"
