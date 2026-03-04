@@ -11,17 +11,26 @@ export default async function OnboardingPage() {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+
+  if (authError) {
+    throw new Error("Failed to authenticate user");
+  }
 
   if (!user) {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("display_name, onboarding_completed_at, onboarding_completed_steps")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (profileError) {
+    throw new Error("Failed to load profile");
+  }
 
   if (profile?.onboarding_completed_at) {
     redirect("/dashboard");

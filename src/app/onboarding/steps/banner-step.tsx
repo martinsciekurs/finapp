@@ -163,6 +163,8 @@ function BannerSwatch({
       )}
       style={{ background: preset.value }}
       title={preset.label}
+      aria-label={preset.label}
+      aria-pressed={isSelected}
     >
       {isSelected && (
         <motion.div

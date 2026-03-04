@@ -53,15 +53,15 @@ language plpgsql
 as $$
 begin
   if NEW.record_type = 'transaction' then
-    if not exists (select 1 from public.transactions where id = NEW.record_id and user_id = NEW.user_id) then
+    if not exists (select 1 from public.transactions where id = NEW.record_id and user_id = NEW.user_id for key share) then
       raise exception 'Referenced transaction % does not exist', NEW.record_id;
     end if;
   elsif NEW.record_type = 'debt' then
-    if not exists (select 1 from public.debts where id = NEW.record_id and user_id = NEW.user_id) then
+    if not exists (select 1 from public.debts where id = NEW.record_id and user_id = NEW.user_id for key share) then
       raise exception 'Referenced debt % does not exist', NEW.record_id;
     end if;
   elsif NEW.record_type = 'reminder' then
-    if not exists (select 1 from public.reminders where id = NEW.record_id and user_id = NEW.user_id) then
+    if not exists (select 1 from public.reminders where id = NEW.record_id and user_id = NEW.user_id for key share) then
       raise exception 'Referenced reminder % does not exist', NEW.record_id;
     end if;
   end if;

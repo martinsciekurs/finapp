@@ -12,12 +12,17 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip webhook/cron routes — they have their own auth
-  if (webhookRoutes.some((route) => pathname.startsWith(route))) {
+  const isWebhookRoute = webhookRoutes.some((route) =>
+    route.endsWith("/")
+      ? pathname.startsWith(route)
+      : pathname === route || pathname.startsWith(route + "/")
+  );
+  if (isWebhookRoute) {
     return NextResponse.next();
   }
 
   // Refresh session and get user
-  const { user, supabaseResponse, supabase } = await updateSession(request);
+  const { user, error, supabaseResponse, supabase } = await updateSession(request);
 
   // Public routes: if authenticated and visiting auth pages, redirect to dashboard
   if (pathname.startsWith("/auth/")) {
@@ -37,6 +42,17 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Auth service error — don't misclassify as unauthenticated
+  if (error) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Authentication service error" },
+        { status: 500 }
+      );
+    }
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
+
   // Protected routes require authentication
   if (!user) {
     // API routes: return 401 instead of redirect
@@ -51,8 +67,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Dashboard & API routes — check onboarding + admin
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/api/")) {
+  // Dashboard routes — check onboarding + admin
+  if (pathname.startsWith("/dashboard")) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_completed_at, role")
@@ -60,7 +76,7 @@ export async function proxy(request: NextRequest) {
       .single();
 
     // Redirect to onboarding if not completed
-    if (pathname.startsWith("/dashboard") && !profile?.onboarding_completed_at) {
+    if (!profile?.onboarding_completed_at) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 

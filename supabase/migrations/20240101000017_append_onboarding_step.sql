@@ -8,6 +8,7 @@ create or replace function public.append_onboarding_step(
 returns void
 language plpgsql
 security definer
+set search_path = public, pg_catalog
 as $$
 begin
   -- Ensure caller owns this profile (function is SECURITY DEFINER, bypasses RLS)

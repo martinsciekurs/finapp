@@ -30,7 +30,9 @@ export function OnboardingWizard({
   displayName,
   initialStep,
 }: OnboardingWizardProps) {
-  const [currentStep, setCurrentStep] = useState(initialStep);
+  const clampStep = (step: number) =>
+    Math.min(Math.max(step, 0), STEPS.length - 1);
+  const [currentStep, setCurrentStep] = useState(() => clampStep(initialStep));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [direction, setDirection] = useState(1); // 1 = forward, -1 = back
 

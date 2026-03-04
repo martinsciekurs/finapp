@@ -227,6 +227,7 @@ function CategoryChip({
     <motion.button
       type="button"
       onClick={() => onToggle(category)}
+      aria-pressed={selected}
       whileTap={{ scale: 0.95 }}
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all duration-200",

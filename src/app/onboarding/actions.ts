@@ -26,6 +26,11 @@ export async function completeOnboarding(data: OnboardingData) {
     return { success: false, error: "Not authenticated" };
   }
 
+  // Validate top-level data shape before accessing nested properties
+  if (typeof data !== "object" || data === null) {
+    return { success: false, error: "Invalid onboarding data" };
+  }
+
   // Validate banner payload shape before reading nested values
   if (
     typeof data.banner !== "object" ||

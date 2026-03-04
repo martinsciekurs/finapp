@@ -27,9 +27,16 @@ export const metadata: Metadata = {
   },
   description:
     "Track your expenses, manage budgets, and stay on top of your finances with AI-powered insights.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-  ),
+  metadataBase: (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
+    } catch {
+      console.warn(
+        `Invalid NEXT_PUBLIC_APP_URL: "${process.env.NEXT_PUBLIC_APP_URL}", falling back to http://localhost:3000`
+      );
+      return new URL("http://localhost:3000");
+    }
+  })(),
 };
 
 export const viewport: Viewport = {
