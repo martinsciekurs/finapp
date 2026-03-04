@@ -9,8 +9,6 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { BudgetCategoryData } from "@/lib/types/dashboard";
 
-export type { BudgetCategoryData };
-
 interface BudgetOverviewProps {
   categories: BudgetCategoryData[];
   currency: string;

@@ -432,15 +432,15 @@ select throws_ok(
 -- 9. CHECK CONSTRAINTS: other boundary values
 -- ===========================================================================
 
--- categories.budget_limit rejects negative
+-- categories.group_id rejects null (trigger fires before NOT NULL check)
 select throws_ok(
   format(
-    'insert into public.categories (user_id, name, type, budget_limit) values (%L, ''Bad Budget'', ''expense'', -1)',
+    'insert into public.categories (user_id, name, type, group_id) values (%L, ''No Group'', ''expense'', null)',
     u1()
   ),
-  '23514'::char(5),
+  'P0001'::char(5),
   null,
-  'check: categories.budget_limit rejects negative'
+  'check: categories.group_id rejects null'
 );
 
 -- daily_usage.credits_used rejects negative
@@ -472,19 +472,31 @@ select throws_ok(
 -- Duplicate category name per user+type
 select throws_ok(
   format(
-    'insert into public.categories (user_id, name, type) values (%L, ''Groceries'', ''expense'')',
-    u1()
+    'insert into public.categories (user_id, group_id, name, type) values (%L, (select id from public.category_groups where user_id = %L and type = ''expense'' limit 1), ''Groceries'', ''expense'')',
+    u1(), u1()
   ),
   '23505'::char(5),
   null,
   'unique: categories rejects duplicate (user_id, type, name)'
 );
 
--- Same name, different type = OK
+-- Same name, different type = OK (needs an income group)
+do $$
+declare _g uuid;
+begin
+  -- Ensure an income group exists for u1
+  select id into _g from public.category_groups where user_id = u1() and type = 'income' limit 1;
+  if _g is null then
+    _g := create_test_category_group(u1(), 'Default income', 'income');
+  end if;
+  perform set_config('test.u1_income_group', _g::text, true);
+end;
+$$;
+
 select lives_ok(
   format(
-    'insert into public.categories (user_id, name, type) values (%L, ''Groceries'', ''income'')',
-    u1()
+    'insert into public.categories (user_id, group_id, name, type) values (%L, %L, ''Groceries'', ''income'')',
+    u1(), current_setting('test.u1_income_group')::uuid
   ),
   'unique: categories allows same name with different type'
 );

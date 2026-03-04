@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(81);
+select plan(90);
 
 -- ===========================
 -- Setup: create two test users
@@ -57,25 +57,29 @@ $$;
 -- Seed test data (as postgres superuser — bypasses RLS)
 -- ===========================
 
--- Categories
-insert into public.categories (id, user_id, name, type)
-values
-  (extensions.gen_random_uuid(), u1(), 'Food',   'expense'),
-  (extensions.gen_random_uuid(), u2(), 'Salary', 'income');
-
--- Grab category IDs for further use
+-- Category groups + categories
 do $$
+declare
+  _g1 uuid;
+  _g2 uuid;
+  _c1 uuid;
+  _c2 uuid;
 begin
-  perform set_config(
-    'test.cat1_id',
-    (select id::text from public.categories where user_id = u1() limit 1),
-    true
-  );
-  perform set_config(
-    'test.cat2_id',
-    (select id::text from public.categories where user_id = u2() limit 1),
-    true
-  );
+  _g1 := create_test_category_group(u1(), 'Essentials', 'expense');
+  _g2 := create_test_category_group(u2(), 'Income',     'income');
+
+  insert into public.categories (user_id, group_id, name, type)
+  values (u1(), _g1, 'Food',   'expense')
+  returning id into _c1;
+
+  insert into public.categories (user_id, group_id, name, type)
+  values (u2(), _g2, 'Salary', 'income')
+  returning id into _c2;
+
+  perform set_config('test.cat1_id', _c1::text, true);
+  perform set_config('test.cat2_id', _c2::text, true);
+  perform set_config('test.grp1_id', _g1::text, true);
+  perform set_config('test.grp2_id', _g2::text, true);
 end;
 $$;
 
@@ -235,7 +239,79 @@ select is(
 select reset_role();
 
 -- ===========================================================================
--- 2. CATEGORIES — standard CRUD isolation
+-- 2. CATEGORY GROUPS — standard CRUD isolation
+-- ===========================================================================
+
+select authenticate_as(u1());
+select is(
+  (select count(*)::int from public.category_groups where user_id = u1()),
+  1,
+  'category_groups: owner can read own groups'
+);
+select is(
+  (select count(*)::int from public.category_groups where user_id = u2()),
+  0,
+  'category_groups: user cannot read another user''s groups'
+);
+
+-- Can insert own
+select lives_ok(
+  format(
+    'insert into public.category_groups (user_id, name, type) values (%L, ''Lifestyle'', ''expense'')',
+    u1()
+  ),
+  'category_groups: owner can insert own group'
+);
+
+-- Cannot insert for another user
+select throws_ok(
+  format(
+    'insert into public.category_groups (user_id, name, type) values (%L, ''Hack'', ''expense'')',
+    u2()
+  ),
+  'new row violates row-level security policy for table "category_groups"',
+  'category_groups: user cannot insert group for another user'
+);
+
+-- Owner can update own group
+select lives_ok(
+  format(
+    'update public.category_groups set name = ''Essentials Updated'' where user_id = %L and name = ''Essentials''',
+    u1()
+  ),
+  'category_groups: owner can update own group'
+);
+
+-- Cross-user UPDATE: silently 0 rows
+update public.category_groups set name = 'Hacked' where user_id = u2();
+select reset_role();
+select isnt(
+  (select name from public.category_groups where user_id = u2() limit 1),
+  'Hacked',
+  'category_groups: cross-user UPDATE silently blocked'
+);
+
+-- Owner can delete own group (delete the Lifestyle one we inserted)
+select authenticate_as(u1());
+select lives_ok(
+  format(
+    'delete from public.category_groups where user_id = %L and name = ''Lifestyle''',
+    u1()
+  ),
+  'category_groups: owner can delete own group'
+);
+
+-- Cross-user DELETE: silently 0 rows
+delete from public.category_groups where user_id = u2();
+select reset_role();
+select is(
+  (select count(*)::int from public.category_groups where user_id = u2()),
+  1,
+  'category_groups: cross-user DELETE silently blocked'
+);
+
+-- ===========================================================================
+-- 3. CATEGORIES — standard CRUD isolation
 -- ===========================================================================
 
 select authenticate_as(u1());
@@ -253,8 +329,8 @@ select is(
 -- Can insert own
 select lives_ok(
   format(
-    'insert into public.categories (user_id, name, type) values (%L, ''Transport'', ''expense'')',
-    u1()
+    'insert into public.categories (user_id, group_id, name, type) values (%L, %L, ''Transport'', ''expense'')',
+    u1(), current_setting('test.grp1_id')::uuid
   ),
   'categories: owner can insert own category'
 );
@@ -262,8 +338,8 @@ select lives_ok(
 -- Cannot insert for another user
 select throws_ok(
   format(
-    'insert into public.categories (user_id, name, type) values (%L, ''Hack'', ''expense'')',
-    u2()
+    'insert into public.categories (user_id, group_id, name, type) values (%L, %L, ''Hack'', ''expense'')',
+    u2(), current_setting('test.grp1_id')::uuid
   ),
   'new row violates row-level security policy for table "categories"',
   'categories: user cannot insert category for another user'
@@ -839,6 +915,11 @@ values (u1(), 'budget_80', 'Budget warning', 'You used 80%');
 
 select authenticate_as_anon();
 
+select is(
+  (select count(*)::int from public.category_groups),
+  0,
+  'anon: cannot read category_groups'
+);
 select is(
   (select count(*)::int from public.categories),
   0,

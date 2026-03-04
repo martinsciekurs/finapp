@@ -21,23 +21,25 @@
 
 ## Database (Supabase)
 - [x] Supabase config.toml with local dev settings, confirmations disabled
-- [x] All 16 migration SQL files with full schema:
-  - 001: Trigger function (`set_updated_at`) + extensions
-  - 002: Profiles table (display_name, currency, role, banner, tier, theme, onboarding state, notification prefs)
+- [x] All 18 migration SQL files with full schema:
+  - 001: Setup — trigger function (`set_updated_at`) + extensions
+  - 002: Profiles (display_name, currency, role, banner, tier, theme, onboarding state, notification prefs)
   - 003: Auto-create profile on auth signup trigger
-  - 004: Categories (expense/income, icon, color, budget_limit, sort_order)
-  - 005: Transactions (amount, type, description, date, source, ai_generated) + indexes
-  - 006: Reminders (title, amount, due_date, frequency, auto_create_transaction)
-  - 007: Debts (counterparty, type, original/remaining amount)
-  - 008: Debt payments (amount, note, linked transaction)
-  - 009: Banner presets (color/gradient/image, admin-managed)
-  - 010: Seed data (8 colors + 8 gradients)
+  - 004: Category groups (user-managed groups for organizing categories)
+  - 005: Categories (expense/income, icon, color, group_id NOT NULL, sort_order, type-match trigger)
+  - 006: Transactions (amount, type, description, date, source, ai_generated) + indexes
+  - 007: Reminders (title, amount, due_date, frequency, auto_create_transaction)
+  - 008: Debts (counterparty, type, original/remaining amount)
+  - 009: Debt payments (amount, note, linked transaction)
+  - 010: Banner presets (color/gradient/image, admin-managed) + seed data
   - 011: Subscriptions (Stripe tracking)
   - 012: Daily usage (AI credit tracking)
   - 013: AI memories (per-user learning rules)
   - 014: Attachments (generic, multi-record-type)
   - 015: Telegram sessions
   - 016: Notifications (in-app, with feed index)
+  - 017: `append_onboarding_step` RPC function
+  - 099: Enable pgTAP extension
 - [x] RLS policies on all tables (user-scoped, admin-only for banner presets)
 - [x] `is_admin()` Postgres function for admin role checks
 - [x] TypeScript database types placeholder (`database.types.ts`) matching full schema
@@ -69,14 +71,14 @@
 - [x] Step 1 (Welcome): Personalized greeting with display name
 - [x] Step 2 (Categories): Expense categories in 5 labeled groups (all pre-selected), income categories (only Salary pre-selected), toggleable chips, count display, minimum 2 expense validation
 - [x] Step 3 (Banner): Color + gradient swatches, live preview, selection highlight
-- [x] Server action: Creates user categories, updates profile banner, marks onboarding complete
+- [x] Server action: Creates default category groups, assigns categories with group_id, updates profile banner, marks onboarding complete
 - [x] Step progress saved to DB (resume on return)
 - [x] Category and banner preset config in `lib/config/`
 
 ## Zod Validation Schemas
 - [x] Auth schemas (login, sign-up)
 - [x] Transaction schema (amount > 0, type enum, source default, date validation)
-- [x] Category schema (name, type, icon, color, budget_limit)
+- [x] Category schema (name, type, icon, color)
 - [x] Reminder schema (title, amount, due_date, frequency enum)
 - [x] Debt schema + debt payment schema
 - [x] Profile schema + notification preferences schema
@@ -110,7 +112,7 @@
 - [x] Test setup file with jest-dom matchers
 - [x] Playwright config (chromium + mobile, webServer integration)
 - [x] npm scripts: `test`, `test:watch`, `test:coverage`, `test:e2e`, `test:e2e:ui`
-- [x] pgTAP enabled via migration (`20240101000099_enable_pgtap.sql`)
+- [x] pgTAP enabled via migration (`20260304000099_enable_pgtap.sql`)
 - [x] pgTAP test helpers (`supabase/tests/00_helpers.sql`): `create_test_user()`, `authenticate_as()`, `reset_role()`, factory functions
 - [x] CI workflow updated with `test-db` job for pgTAP tests
 

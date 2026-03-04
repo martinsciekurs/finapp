@@ -124,24 +124,62 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- create_test_category(user_id, name, type)
+-- create_test_category_group(user_id, name, type)
 -- ---------------------------------------------------------------------------
--- Convenience: inserts a category for the given user. Returns the category id.
+-- Convenience: inserts a category group for the given user. Returns the group id.
 -- Must be called as postgres (not authenticated) to bypass RLS.
 -- ---------------------------------------------------------------------------
-create or replace function create_test_category(
+create or replace function create_test_category_group(
   _user_id uuid,
-  _name    text default 'Test Category',
+  _name    text default 'Test Group',
   _type    text default 'expense'
 )
 returns uuid
 language plpgsql
 as $$
 declare
-  _cid uuid;
+  _gid uuid;
 begin
-  insert into public.categories (user_id, name, type)
+  insert into public.category_groups (user_id, name, type)
   values (_user_id, _name, _type)
+  returning id into _gid;
+  return _gid;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- create_test_category(user_id, name, type, group_id)
+-- ---------------------------------------------------------------------------
+-- Convenience: inserts a category for the given user. If no group_id is
+-- provided, a default group is auto-created. Returns the category id.
+-- Must be called as postgres (not authenticated) to bypass RLS.
+-- ---------------------------------------------------------------------------
+create or replace function create_test_category(
+  _user_id   uuid,
+  _name      text default 'Test Category',
+  _type      text default 'expense',
+  _group_id  uuid default null
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  _cid uuid;
+  _gid uuid := _group_id;
+begin
+  -- Auto-create or reuse a default group if none provided
+  if _gid is null then
+    select id into _gid
+      from public.category_groups
+      where user_id = _user_id and name = 'Default ' || _type and type = _type;
+
+    if _gid is null then
+      _gid := create_test_category_group(_user_id, 'Default ' || _type, _type);
+    end if;
+  end if;
+
+  insert into public.categories (user_id, group_id, name, type)
+  values (_user_id, _gid, _name, _type)
   returning id into _cid;
   return _cid;
 end;

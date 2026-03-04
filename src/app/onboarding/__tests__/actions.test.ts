@@ -55,12 +55,58 @@ function mockUnauthenticated() {
 function validOnboardingData() {
   return {
     categories: [
-      { name: "Food", icon: "utensils", color: "#ff0000", type: "expense" as const, defaultSelected: true },
-      { name: "Transport", icon: "car", color: "#00ff00", type: "expense" as const, defaultSelected: true },
+      { name: "Food", icon: "utensils", color: "#ff0000", type: "expense" as const, group: "Essentials", defaultSelected: true },
+      { name: "Transport", icon: "car", color: "#00ff00", type: "expense" as const, group: "Essentials", defaultSelected: true },
       { name: "Salary", icon: "dollar", color: "#0000ff", type: "income" as const, defaultSelected: true },
     ],
     banner: { type: "color" as const, value: "#2d4a3e" },
   };
+}
+
+/** Mock groups returned after upsert — used for group_id lookup */
+const mockCreatedGroups = [
+  { id: "grp-essentials", name: "Essentials", type: "expense" },
+  { id: "grp-lifestyle", name: "Lifestyle", type: "expense" },
+  { id: "grp-health", name: "Health & Growth", type: "expense" },
+  { id: "grp-financial", name: "Financial", type: "expense" },
+  { id: "grp-other", name: "Other", type: "expense" },
+  { id: "grp-income", name: "Income", type: "income" },
+];
+
+/** Creates a standard mock for `supabase.from()` that handles category_groups, categories, and profiles. */
+function mockFromWithGroups(overrides?: {
+  groupsUpsertError?: { message: string } | null;
+  groupsSelectError?: { message: string } | null;
+  categoriesUpsertError?: { message: string } | null;
+  profileUpdateError?: { message: string } | null;
+}) {
+  const {
+    groupsUpsertError = null,
+    groupsSelectError = null,
+    categoriesUpsertError = null,
+    profileUpdateError = null,
+  } = overrides ?? {};
+
+  mockFrom.mockImplementation((table: string) => {
+    if (table === "category_groups") {
+      return {
+        upsert: vi.fn().mockResolvedValue({ error: groupsUpsertError }),
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
+            data: groupsSelectError ? null : mockCreatedGroups,
+            error: groupsSelectError,
+          }),
+        }),
+      };
+    }
+    if (table === "categories") {
+      return { upsert: vi.fn().mockResolvedValue({ error: categoriesUpsertError }) };
+    }
+    if (table === "profiles") {
+      return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: profileUpdateError }) }) };
+    }
+    return {};
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -95,36 +141,20 @@ describe("completeOnboarding", () => {
 
   it("accepts valid hex color banner", async () => {
     mockAuthenticated();
-    // Setup table-specific Supabase responses
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") {
-        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
-      }
-      if (table === "profiles") {
-        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
-      }
-      return {};
-    });
+    mockFromWithGroups();
 
     const data = validOnboardingData();
     // completeOnboarding calls redirect on success which throws
     await expect(completeOnboarding(data)).rejects.toThrow("NEXT_REDIRECT");
     expect(redirect).toHaveBeenCalledWith("/dashboard");
+    expect(mockFrom).toHaveBeenCalledWith("category_groups");
     expect(mockFrom).toHaveBeenCalledWith("categories");
     expect(mockFrom).toHaveBeenCalledWith("profiles");
   });
 
   it("accepts valid gradient banner", async () => {
     mockAuthenticated();
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") {
-        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
-      }
-      if (table === "profiles") {
-        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
-      }
-      return {};
-    });
+    mockFromWithGroups();
 
     const data = {
       ...validOnboardingData(),
@@ -141,8 +171,8 @@ describe("completeOnboarding", () => {
     mockAuthenticated();
     const data = validOnboardingData();
     data.categories = [
-      { name: "Food", icon: "utensils", color: "#ff0000", type: "expense", defaultSelected: true },
-      { name: "Salary", icon: "dollar", color: "#0000ff", type: "income", defaultSelected: true },
+      { name: "Food", icon: "utensils", color: "#ff0000", type: "expense" as const, group: "Essentials", defaultSelected: true },
+      { name: "Salary", icon: "dollar", color: "#0000ff", type: "income" as const, defaultSelected: true },
     ];
     const result = await completeOnboarding(data);
     expect(result).toEqual({
@@ -183,6 +213,17 @@ describe("completeOnboarding", () => {
     mockAuthenticated();
     const upsertSpy = vi.fn().mockResolvedValue({ error: null });
     mockFrom.mockImplementation((table: string) => {
+      if (table === "category_groups") {
+        return {
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: mockCreatedGroups,
+              error: null,
+            }),
+          }),
+        };
+      }
       if (table === "categories") {
         return { upsert: upsertSpy };
       }
@@ -197,22 +238,14 @@ describe("completeOnboarding", () => {
 
     await expect(completeOnboarding(data)).rejects.toThrow("NEXT_REDIRECT");
 
-    // The first call to mockFrom should be for categories upsert
+    // The first call to mockFrom("categories") should be for categories upsert
     const insertedCategories = upsertSpy.mock.calls[0][0];
     expect(insertedCategories[0].name).toHaveLength(100);
   });
 
   it("returns error when category upsert fails", async () => {
     mockAuthenticated();
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") {
-        return { upsert: vi.fn().mockResolvedValue({ error: { message: "DB error" } }) };
-      }
-      if (table === "profiles") {
-        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
-      }
-      return {};
-    });
+    mockFromWithGroups({ categoriesUpsertError: { message: "DB error" } });
 
     const result = await completeOnboarding(validOnboardingData());
     expect(result).toEqual({ success: false, error: "Failed to create categories" });
@@ -220,18 +253,26 @@ describe("completeOnboarding", () => {
 
   it("returns error when profile update fails", async () => {
     mockAuthenticated();
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") {
-        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
-      }
-      if (table === "profiles") {
-        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: { message: "DB error" } }) }) };
-      }
-      return {};
-    });
+    mockFromWithGroups({ profileUpdateError: { message: "DB error" } });
 
     const result = await completeOnboarding(validOnboardingData());
     expect(result).toEqual({ success: false, error: "Failed to update profile" });
+  });
+
+  it("returns error when category groups upsert fails", async () => {
+    mockAuthenticated();
+    mockFromWithGroups({ groupsUpsertError: { message: "DB error" } });
+
+    const result = await completeOnboarding(validOnboardingData());
+    expect(result).toEqual({ success: false, error: "Failed to create category groups" });
+  });
+
+  it("returns error when fetching category groups fails", async () => {
+    mockAuthenticated();
+    mockFromWithGroups({ groupsSelectError: { message: "DB error" } });
+
+    const result = await completeOnboarding(validOnboardingData());
+    expect(result).toEqual({ success: false, error: "Failed to fetch category groups" });
   });
 });
 
