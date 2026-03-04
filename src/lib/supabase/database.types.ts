@@ -174,11 +174,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "fk_transactions_category"
+            columns: ["category_id", "user_id", "type"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id", "type"]
           },
         ]
       }
