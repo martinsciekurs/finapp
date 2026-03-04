@@ -48,27 +48,49 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
 // ────────────────────────────────────────────
 
 /**
- * Fetch all categories for the current user, ordered by sort_order.
+ * Fetch all categories for the current user, ordered by group sort_order
+ * then category sort_order. Includes group info for grouped display.
  */
 export async function fetchUserCategories(): Promise<CategoryOption[]> {
   const supabase = await createClient();
 
   const { data: categories, error } = await supabase
     .from("categories")
-    .select("id, name, icon, color, type")
+    .select(
+      "id, name, icon, color, type, group_id, sort_order, category_groups(name, sort_order)"
+    )
     .order("sort_order", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to fetch categories: ${error.message}`);
   }
 
-  return (categories ?? []).map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    icon: cat.icon,
-    color: cat.color,
-    type: cat.type,
-  }));
+  // Parse the joined group data and sort by group.sort_order, then category.sort_order
+  const parsed = (categories ?? []).map((cat) => {
+    const group = cat.category_groups as
+      | { name: string; sort_order: number }
+      | null;
+    return {
+      id: cat.id,
+      name: cat.name,
+      icon: cat.icon,
+      color: cat.color,
+      type: cat.type,
+      group_id: cat.group_id,
+      group_name: group?.name ?? null,
+      _group_sort: group?.sort_order ?? Infinity,
+      _cat_sort: cat.sort_order,
+    };
+  });
+
+  // Sort by group sort_order first, then category sort_order within each group
+  parsed.sort((a, b) => {
+    if (a._group_sort !== b._group_sort) return a._group_sort - b._group_sort;
+    return a._cat_sort - b._cat_sort;
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return parsed.map(({ _group_sort, _cat_sort, ...cat }) => cat);
 }
 
 // ────────────────────────────────────────────
