@@ -8,8 +8,6 @@ interface AnimatedCounterProps {
   value: number;
   /** Formatting function applied to the animated number */
   formatValue: (n: number) => string;
-  /** Spring animation duration in ms (default: 800) */
-  duration?: number;
   /** Additional class names for the <span> element */
   className?: string;
 }
@@ -18,18 +16,20 @@ interface AnimatedCounterProps {
  * Animated number counter using framer-motion springs.
  * Animates from 0 to `value` when the element scrolls into view.
  * Respects `prefers-reduced-motion` — shows the final value immediately.
+ *
+ * Spring is tuned for a critically-damped ~300ms settle time.
  */
 export function AnimatedCounter({
   value,
   formatValue,
-  duration = 800,
   className,
 }: AnimatedCounterProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const motionValue = useMotionValue(0);
   const springValue = useSpring(motionValue, {
-    duration,
-    bounce: 0,
+    stiffness: 200,
+    damping: 30,
+    mass: 1,
   });
   const isInView = useInView(ref, { once: true, margin: "0px 0px -10% 0px" });
   const prefersReducedMotion = useReducedMotion();

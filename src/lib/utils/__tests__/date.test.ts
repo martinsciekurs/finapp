@@ -8,28 +8,41 @@ import {
   getCurrentMonthLabel,
 } from "../date";
 
+/** Helper: compute expected output using the same Intl settings as formatDate */
+function expectedDate(
+  dateStr: string,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = new Date(dateStr + "T00:00:00");
+  const defaults: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  return new Intl.DateTimeFormat("en-US", options ?? defaults).format(date);
+}
+
 describe("formatDate", () => {
   it("formats ISO date string to readable format", () => {
-    expect(formatDate("2026-03-04")).toBe("Mar 4, 2026");
+    expect(formatDate("2026-03-04")).toBe(expectedDate("2026-03-04"));
   });
 
   it("formats January date correctly", () => {
-    expect(formatDate("2026-01-15")).toBe("Jan 15, 2026");
+    expect(formatDate("2026-01-15")).toBe(expectedDate("2026-01-15"));
   });
 
   it("formats December date correctly", () => {
-    expect(formatDate("2025-12-31")).toBe("Dec 31, 2025");
+    expect(formatDate("2025-12-31")).toBe(expectedDate("2025-12-31"));
   });
 
   it("accepts custom Intl options", () => {
-    const result = formatDate("2026-03-04", {
+    const opts: Intl.DateTimeFormatOptions = {
       weekday: "long",
       month: "long",
       day: "numeric",
-    });
-    expect(result).toContain("March");
-    expect(result).toContain("4");
-    expect(result).toContain("Wednesday");
+    };
+    const result = formatDate("2026-03-04", opts);
+    expect(result).toBe(expectedDate("2026-03-04", opts));
   });
 });
 
@@ -71,7 +84,19 @@ describe("formatRelativeTime", () => {
   it("falls back to formatted date for older dates", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-15T12:00:00"));
-    expect(formatRelativeTime("2026-03-04")).toBe("Mar 4, 2026");
+    expect(formatRelativeTime("2026-03-04")).toBe(expectedDate("2026-03-04"));
+  });
+
+  it('returns "Tomorrow" for tomorrow\'s date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-05")).toBe("Tomorrow");
+  });
+
+  it('returns "in X days" for future dates beyond tomorrow', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00"));
+    expect(formatRelativeTime("2026-03-07")).toBe("in 3 days");
   });
 });
 

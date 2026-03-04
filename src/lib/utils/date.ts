@@ -40,6 +40,13 @@ export function formatRelativeTime(dateStr: string): string {
   const diffMs = today.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+  // Future dates
+  if (diffDays < 0) {
+    const absDays = Math.abs(diffDays);
+    if (absDays === 1) return "Tomorrow";
+    return `in ${absDays} days`;
+  }
+
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;

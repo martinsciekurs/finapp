@@ -15,21 +15,9 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatRelativeTime } from "@/lib/utils/date";
 import { EmptyState } from "@/components/ui/empty-state";
+import type { RecentTransactionData } from "@/lib/types/dashboard";
 
-// ────────────────────────────────────────────
-// Types
-// ────────────────────────────────────────────
-
-export interface RecentTransactionData {
-  id: string;
-  amount: number;
-  type: "expense" | "income";
-  description: string;
-  date: string;
-  categoryName: string;
-  categoryIcon: string;
-  categoryColor: string;
-}
+export type { RecentTransactionData };
 
 interface RecentTransactionsProps {
   transactions: RecentTransactionData[];

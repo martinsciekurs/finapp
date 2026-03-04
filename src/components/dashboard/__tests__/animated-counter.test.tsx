@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import React from "react";
 
 // Track useReducedMotion return value per test
 let mockReducedMotion = false;
+
+beforeEach(() => {
+  mockReducedMotion = false;
+});
 
 vi.mock("framer-motion", () => ({
   useMotionValue: (initial: number) => {
@@ -79,11 +83,9 @@ describe("AnimatedCounter", () => {
     // With reduced motion, the span should show the final value directly
     const span = getCounterSpan(container);
     expect(span.textContent).toBe("$250.00");
-    mockReducedMotion = false;
   });
 
   it("starts from 0 when animation is enabled", () => {
-    mockReducedMotion = false;
     const formatter = (n: number) => `$${n.toFixed(2)}`;
     const { container } = render(
       <AnimatedCounter value={500} formatValue={formatter} />

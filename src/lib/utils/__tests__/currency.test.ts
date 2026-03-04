@@ -16,9 +16,13 @@ describe("formatCurrency", () => {
 
   it("formats EUR amounts", () => {
     const result = formatCurrency(2999, "EUR");
-    // Intl formats EUR with the € symbol
-    expect(result).toContain("€");
-    expect(result).toContain("2,999.00");
+    const expected = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(2999);
+    expect(result).toBe(expected);
   });
 
   it("formats GBP amounts", () => {

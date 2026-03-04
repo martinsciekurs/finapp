@@ -16,17 +16,15 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [currency, { summary, spentByCategory }, upcomingReminders] =
+  const [currency, { summary, spentByCategory }, upcomingReminders, recentTransactions] =
     await Promise.all([
       fetchUserCurrency(),
       fetchMonthlySummary(),
       fetchUpcomingRemindersCount(),
+      fetchRecentTransactions(),
     ]);
 
-  const [budgetCategories, recentTransactions] = await Promise.all([
-    fetchBudgetCategories(spentByCategory),
-    fetchRecentTransactions(),
-  ]);
+  const budgetCategories = await fetchBudgetCategories(spentByCategory);
 
   return (
     <div className="space-y-6">

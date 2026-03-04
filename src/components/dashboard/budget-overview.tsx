@@ -7,19 +7,9 @@ import { CategoryIcon } from "@/components/ui/category-icon";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
+import type { BudgetCategoryData } from "@/lib/types/dashboard";
 
-// ────────────────────────────────────────────
-// Types
-// ────────────────────────────────────────────
-
-export interface BudgetCategoryData {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  budgetLimit: number;
-  spent: number;
-}
+export type { BudgetCategoryData };
 
 interface BudgetOverviewProps {
   categories: BudgetCategoryData[];
@@ -118,7 +108,7 @@ function BudgetProgressRow({
           transition={
             prefersReducedMotion
               ? { duration: 0 }
-              : { duration: 0.6, ease: "easeOut", delay: 0.1 + index * 0.05 }
+              : { duration: 0.3, ease: "easeOut", delay: 0.1 + index * 0.05 }
           }
         />
       </div>

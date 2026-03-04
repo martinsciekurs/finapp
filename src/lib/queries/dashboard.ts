@@ -6,8 +6,8 @@ import {
   getLast7DaysStart,
   formatDateForInput,
 } from "@/lib/utils/date";
-import type { BudgetCategoryData } from "@/components/dashboard/budget-overview";
-import type { RecentTransactionData } from "@/components/dashboard/recent-transactions";
+import type { BudgetCategoryData, RecentTransactionData } from "@/lib/types/dashboard";
+import { parseCategoryJoin } from "@/lib/types/dashboard";
 
 // ────────────────────────────────────────────
 // Types
@@ -32,13 +32,15 @@ export async function fetchUserCurrency(): Promise<string> {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) return "EUR";
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("currency")
-    .eq("id", user!.id)
+    .eq("id", user.id)
     .maybeSingle();
 
-  return profile?.currency ?? "USD";
+  return profile?.currency ?? "EUR";
 }
 
 /**
@@ -54,10 +56,14 @@ export async function fetchMonthlySummary(): Promise<{
   const weekStart = getLast7DaysStart();
   const today = formatDateForInput(new Date());
 
+  // Use the earlier of month-start and week-start so the 7-day window
+  // isn't truncated at the month boundary (e.g. March 3 → Feb 25).
+  const earliest = start < weekStart ? start : weekStart;
+
   const { data: transactions } = await supabase
     .from("transactions")
     .select("amount, type, category_id, date")
-    .gte("date", start)
+    .gte("date", earliest)
     .lt("date", end);
 
   const txList = transactions ?? [];
@@ -68,16 +74,20 @@ export async function fetchMonthlySummary(): Promise<{
   const spentByCategory = new Map<string, number>();
 
   for (const tx of txList) {
+    const inCurrentMonth = tx.date >= start && tx.date < end;
+
     if (tx.type === "expense") {
-      totalSpent += tx.amount;
-      spentByCategory.set(
-        tx.category_id,
-        (spentByCategory.get(tx.category_id) ?? 0) + tx.amount
-      );
+      if (inCurrentMonth) {
+        totalSpent += tx.amount;
+        spentByCategory.set(
+          tx.category_id,
+          (spentByCategory.get(tx.category_id) ?? 0) + tx.amount
+        );
+      }
       if (tx.date >= weekStart && tx.date <= today) {
         weeklySpending += tx.amount;
       }
-    } else {
+    } else if (inCurrentMonth) {
       totalIncome += tx.amount;
     }
   }
@@ -144,11 +154,7 @@ export async function fetchRecentTransactions(
     .limit(limit);
 
   return (rows ?? []).map((tx) => {
-    const cat = tx.categories as unknown as {
-      name: string;
-      icon: string;
-      color: string;
-    } | null;
+    const cat = parseCategoryJoin(tx.categories);
     return {
       id: tx.id,
       amount: tx.amount,
@@ -157,7 +163,7 @@ export async function fetchRecentTransactions(
       date: tx.date,
       categoryName: cat?.name ?? "Uncategorized",
       categoryIcon: cat?.icon ?? "circle",
-      categoryColor: cat?.color ?? "#888",
+      categoryColor: cat?.color ?? null,
     };
   });
 }

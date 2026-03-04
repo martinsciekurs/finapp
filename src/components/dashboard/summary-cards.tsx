@@ -119,7 +119,6 @@ export function SummaryCards({
         <AnimatedCounter
           value={totalSpent}
           formatValue={currencyFormatter}
-          duration={900}
         />
       </SummaryCardItem>
 
@@ -132,7 +131,6 @@ export function SummaryCards({
         <AnimatedCounter
           value={weeklySpending}
           formatValue={currencyFormatter}
-          duration={900}
         />
       </SummaryCardItem>
 
@@ -145,7 +143,6 @@ export function SummaryCards({
         <AnimatedCounter
           value={upcomingReminders}
           formatValue={countFormatter}
-          duration={600}
         />
       </SummaryCardItem>
     </div>
