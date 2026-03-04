@@ -138,21 +138,21 @@ test.describe("Transactions page", () => {
     });
 
     // Filter to expense only
-    await page.getByRole("button", { name: "expense" }).click();
+    await page.getByRole("button", { name: /^expense$/i }).click();
     await expect(page.getByText("Filter test expense")).toBeVisible();
     await expect(
       page.getByText("Filter test income")
     ).not.toBeVisible();
 
     // Filter to income only
-    await page.getByRole("button", { name: "income" }).click();
+    await page.getByRole("button", { name: /^income$/i }).click();
     await expect(page.getByText("Filter test income")).toBeVisible();
     await expect(
       page.getByText("Filter test expense")
     ).not.toBeVisible();
 
     // Show all
-    await page.getByRole("button", { name: "all" }).click();
+    await page.getByRole("button", { name: /^all$/i }).click();
     await expect(page.getByText("Filter test expense")).toBeVisible();
     await expect(page.getByText("Filter test income")).toBeVisible();
   });

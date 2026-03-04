@@ -130,6 +130,7 @@ export async function updateTransaction(
       .from("transactions")
       .select("category_id, type")
       .eq("id", id)
+      .eq("user_id", user.id)
       .single();
 
     if (fetchError || !current) {
@@ -158,13 +159,19 @@ export async function updateTransaction(
     }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("transactions")
     .update(parsed.data)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) {
     return { success: false, error: "Failed to update transaction" };
+  }
+
+  if (!updated || updated.length === 0) {
+    return { success: false, error: "Transaction not found" };
   }
 
   revalidatePath("/dashboard/transactions");
@@ -192,13 +199,19 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
     return { success: false, error: "Invalid transaction ID" };
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("transactions")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) {
     return { success: false, error: "Failed to delete transaction" };
+  }
+
+  if (!deleted || deleted.length === 0) {
+    return { success: false, error: "Transaction not found" };
   }
 
   revalidatePath("/dashboard/transactions");

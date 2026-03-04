@@ -95,7 +95,7 @@ export function TransactionForm({ categories }: TransactionFormProps) {
         amount: undefined,
         category_id: "",
         description: "",
-        date: today,
+        date: values.date,
       });
     } catch {
       toast.error("Something went wrong");

@@ -73,12 +73,12 @@ function TransactionRow({
       const result = await deleteTransaction(transaction.id);
       if (!result.success) {
         toast.error(result.error ?? "Failed to delete transaction");
-        setIsDeleting(false);
       } else {
         toast.success("Transaction deleted");
       }
     } catch {
       toast.error("Something went wrong");
+    } finally {
       setIsDeleting(false);
     }
   }
@@ -135,7 +135,7 @@ function TransactionRow({
       <Button
         variant="ghost"
         size="icon-xs"
-        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100"
         onClick={handleDelete}
         disabled={isDeleting}
         aria-label="Delete transaction"

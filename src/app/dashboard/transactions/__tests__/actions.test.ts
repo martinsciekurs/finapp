@@ -267,7 +267,14 @@ describe("updateTransaction", () => {
       if (table === "transactions") {
         return {
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: [{ id: "tx-id" }],
+                  error: null,
+                }),
+              }),
+            }),
           }),
         };
       }
@@ -285,7 +292,14 @@ describe("updateTransaction", () => {
       if (table === "transactions") {
         return {
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: [{ id: "tx-id" }],
+                  error: null,
+                }),
+              }),
+            }),
           }),
         };
       }
@@ -297,6 +311,31 @@ describe("updateTransaction", () => {
       description: "Updated",
     });
     expect(result).toEqual({ success: true });
+  });
+
+  it("returns error when no rows affected by update", async () => {
+    mockAuthenticated();
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "transactions") {
+        return {
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+
+    const result = await updateTransaction("tx-id", { amount: 50 });
+    expect(result).toEqual({ success: false, error: "Transaction not found" });
   });
 });
 
@@ -331,7 +370,14 @@ describe("deleteTransaction", () => {
       if (table === "transactions") {
         return {
           delete: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: [{ id: "tx-id" }],
+                  error: null,
+                }),
+              }),
+            }),
           }),
         };
       }
@@ -349,9 +395,14 @@ describe("deleteTransaction", () => {
       if (table === "transactions") {
         return {
           delete: vi.fn().mockReturnValue({
-            eq: vi
-              .fn()
-              .mockResolvedValue({ error: { message: "DB error" } }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: "DB error" },
+                }),
+              }),
+            }),
           }),
         };
       }
@@ -362,6 +413,34 @@ describe("deleteTransaction", () => {
     expect(result).toEqual({
       success: false,
       error: "Failed to delete transaction",
+    });
+  });
+
+  it("returns error when no rows affected by delete", async () => {
+    mockAuthenticated();
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "transactions") {
+        return {
+          delete: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+
+    const result = await deleteTransaction("tx-id");
+    expect(result).toEqual({
+      success: false,
+      error: "Transaction not found",
     });
   });
 });
