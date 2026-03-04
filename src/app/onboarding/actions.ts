@@ -127,8 +127,9 @@ export async function completeOnboarding(data: OnboardingData) {
     groupLookup.set(`${g.type}:${g.name}`, g.id);
   }
 
-  // Guaranteed non-empty after the check above
-  const fallbackGroupId = createdGroups[0].id;
+  // Per-type fallbacks so an income category never gets an expense group (or vice versa)
+  const fallbackExpenseId = createdGroups.find((g) => g.type === "expense")?.id ?? createdGroups[0].id;
+  const fallbackIncomeId = createdGroups.find((g) => g.type === "income")?.id ?? createdGroups[0].id;
 
   // Create all selected categories — sanitize fields to prevent injection
   const categoriesToInsert = data.categories.map((cat, index) => {
@@ -138,7 +139,7 @@ export async function completeOnboarding(data: OnboardingData) {
     const groupName = catType === "income" ? "Income" : (cat.group || "Other");
     const groupId = groupLookup.get(`${catType}:${groupName}`)
       ?? groupLookup.get(`${catType}:Other`)
-      ?? fallbackGroupId;
+      ?? (catType === "income" ? fallbackIncomeId : fallbackExpenseId);
 
     return {
       user_id: user.id,

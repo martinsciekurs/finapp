@@ -113,6 +113,6 @@ end;
 $$;
 
 create trigger prevent_category_group_type_change_trigger
-  before update on public.category_groups
+  before update of type on public.category_groups
   for each row
   execute function public.check_category_group_type_on_group_update();
