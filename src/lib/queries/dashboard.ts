@@ -107,15 +107,17 @@ export async function fetchMonthlySummary(): Promise<{
 }
 
 /**
- * Fetch the count of unpaid reminders.
+ * Fetch the count of unpaid reminders with a due date of today or later.
  */
 export async function fetchUpcomingRemindersCount(): Promise<number> {
   const supabase = await createClient();
+  const today = formatDateForInput(new Date());
 
   const { count, error } = await supabase
     .from("reminders")
     .select("id", { count: "exact", head: true })
-    .eq("is_paid", false);
+    .eq("is_paid", false)
+    .gte("due_date", today);
 
   if (error) {
     throw new Error(`Failed to fetch reminders count: ${error.message}`);
