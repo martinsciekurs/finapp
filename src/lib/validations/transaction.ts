@@ -28,3 +28,18 @@ export const updateTransactionSchema = z.object({
 
 export type CreateTransactionValues = z.infer<typeof createTransactionSchema>;
 export type UpdateTransactionValues = z.infer<typeof updateTransactionSchema>;
+
+/**
+ * Form-only schema — excludes `source` and `ai_generated` which are
+ * set automatically by the client. Used with react-hook-form to avoid
+ * the input/output type mismatch from `.default()`.
+ */
+export const transactionFormSchema = z.object({
+  category_id: z.string().uuid("Invalid category"),
+  amount: z.number().positive("Amount must be positive"),
+  type: transactionTypeEnum,
+  description: z.string().max(500, "Description too long").optional(),
+  date: z.string().date("Invalid date"),
+});
+
+export type TransactionFormValues = z.infer<typeof transactionFormSchema>;

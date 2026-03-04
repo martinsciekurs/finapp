@@ -1,16 +1,36 @@
 import type { Metadata } from "next";
+import {
+  fetchTransactions,
+  fetchUserCategories,
+  fetchTransactionPageCurrency,
+} from "@/lib/queries/transactions";
+import { TransactionForm } from "@/components/transactions/transaction-form";
+import { TransactionList } from "@/components/transactions/transaction-list";
 
 export const metadata: Metadata = {
   title: "Transactions",
 };
 
-export default function TransactionsPage() {
+export default async function TransactionsPage() {
+  const [transactions, categories, currency] = await Promise.all([
+    fetchTransactions(),
+    fetchUserCategories(),
+    fetchTransactionPageCurrency(),
+  ]);
+
   return (
-    <div>
-      <h2 className="font-serif text-xl font-bold sm:text-2xl">Transactions</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Track your expenses and income. Inline add form and transaction list coming in Phase 2C.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl font-bold sm:text-2xl">
+          Transactions
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Track your expenses and income.
+        </p>
+      </div>
+
+      <TransactionForm categories={categories} />
+      <TransactionList transactions={transactions} currency={currency} />
     </div>
   );
 }

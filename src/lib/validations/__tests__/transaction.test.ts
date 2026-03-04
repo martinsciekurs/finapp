@@ -3,6 +3,7 @@ import {
   createTransactionSchema,
   updateTransactionSchema,
   transactionSourceEnum,
+  transactionFormSchema,
 } from "../transaction";
 
 describe("createTransactionSchema", () => {
@@ -233,6 +234,73 @@ describe("updateTransactionSchema", () => {
       date: "2026-03-04",
       source: "telegram",
       ai_generated: true,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("transactionFormSchema", () => {
+  it("accepts a valid expense form submission", () => {
+    const result = transactionFormSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 45.5,
+      type: "expense",
+      description: "Lunch with team",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid income form submission", () => {
+    const result = transactionFormSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 200,
+      type: "income",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects negative amount", () => {
+    const result = transactionFormSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: -10,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing required fields", () => {
+    const result = transactionFormSchema.safeParse({
+      description: "Just a description",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("does not include source or ai_generated fields", () => {
+    const result = transactionFormSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
+      source: "web",
+      ai_generated: false,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Extra fields are stripped by Zod
+      expect("source" in result.data).toBe(false);
+      expect("ai_generated" in result.data).toBe(false);
+    }
+  });
+
+  it("allows optional description", () => {
+    const result = transactionFormSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
     });
     expect(result.success).toBe(true);
   });
