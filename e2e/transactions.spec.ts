@@ -17,14 +17,14 @@ test.describe("Transactions page", () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    // Login and complete onboarding if needed
+    // Login and wait for redirect to complete
     await loginViaUI(page, testUser);
+    await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 15000 });
 
-    // May redirect to onboarding or dashboard
-    const url = page.url();
-    if (url.includes("/onboarding")) {
+    // Complete onboarding if this is the first run for this user
+    if (page.url().includes("/onboarding")) {
       await completeOnboardingViaUI(page);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
     }
 
     // Navigate to transactions page
@@ -34,7 +34,7 @@ test.describe("Transactions page", () => {
 
   test("displays the transactions page heading", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: "Transactions" })
+      page.getByRole("heading", { name: "Transactions", exact: true })
     ).toBeVisible();
     await expect(
       page.getByText("Track your expenses and income.")
@@ -185,9 +185,9 @@ test.describe("Transactions page", () => {
     // Try to submit without filling amount
     await page.getByRole("button", { name: /add expense/i }).click();
 
-    // Should show validation error
+    // Should show validation error (empty field triggers type error, not .positive())
     await expect(
-      page.getByText(/amount must be positive/i)
+      page.getByText(/amount is required/i)
     ).toBeVisible();
   });
 });

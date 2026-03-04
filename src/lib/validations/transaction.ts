@@ -5,7 +5,7 @@ export const transactionSourceEnum = z.enum(["web", "telegram", "voice"]);
 
 export const createTransactionSchema = z.object({
   category_id: z.string().uuid("Invalid category"),
-  amount: z.number().positive("Amount must be positive"),
+  amount: z.number({ message: "Amount is required" }).positive("Amount must be positive"),
   type: transactionTypeEnum,
   description: z.string().max(500, "Description too long").optional(),
   date: z.string().date("Invalid date"),
@@ -18,7 +18,7 @@ export const createTransactionSchema = z.object({
 // explicitly provided fields.
 export const updateTransactionSchema = z.object({
   category_id: z.string().uuid("Invalid category"),
-  amount: z.number().positive("Amount must be positive"),
+  amount: z.number({ message: "Amount is required" }).positive("Amount must be positive"),
   type: transactionTypeEnum,
   description: z.string().max(500, "Description too long"),
   date: z.string().date("Invalid date"),
@@ -36,7 +36,7 @@ export type UpdateTransactionValues = z.infer<typeof updateTransactionSchema>;
  */
 export const transactionFormSchema = z.object({
   category_id: z.string().uuid("Invalid category"),
-  amount: z.number().positive("Amount must be positive"),
+  amount: z.number({ message: "Amount is required" }).positive("Amount must be positive"),
   type: transactionTypeEnum,
   description: z.string().max(500, "Description too long").optional(),
   date: z.string().date("Invalid date"),
