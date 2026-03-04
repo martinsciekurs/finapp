@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { parseBanner } from "@/lib/config/banners";
 
 export default async function DashboardLayout({
   children,
@@ -21,11 +23,22 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
-  // For now, render children directly.
-  // Phase 2 will add the dashboard shell: hero banner, nav, sidebar.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("display_name, hero_banner")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    throw new Error("Failed to load profile");
+  }
+
+  const displayName = profile?.display_name || "there";
+  const banner = parseBanner(profile?.hero_banner);
+
   return (
-    <div className="min-h-screen bg-background">
+    <DashboardShell displayName={displayName} banner={banner}>
       {children}
-    </div>
+    </DashboardShell>
   );
 }

@@ -3,10 +3,47 @@
  * During onboarding, only colors and gradients are shown (no photos for speed).
  */
 
-export interface BannerPreset {
+/** Banner data stored in profiles.hero_banner (JSONB) */
+export interface BannerData {
   type: "color" | "gradient";
   value: string;
+}
+
+export interface BannerPreset extends BannerData {
   label: string;
+}
+
+/** Regex: hex color or CSS linear-gradient — shared with onboarding actions */
+export const BANNER_VALUE_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(.+\))$/;
+
+/** Default banner shown when user has no banner set */
+export const DEFAULT_BANNER: BannerData = {
+  type: "gradient",
+  value: "linear-gradient(135deg, #2d4a3e, #5b9a82)", // Forest
+};
+
+/**
+ * Parse raw JSONB from database into a validated BannerData.
+ * Returns null for invalid/missing data — never throws.
+ */
+export function parseBanner(raw: unknown): BannerData | null {
+  if (
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    "type" in raw &&
+    "value" in raw
+  ) {
+    const obj = raw as { type: unknown; value: unknown };
+    if (
+      (obj.type === "color" || obj.type === "gradient") &&
+      typeof obj.value === "string" &&
+      BANNER_VALUE_RE.test(obj.value)
+    ) {
+      return { type: obj.type, value: obj.value };
+    }
+  }
+  return null;
 }
 
 export const ONBOARDING_BANNER_PRESETS: BannerPreset[] = [

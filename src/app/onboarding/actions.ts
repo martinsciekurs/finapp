@@ -3,16 +3,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { CategoryPreset } from "@/lib/config/categories";
+import { BANNER_VALUE_RE, type BannerData } from "@/lib/config/banners";
 
 const VALID_STEPS = ["welcome", "categories", "banner"] as const;
 type OnboardingStep = (typeof VALID_STEPS)[number];
 
-/** Regex: hex color or CSS linear-gradient */
-const BANNER_VALUE_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(.+\))$/;
-
 interface OnboardingData {
   categories: CategoryPreset[];
-  banner: { type: "color" | "gradient"; value: string };
+  banner: BannerData;
 }
 
 export async function completeOnboarding(data: OnboardingData) {
@@ -90,7 +88,7 @@ export async function completeOnboarding(data: OnboardingData) {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      hero_banner: data.banner,
+      hero_banner: data.banner as unknown as Record<string, string>,
       onboarding_completed_steps: ["welcome", "categories", "banner"],
       onboarding_completed_at: new Date().toISOString(),
     })

@@ -61,6 +61,8 @@ Critical user flows only - these are the most expensive to maintain:
 
 ## Implementation Roadmap
 
+> **Progress tracking**: See [`docs/progress/`](../progress/) for completed phase checklists.
+
 ### Phase 1: Foundation
 1. Project scaffolding: Next.js 16, Tailwind, shadcn/ui, Framer Motion, Zod, Vitest + Playwright setup
 2. PWA configuration: manifest, service worker, app icons
