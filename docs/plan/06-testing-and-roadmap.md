@@ -61,7 +61,7 @@ Critical user flows only - these are the most expensive to maintain:
 7. Tests: Auth + onboarding E2E, middleware integration tests
 
 ### Phase 2: Core App
-8. Responsive dashboard shell: Hero banner (with default), bottom nav (mobile) + sidebar nav (desktop), notification bell
+8. Responsive dashboard shell: Hero banner (with default), bottom nav (mobile) + sidebar nav (desktop), notification bell, guided tour (post-onboarding tooltip flow)
 9. Dashboard overview: Summary cards with animated counters (Total Spent, Total Income, Net Balance), budget chart
 10. Transactions: List view (grouped by date, filterable by type) + inline add form with type toggle and Zod validation
 11. Budget: Category cards with progress bars, inline edit (expense categories only)
