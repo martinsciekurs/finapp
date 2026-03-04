@@ -6,11 +6,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: () => mockGetUser() },
     from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
 }));
 
@@ -149,36 +151,25 @@ describe("createCategory", () => {
       data: { id: validUuid, type: "expense" },
       error: null,
     });
-    const { chain: lastCatChain } = chainable({
-      data: { sort_order: 2 },
-      error: null,
-    });
-    const { chain: insertChain } = chainable({
-      data: { id: "new-cat-id" },
-      error: null,
-    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "category_groups") return groupChain;
-      if (table === "categories") {
-        // First call is for sort_order lookup, second is for insert
-        // We use the callCount on select to distinguish
-        const selectCalls = { count: 0 };
-        return {
-          select: vi.fn().mockImplementation(() => {
-            selectCalls.count++;
-            if (selectCalls.count === 1) return lastCatChain;
-            return insertChain;
-          }),
-          insert: vi.fn().mockReturnValue(insertChain),
-        };
-      }
       return {};
     });
+
+    // RPC returns the new category ID
+    mockRpc.mockResolvedValue({ data: "new-cat-id", error: null });
 
     const result = await createCategory(validData);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ id: "new-cat-id" });
+    expect(mockRpc).toHaveBeenCalledWith("create_category_auto_sort", {
+      p_group_id: validUuid,
+      p_name: "Groceries",
+      p_type: "expense",
+      p_icon: "shopping-cart",
+      p_color: "#4a8c6f",
+    });
   });
 
   it("returns duplicate error on unique constraint violation", async () => {
@@ -188,29 +179,16 @@ describe("createCategory", () => {
       data: { id: validUuid, type: "expense" },
       error: null,
     });
-    const { chain: lastCatChain } = chainable({
-      data: null,
-      error: null,
-    });
-    const { chain: insertChain } = chainable({
-      data: null,
-      error: { code: "23505", message: "duplicate" },
-    });
-    // Override single to return error
-    insertChain.single = vi.fn().mockResolvedValue({
-      data: null,
-      error: { code: "23505", message: "duplicate" },
-    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "category_groups") return groupChain;
-      if (table === "categories") {
-        return {
-          select: vi.fn().mockReturnValue(lastCatChain),
-          insert: vi.fn().mockReturnValue(insertChain),
-        };
-      }
       return {};
+    });
+
+    // RPC returns duplicate error
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: "23505", message: "duplicate" },
     });
 
     const result = await createCategory(validData);
@@ -341,23 +319,34 @@ describe("deleteCategory", () => {
     expect(result.error).toContain("transactions");
   });
 
-  it("returns success when no transactions (direct delete)", async () => {
+  it("returns error for self-reassign", async () => {
+    mockAuthenticated();
+    const result = await deleteCategory({
+      id: validUuid,
+      reassign_to: validUuid,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("same category");
+  });
+
+  it("returns success when no transactions (direct delete via RPC)", async () => {
     mockAuthenticated();
     const { chain: countChain } = chainable({ count: 0, error: null });
-    const { chain: deleteChain } = chainable(undefined);
-    deleteChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "transactions") return countChain;
-      if (table === "categories") return { delete: vi.fn().mockReturnValue(deleteChain) };
       return {};
     });
 
+    // RPC handles the delete
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
     const result = await deleteCategory({ id: validUuid });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_category_with_reassign", {
+      p_category_id: validUuid,
+      p_reassign_to: undefined,
+    });
   });
 
   it("returns success when transactions exist and reassign target is valid", async () => {
@@ -371,22 +360,11 @@ describe("deleteCategory", () => {
       data: { id: validUuid2, type: "expense" },
       error: null,
     });
-    const { chain: reassignChain } = chainable({ error: null });
-    const { chain: deleteChain } = chainable(undefined);
-    deleteChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
 
-    let txCallCount = 0;
     mockFrom.mockImplementation((table: string) => {
-      if (table === "transactions") {
-        txCallCount++;
-        if (txCallCount === 1) return countChain; // count query
-        return reassignChain; // reassign update
-      }
+      if (table === "transactions") return countChain;
       if (table === "categories") {
-        // First call: source cat type lookup (.single()), second: target cat (.maybeSingle()), third: delete
+        // First call: source cat type lookup (.single()), second: target cat (.maybeSingle())
         let catSelectCount = 0;
         return {
           select: vi.fn().mockImplementation(() => {
@@ -394,18 +372,23 @@ describe("deleteCategory", () => {
             if (catSelectCount === 1) return sourceCatChain;
             return targetCatChain;
           }),
-          delete: vi.fn().mockReturnValue(deleteChain),
-          update: vi.fn().mockReturnValue(reassignChain),
         };
       }
       return {};
     });
+
+    // RPC handles the atomic reassign + delete
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     const result = await deleteCategory({
       id: validUuid,
       reassign_to: validUuid2,
     });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_category_with_reassign", {
+      p_category_id: validUuid,
+      p_reassign_to: validUuid2,
+    });
   });
 });
 
@@ -431,28 +414,16 @@ describe("createGroup", () => {
   it("returns success on successful creation", async () => {
     mockAuthenticated();
 
-    const { chain: lastGroupChain } = chainable({
-      data: { sort_order: 3 },
-      error: null,
-    });
-    const { chain: insertChain } = chainable({
-      data: { id: "new-group-id" },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "category_groups") {
-        return {
-          select: vi.fn().mockReturnValue(lastGroupChain),
-          insert: vi.fn().mockReturnValue(insertChain),
-        };
-      }
-      return {};
-    });
+    // RPC returns the new group ID
+    mockRpc.mockResolvedValue({ data: "new-group-id", error: null });
 
     const result = await createGroup({ name: "Essentials", type: "expense" });
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ id: "new-group-id" });
+    expect(mockRpc).toHaveBeenCalledWith("create_group_auto_sort", {
+      p_name: "Essentials",
+      p_type: "expense",
+    });
   });
 });
 
@@ -520,23 +491,34 @@ describe("deleteGroup", () => {
     expect(result.error).toContain("categories");
   });
 
-  it("returns success when group is empty (direct delete)", async () => {
+  it("returns error for self-reassign", async () => {
+    mockAuthenticated();
+    const result = await deleteGroup({
+      id: validUuid,
+      reassign_to: validUuid,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("same group");
+  });
+
+  it("returns success when group is empty (direct delete via RPC)", async () => {
     mockAuthenticated();
     const { chain: countChain } = chainable({ count: 0, error: null });
-    const { chain: deleteChain } = chainable(undefined);
-    deleteChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "categories") return countChain;
-      if (table === "category_groups") return { delete: vi.fn().mockReturnValue(deleteChain) };
       return {};
     });
 
+    // RPC handles the delete
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
     const result = await deleteGroup({ id: validUuid });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_group_with_reassign", {
+      p_group_id: validUuid,
+      p_reassign_to: undefined,
+    });
   });
 
   it("returns success when categories exist and reassign target is valid", async () => {
@@ -550,20 +532,9 @@ describe("deleteGroup", () => {
       data: { id: validUuid2, type: "expense" },
       error: null,
     });
-    const { chain: reassignChain } = chainable({ error: null });
-    const { chain: deleteChain } = chainable(undefined);
-    deleteChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
 
-    let catCallCount = 0;
     mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") {
-        catCallCount++;
-        if (catCallCount === 1) return countChain; // count query
-        return reassignChain; // reassign update
-      }
+      if (table === "categories") return countChain;
       if (table === "category_groups") {
         let groupSelectCount = 0;
         return {
@@ -572,18 +543,23 @@ describe("deleteGroup", () => {
             if (groupSelectCount === 1) return sourceGroupChain;
             return targetGroupChain;
           }),
-          delete: vi.fn().mockReturnValue(deleteChain),
-          update: vi.fn().mockReturnValue(reassignChain),
         };
       }
       return {};
     });
+
+    // RPC handles the atomic reassign + delete
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     const result = await deleteGroup({
       id: validUuid,
       reassign_to: validUuid2,
     });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_group_with_reassign", {
+      p_group_id: validUuid,
+      p_reassign_to: validUuid2,
+    });
   });
 });
 
@@ -608,22 +584,22 @@ describe("reorderCategories", () => {
     expect(result.success).toBe(false);
   });
 
-  it("returns success when reorder succeeds", async () => {
+  it("returns success when reorder succeeds via RPC", async () => {
     mockAuthenticated();
-    const { chain } = chainable({ error: null });
 
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "categories") return chain;
-      return {};
-    });
+    // RPC handles the batch reorder
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
-    const result = await reorderCategories({
-      items: [
-        { id: validUuid, sort_order: 0 },
-        { id: validUuid2, sort_order: 1 },
-      ],
-    });
+    const items = [
+      { id: validUuid, sort_order: 0 },
+      { id: validUuid2, sort_order: 1 },
+    ];
+
+    const result = await reorderCategories({ items });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("batch_reorder_categories", {
+      p_items: items,
+    });
   });
 });
 
@@ -642,19 +618,19 @@ describe("reorderGroups", () => {
     expect(result).toEqual({ success: false, error: "Not authenticated" });
   });
 
-  it("returns success when reorder succeeds", async () => {
+  it("returns success when reorder succeeds via RPC", async () => {
     mockAuthenticated();
-    const { chain } = chainable({ error: null });
 
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "category_groups") return chain;
-      return {};
-    });
+    // RPC handles the batch reorder
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
-    const result = await reorderGroups({
-      items: [{ id: validUuid, sort_order: 0 }],
-    });
+    const items = [{ id: validUuid, sort_order: 0 }];
+
+    const result = await reorderGroups({ items });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("batch_reorder_groups", {
+      p_items: items,
+    });
   });
 });
 

@@ -52,7 +52,7 @@
 - [x] pgTAP: constraint test — replaced `budget_limit` CHECK test with `group_id NOT NULL` test
 - [x] Onboarding unit tests — updated all mocks for `category_groups`, added 2 new error-path tests
 - [x] Zod schema tests — 48 tests covering all schemas (create/update/delete category, create/update/delete group, reorder, enums)
-- [x] Server action tests — 33 tests covering all 10 actions (auth, validation, CRUD, duplicate detection, reassign flows, count queries)
+- [x] Server action tests — 34 tests covering all 10 actions (auth, validation, CRUD, duplicate detection, reassign flows, count queries)
 - [x] Component tests — 13 tests (CategoryManager: tab switching, group/category rendering, empty states, action buttons; CategoriesSkeleton: structure)
 - [x] All 177 pgTAP tests passing
 - [x] All 450 Vitest tests passing

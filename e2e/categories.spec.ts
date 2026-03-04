@@ -65,13 +65,24 @@ async function performDrag(page: Page, source: Locator, target: Locator) {
   }
 
   // Give dnd-kit a frame to settle the final drop position
-  await page.waitForTimeout(150);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
 
-  // Drop
-  await page.mouse.up();
+  // Drop and wait for the reorder server action to complete
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/dashboard/settings/categories") &&
+        resp.request().method() === "POST" &&
+        resp.status() === 200,
+      { timeout: 5000 }
+    ).catch(() => null), // Don't fail if no-op drop (same position)
+    page.mouse.up(),
+  ]);
 
-  // Let optimistic state + server persist settle
-  await page.waitForTimeout(500);
+  // If a server action fired, wait one more frame for React to reconcile
+  if (response) {
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+  }
 }
 
 // ────────────────────────────────────────────

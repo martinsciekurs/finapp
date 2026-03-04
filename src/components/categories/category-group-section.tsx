@@ -139,11 +139,9 @@ export function CategoryGroupSection({
 
       {/* Category rows — sortable within the group */}
       <div className="min-h-[2.5rem]">
-        <SortableContext
-          items={categoryIds}
-          strategy={verticalListSortingStrategy}
-        >
-          {group.categories.length > 0 ? (
+        {isOverlay ? (
+          /* Overlay: static markup — no sortable hooks needed */
+          group.categories.length > 0 ? (
             <div className="divide-y">
               {group.categories.map((category) => (
                 <CategoryRow
@@ -153,6 +151,7 @@ export function CategoryGroupSection({
                   onEdit={onEditCategory}
                   onDelete={onDeleteCategory}
                   onMove={onMoveCategory}
+                  isOverlay
                 />
               ))}
             </div>
@@ -160,8 +159,32 @@ export function CategoryGroupSection({
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">
               No categories in this group
             </div>
-          )}
-        </SortableContext>
+          )
+        ) : (
+          <SortableContext
+            items={categoryIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {group.categories.length > 0 ? (
+              <div className="divide-y">
+                {group.categories.map((category) => (
+                  <CategoryRow
+                    key={category.id}
+                    category={category}
+                    groups={allGroups}
+                    onEdit={onEditCategory}
+                    onDelete={onDeleteCategory}
+                    onMove={onMoveCategory}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                No categories in this group
+              </div>
+            )}
+          </SortableContext>
+        )}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ import {
   type ReorderGroupsValues,
 } from "@/lib/validations/category";
 import type { ActionResult } from "@/lib/types/actions";
+import type { Json } from "@/lib/supabase/database.types";
 
 // ────────────────────────────────────────────
 // Helpers
@@ -80,31 +81,17 @@ export async function createCategory(
     };
   }
 
-  // Get next sort_order for this group
-  const { data: lastCat } = await supabase
-    .from("categories")
-    .select("sort_order")
-    .eq("group_id", parsed.data.group_id)
-    .eq("user_id", user.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const nextSortOrder = (lastCat?.sort_order ?? -1) + 1;
-
-  const { data: category, error } = await supabase
-    .from("categories")
-    .insert({
-      user_id: user.id,
-      group_id: parsed.data.group_id,
-      name: parsed.data.name,
-      type: parsed.data.type,
-      icon: parsed.data.icon,
-      color: parsed.data.color,
-      sort_order: nextSortOrder,
-    })
-    .select("id")
-    .single();
+  // Atomic create with auto-computed sort_order (single transaction)
+  const { data: newId, error } = await supabase.rpc(
+    "create_category_auto_sort",
+    {
+      p_group_id: parsed.data.group_id,
+      p_name: parsed.data.name,
+      p_type: parsed.data.type,
+      p_icon: parsed.data.icon,
+      p_color: parsed.data.color,
+    }
+  );
 
   if (error) {
     if (error.code === "23505") {
@@ -114,7 +101,7 @@ export async function createCategory(
   }
 
   revalidate();
-  return { success: true, data: { id: category.id } };
+  return { success: true, data: { id: newId } };
 }
 
 // ────────────────────────────────────────────
@@ -277,33 +264,16 @@ export async function deleteCategory(
         error: "Reassign target must be the same type",
       };
     }
-
-    // Reassign transactions
-    const { error: reassignError } = await supabase
-      .from("transactions")
-      .update({ category_id: parsed.data.reassign_to })
-      .eq("category_id", parsed.data.id)
-      .eq("user_id", user.id);
-
-    if (reassignError) {
-      return { success: false, error: "Failed to reassign transactions" };
-    }
   }
 
-  // Delete the category
-  const { data: deleted, error } = await supabase
-    .from("categories")
-    .delete()
-    .eq("id", parsed.data.id)
-    .eq("user_id", user.id)
-    .select("id");
+  // Atomic reassign + delete in a single transaction
+  const { error } = await supabase.rpc("delete_category_with_reassign", {
+    p_category_id: parsed.data.id,
+    p_reassign_to: parsed.data.reassign_to,
+  });
 
   if (error) {
     return { success: false, error: "Failed to delete category" };
-  }
-
-  if (!deleted || deleted.length === 0) {
-    return { success: false, error: "Category not found" };
   }
 
   revalidate();
@@ -336,28 +306,11 @@ export async function createGroup(
     };
   }
 
-  // Get next sort_order
-  const { data: lastGroup } = await supabase
-    .from("category_groups")
-    .select("sort_order")
-    .eq("type", parsed.data.type)
-    .eq("user_id", user.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const nextSortOrder = (lastGroup?.sort_order ?? -1) + 1;
-
-  const { data: group, error } = await supabase
-    .from("category_groups")
-    .insert({
-      user_id: user.id,
-      name: parsed.data.name,
-      type: parsed.data.type,
-      sort_order: nextSortOrder,
-    })
-    .select("id")
-    .single();
+  // Atomic create with auto-computed sort_order (single transaction)
+  const { data: newId, error } = await supabase.rpc("create_group_auto_sort", {
+    p_name: parsed.data.name,
+    p_type: parsed.data.type,
+  });
 
   if (error) {
     if (error.code === "23505") {
@@ -367,7 +320,7 @@ export async function createGroup(
   }
 
   revalidate();
-  return { success: true, data: { id: group.id } };
+  return { success: true, data: { id: newId } };
 }
 
 // ────────────────────────────────────────────
@@ -449,6 +402,11 @@ export async function deleteGroup(
     };
   }
 
+  // Reject self-reassign
+  if (parsed.data.reassign_to && parsed.data.reassign_to === parsed.data.id) {
+    return { success: false, error: "Cannot reassign to the same group" };
+  }
+
   // Check if group has categories
   const { count, error: countError } = await supabase
     .from("categories")
@@ -493,33 +451,16 @@ export async function deleteGroup(
         error: "Reassign target must be the same type",
       };
     }
-
-    // Reassign categories
-    const { error: reassignError } = await supabase
-      .from("categories")
-      .update({ group_id: parsed.data.reassign_to })
-      .eq("group_id", parsed.data.id)
-      .eq("user_id", user.id);
-
-    if (reassignError) {
-      return { success: false, error: "Failed to reassign categories" };
-    }
   }
 
-  // Delete the group
-  const { data: deleted, error } = await supabase
-    .from("category_groups")
-    .delete()
-    .eq("id", parsed.data.id)
-    .eq("user_id", user.id)
-    .select("id");
+  // Atomic reassign + delete in a single transaction
+  const { error } = await supabase.rpc("delete_group_with_reassign", {
+    p_group_id: parsed.data.id,
+    p_reassign_to: parsed.data.reassign_to,
+  });
 
   if (error) {
     return { success: false, error: "Failed to delete group" };
-  }
-
-  if (!deleted || deleted.length === 0) {
-    return { success: false, error: "Group not found" };
   }
 
   revalidate();
@@ -552,17 +493,13 @@ export async function reorderCategories(
     };
   }
 
-  // Update each category's sort_order
-  for (const item of parsed.data.items) {
-    const { error } = await supabase
-      .from("categories")
-      .update({ sort_order: item.sort_order })
-      .eq("id", item.id)
-      .eq("user_id", user.id);
+  // Atomic batch reorder (single UPDATE ... FROM jsonb)
+  const { error } = await supabase.rpc("batch_reorder_categories", {
+    p_items: parsed.data.items as unknown as Json,
+  });
 
-    if (error) {
-      return { success: false, error: "Failed to reorder categories" };
-    }
+  if (error) {
+    return { success: false, error: "Failed to reorder categories" };
   }
 
   revalidate();
@@ -595,16 +532,13 @@ export async function reorderGroups(
     };
   }
 
-  for (const item of parsed.data.items) {
-    const { error } = await supabase
-      .from("category_groups")
-      .update({ sort_order: item.sort_order })
-      .eq("id", item.id)
-      .eq("user_id", user.id);
+  // Atomic batch reorder (single UPDATE ... FROM jsonb)
+  const { error } = await supabase.rpc("batch_reorder_groups", {
+    p_items: parsed.data.items as unknown as Json,
+  });
 
-    if (error) {
-      return { success: false, error: "Failed to reorder groups" };
-    }
+  if (error) {
+    return { success: false, error: "Failed to reorder groups" };
   }
 
   revalidate();

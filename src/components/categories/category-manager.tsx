@@ -226,6 +226,7 @@ export function CategoryManager({
 
         if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
+        const prevGroups = groups;
         const reordered = arrayMove(groups, oldIndex, newIndex);
 
         // Optimistic update (immediate)
@@ -239,6 +240,7 @@ export function CategoryManager({
         startTransition(async () => {
           const result = await reorderGroups({ items });
           if (!result.success) {
+            setGroups(prevGroups);
             toast.error(result.error ?? "Failed to reorder groups");
           }
         });
@@ -263,6 +265,7 @@ export function CategoryManager({
 
         if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return;
 
+        const prevGroups = groups;
         const reordered = arrayMove(group.categories, oldIdx, newIdx);
 
         // Optimistic update (immediate)
@@ -280,6 +283,7 @@ export function CategoryManager({
         startTransition(async () => {
           const result = await reorderCategories({ items });
           if (!result.success) {
+            setGroups(prevGroups);
             toast.error(result.error ?? "Failed to reorder categories");
           }
         });
