@@ -12,7 +12,7 @@
 -- ===========================================================================
 
 begin;
-select plan(30);
+select plan(37);
 
 select reset_role();
 
@@ -502,6 +502,96 @@ select throws_ok(
   '23505'::char(5),
   null,
   'unique: subscriptions rejects duplicate stripe_subscription_id'
+);
+
+-- ===========================================================================
+-- 11. CHECK: debts.original_amount > 0
+-- ===========================================================================
+
+-- Zero original_amount
+select throws_ok(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type) values (%L, ''Bad'', 0, 0, ''i_owe'')',
+    u1()
+  ),
+  '23514'::char(5),
+  null,
+  'check: debts.original_amount rejects 0'
+);
+
+-- Negative original_amount
+select throws_ok(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type) values (%L, ''Bad'', -100, -100, ''i_owe'')',
+    u1()
+  ),
+  '23514'::char(5),
+  null,
+  'check: debts.original_amount rejects negative'
+);
+
+-- ===========================================================================
+-- 12. CHECK: banner_presets.type enum
+-- ===========================================================================
+
+select throws_ok(
+  'insert into public.banner_presets (type, value, label) values (''video'', ''http://example.com/v.mp4'', ''Bad Type'')',
+  '23514'::char(5),
+  null,
+  'check: banner_presets.type rejects invalid value'
+);
+
+-- Valid types should work
+select lives_ok(
+  'insert into public.banner_presets (type, value, label) values (''image'', ''http://example.com/bg.jpg'', ''Test Image'')',
+  'check: banner_presets.type accepts image'
+);
+
+-- ===========================================================================
+-- 13. CHECK: reminders.frequency enum
+-- ===========================================================================
+
+select throws_ok(
+  format(
+    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Bad Freq'', 50, current_date, ''biweekly'')',
+    u1()
+  ),
+  '23514'::char(5),
+  null,
+  'check: reminders.frequency rejects invalid enum value'
+);
+
+-- ===========================================================================
+-- 14. UNIQUE: daily_usage (user_id, date)
+-- ===========================================================================
+
+insert into public.daily_usage (user_id, credits_used, date)
+values (u1(), 0, '2099-06-01');
+
+select throws_ok(
+  format(
+    'insert into public.daily_usage (user_id, credits_used, date) values (%L, 0, ''2099-06-01'')',
+    u1()
+  ),
+  '23505'::char(5),
+  null,
+  'unique: daily_usage rejects duplicate (user_id, date)'
+);
+
+-- ===========================================================================
+-- 15. UNIQUE: telegram_sessions.chat_id
+-- ===========================================================================
+
+insert into public.telegram_sessions (chat_id, user_id) values (5555, u1());
+
+select throws_ok(
+  format(
+    'insert into public.telegram_sessions (chat_id, user_id) values (5555, %L)',
+    u2()
+  ),
+  '23505'::char(5),
+  null,
+  'unique: telegram_sessions rejects duplicate chat_id'
 );
 
 -- ===========================================================================
