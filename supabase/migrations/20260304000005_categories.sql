@@ -1,4 +1,4 @@
--- 004: Categories table
+-- 005: Categories table
 -- =============================================================================
 -- User-defined budget/income categories. Each category belongs to a group
 -- and has a type (expense or income) that must match its group's type.

@@ -1,4 +1,4 @@
--- 003b: Category groups table
+-- 004: Category groups table
 -- =============================================================================
 -- Groups allow users to organize their categories (e.g., "Essentials",
 -- "Lifestyle", "Health & Growth"). Each group is typed (expense or income)
