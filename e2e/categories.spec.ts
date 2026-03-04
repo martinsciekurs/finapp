@@ -75,13 +75,20 @@ async function performDrag(page: Page, source: Locator, target: Locator) {
     () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
   );
 
+  // Register the response waiter BEFORE dropping so we capture the deferred
+  // server action POST that startTransition schedules after the optimistic
+  // UI update.  This replaces the old waitForTimeout(1000).
+  const serverAction = page.waitForResponse(
+    (r) => r.request().method() === "POST",
+    { timeout: 10_000 }
+  );
+
   // Drop
   await page.mouse.up();
 
-  // Wait for the server action (fired inside startTransition) to complete.
-  // networkidle alone isn't sufficient because startTransition defers the fetch.
+  // Wait for the actual server action response — deterministic, no hard sleep.
+  await serverAction;
   await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(1000);
 }
 
 // ────────────────────────────────────────────
