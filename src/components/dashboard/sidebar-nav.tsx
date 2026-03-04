@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { PanelLeftClose, PanelLeft } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { NAV_ITEMS, isNavItemActive } from "./nav-items";
 export function SidebarNav() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   return (
     <aside
@@ -24,7 +25,7 @@ export function SidebarNav() {
         "hidden lg:flex lg:flex-col lg:border-r lg:border-sidebar-border lg:bg-sidebar",
         collapsed ? "lg:w-[68px]" : "lg:w-[240px]"
       )}
-      style={{ transition: "width 0.2s ease" }}
+      style={{ transition: reduceMotion ? "none" : "width 0.2s ease" }}
       aria-label="Sidebar"
     >
       {/* Header */}
@@ -73,13 +74,16 @@ export function SidebarNav() {
               aria-current={isActive ? "page" : undefined}
               aria-label={collapsed ? item.label : undefined}
             >
-              {isActive && (
-                <motion.div
-                  className="absolute inset-0 rounded-lg bg-sidebar-accent"
-                  layoutId="sidebarNavActive"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
+              {isActive &&
+                (reduceMotion ? (
+                  <div className="absolute inset-0 rounded-lg bg-sidebar-accent" />
+                ) : (
+                  <motion.div
+                    className="absolute inset-0 rounded-lg bg-sidebar-accent"
+                    layoutId="sidebarNavActive"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                ))}
               <item.icon className="relative size-5 shrink-0" />
               {!collapsed && (
                 <span className="relative">{item.label}</span>

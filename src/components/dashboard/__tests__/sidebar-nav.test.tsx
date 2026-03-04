@@ -17,6 +17,7 @@ vi.mock("framer-motion", () => ({
       </div>
     ),
   },
+  useReducedMotion: () => false,
 }));
 
 // Mock tooltip to render children directly
