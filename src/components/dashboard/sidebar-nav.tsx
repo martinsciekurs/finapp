@@ -71,6 +71,7 @@ export function SidebarNav() {
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
               aria-current={isActive ? "page" : undefined}
+              aria-label={collapsed ? item.label : undefined}
             >
               {isActive && (
                 <motion.div

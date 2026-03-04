@@ -73,4 +73,16 @@ describe("isNavItemActive", () => {
       isNavItemActive("/dashboard/debts", "/dashboard/settings")
     ).toBe(false);
   });
+
+  it("does not match partial-prefix routes", () => {
+    expect(
+      isNavItemActive("/dashboard/debts", "/dashboard/debts-archive")
+    ).toBe(false);
+    expect(
+      isNavItemActive("/dashboard/debts-archive", "/dashboard/debts")
+    ).toBe(false);
+    expect(
+      isNavItemActive("/dashboard/budget", "/dashboard/budgeting")
+    ).toBe(false);
+  });
 });

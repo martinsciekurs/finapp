@@ -33,15 +33,27 @@ export async function completeOnboarding(data: OnboardingData) {
   if (
     typeof data.banner !== "object" ||
     data.banner === null ||
+    typeof data.banner.type !== "string" ||
     typeof data.banner.value !== "string"
   ) {
     return { success: false, error: "Invalid banner value" };
+  }
+
+  // Validate banner type is one of the allowed values
+  if (data.banner.type !== "color" && data.banner.type !== "gradient") {
+    return { success: false, error: "Invalid banner type" };
   }
 
   // Validate banner value to prevent XSS via style injection
   if (!BANNER_VALUE_RE.test(data.banner.value)) {
     return { success: false, error: "Invalid banner value" };
   }
+
+  // Normalize banner into a strongly-typed object
+  const normalizedBanner: { type: "color" | "gradient"; value: string } = {
+    type: data.banner.type,
+    value: data.banner.value,
+  };
 
   // Validate category fields before processing
   if (!Array.isArray(data.categories)) {
@@ -88,7 +100,7 @@ export async function completeOnboarding(data: OnboardingData) {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      hero_banner: data.banner as unknown as Record<string, string>,
+      hero_banner: normalizedBanner as Record<string, string>,
       onboarding_completed_steps: ["welcome", "categories", "banner"],
       onboarding_completed_at: new Date().toISOString(),
     })

@@ -22,6 +22,7 @@ vi.mock("framer-motion", () => ({
       </span>
     ),
   },
+  useReducedMotion: () => false,
 }));
 
 describe("BottomNav", () => {
@@ -39,7 +40,7 @@ describe("BottomNav", () => {
   it("renders all 6 nav links with correct hrefs", () => {
     render(<BottomNav />);
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(NAV_ITEMS.length);
     for (const item of NAV_ITEMS) {
       const link = screen.getByRole("link", { name: item.label });
       expect(link).toHaveAttribute("href", item.href);

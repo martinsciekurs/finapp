@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, isNavItemActive } from "./nav-items";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
 
   return (
     <nav
@@ -32,24 +33,32 @@ export function BottomNav() {
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
               >
-                {isActive && (
-                  <motion.div
-                    className="absolute inset-0 rounded-xl bg-primary/10"
-                    layoutId="bottomNavActive"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
+                {isActive &&
+                  (reduceMotion ? (
+                    <div className="absolute inset-0 rounded-xl bg-primary/10" />
+                  ) : (
+                    <motion.div
+                      className="absolute inset-0 rounded-xl bg-primary/10"
+                      layoutId="bottomNavActive"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  ))}
                 <item.icon className="relative size-5" />
-                {isActive && (
-                  <motion.span
-                    className="relative mt-0.5 font-medium"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
+                {isActive &&
+                  (reduceMotion ? (
+                    <span className="relative mt-0.5 font-medium">
+                      {item.label}
+                    </span>
+                  ) : (
+                    <motion.span
+                      className="relative mt-0.5 font-medium"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {item.label}
+                    </motion.span>
+                  ))}
               </Link>
             );
           })}

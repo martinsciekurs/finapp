@@ -27,7 +27,7 @@ export default async function DashboardLayout({
     .from("profiles")
     .select("display_name, hero_banner")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (profileError) {
     throw new Error("Failed to load profile");

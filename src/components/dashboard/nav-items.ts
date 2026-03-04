@@ -16,12 +16,13 @@ export interface NavItem {
 
 /**
  * Check if a nav item should be marked as active for the given pathname.
+ * Uses exact match or segment-boundary prefix match to prevent partial hits
+ * (e.g. "/dashboard/debts" won't activate "/dashboard/debts-archive").
  * Overview (/dashboard) is exact-match only to avoid false positives on sub-routes.
  */
 export function isNavItemActive(href: string, pathname: string): boolean {
-  return href === "/dashboard"
-    ? pathname === "/dashboard"
-    : pathname.startsWith(href);
+  if (href === "/dashboard") return pathname === "/dashboard";
+  return pathname === href || pathname.startsWith(href + "/");
 }
 
 export const NAV_ITEMS: NavItem[] = [

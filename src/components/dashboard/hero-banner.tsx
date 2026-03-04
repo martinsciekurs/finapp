@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { DEFAULT_BANNER, type BannerData } from "@/lib/config/banners";
@@ -19,8 +19,10 @@ function getGreeting(): string {
 
 export function HeroBanner({ displayName, banner }: HeroBannerProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const activeBanner = banner ?? DEFAULT_BANNER;
+  const isVisible = isHovered || isFocused;
 
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -77,18 +79,20 @@ export function HeroBanner({ displayName, banner }: HeroBannerProps) {
         </div>
       </div>
 
-      {/* "Change cover" button on hover — placeholder for Phase 4F */}
+      {/* "Change cover" button on hover/focus — placeholder for Phase 4F */}
       <motion.button
         type="button"
         className={cn(
-          "absolute right-4 top-4 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+          "absolute right-4 top-4 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isLightBanner
             ? "bg-black/10 text-gray-900 hover:bg-black/20"
             : "bg-white/15 text-white hover:bg-white/25"
         )}
         initial={{ opacity: 0 }}
-        animate={{ opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.15 }}
+        animate={{ opacity: isVisible ? 1 : 0 }}
+        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         aria-label="Change cover"
       >
         Change cover

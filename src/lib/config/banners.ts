@@ -13,8 +13,9 @@ export interface BannerPreset extends BannerData {
   label: string;
 }
 
-/** Regex: hex color or CSS linear-gradient — shared with onboarding actions */
-export const BANNER_VALUE_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(.+\))$/;
+/** Regex: hex color or CSS linear-gradient — shared with onboarding actions.
+ *  Gradient branch only accepts angle + hex colors to prevent CSS injection. */
+export const BANNER_VALUE_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(\d{1,3}deg,\s*#[0-9a-fA-F]{6}(?:\s*,\s*#[0-9a-fA-F]{6})*\))$/;
 
 /** Default banner shown when user has no banner set */
 export const DEFAULT_BANNER: BannerData = {

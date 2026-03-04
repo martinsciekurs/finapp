@@ -12,7 +12,7 @@ describe("DashboardShellSkeleton", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("contains skeleton elements with animate-pulse", () => {
+  it("contains skeleton elements", () => {
     const { container } = render(<DashboardShellSkeleton />);
     const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
     expect(skeletons.length).toBeGreaterThan(0);

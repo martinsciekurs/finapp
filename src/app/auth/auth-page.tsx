@@ -146,14 +146,15 @@ function LoginForm() {
 
       if (error) {
         toast.error(error.message);
+        setIsLoading(false);
         return;
       }
 
+      // Keep loading state active during page transition
       router.push("/dashboard");
       router.refresh();
     } catch {
       toast.error("Something went wrong");
-    } finally {
       setIsLoading(false);
     }
   }
@@ -256,14 +257,15 @@ function SignUpForm() {
 
       if (error) {
         toast.error(error.message);
+        setIsLoading(false);
         return;
       }
 
+      // Keep loading state active during page transition
       router.push("/onboarding");
       router.refresh();
     } catch {
       toast.error("Something went wrong");
-    } finally {
       setIsLoading(false);
     }
   }
