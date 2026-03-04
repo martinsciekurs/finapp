@@ -60,4 +60,10 @@ describe("getExpenseCategoryGroups", () => {
       expect.arrayContaining(["Essentials", "Lifestyle", "Health & Growth"])
     );
   });
+
+  it("verifies the 'Other' group and category exist", () => {
+    const groups = getExpenseCategoryGroups();
+    expect(groups["Other"]).toBeDefined();
+    expect(groups["Other"].some((c) => c.name === "Other")).toBe(true);
+  });
 });
