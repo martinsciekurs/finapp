@@ -1,0 +1,63 @@
+-- 016: Notifications table
+-- =============================================================================
+-- Notifications are immutable once created (except toggling is_read),
+-- so there is intentionally NO updated_at column or trigger.
+
+create table public.notifications (
+  id          uuid        primary key default gen_random_uuid(),
+  user_id     uuid        not null references public.profiles (id) on delete cascade,
+  type        text        not null
+                          check (type in ('budget_80', 'budget_100', 'reminder_due', 'debt_settled')),
+  title       text        not null,
+  message     text        not null,
+  is_read     boolean     not null default false,
+  data        jsonb,
+  created_at  timestamptz not null default now()
+);
+
+-- Row-Level Security
+alter table public.notifications enable row level security;
+
+create policy "Users can view own notifications"
+  on public.notifications for select
+  using (auth.uid() = user_id);
+
+create policy "Users can update own notifications"
+  on public.notifications for update
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own notifications"
+  on public.notifications for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own notifications"
+  on public.notifications for delete
+  using (auth.uid() = user_id);
+
+-- Index for the main notification feed query
+create index idx_notifications_user_feed
+  on public.notifications (user_id, is_read, created_at desc);
+
+-- Guard: only allow updating is_read column
+create or replace function public.notifications_update_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if NEW.id != OLD.id
+    or NEW.user_id != OLD.user_id
+    or NEW.type != OLD.type
+    or NEW.title != OLD.title
+    or NEW.message != OLD.message
+    or NEW.created_at != OLD.created_at
+    or (NEW.data is distinct from OLD.data) then
+    raise exception 'Only is_read may be updated on notifications';
+  end if;
+  return NEW;
+end;
+$$;
+
+create trigger notifications_update_guard
+  before update on public.notifications
+  for each row
+  execute function public.notifications_update_guard();
