@@ -39,7 +39,9 @@ export function DeleteGroupDialog({
   const [isDeleting, setIsDeleting] = useState(false);
   const [reassignTo, setReassignTo] = useState<string>("");
 
-  const otherGroups = allGroups.filter((g) => g.id !== group.id);
+  const otherGroups = allGroups.filter(
+    (g) => g.id !== group.id && g.type === group.type
+  );
   const hasCategories = group.categories.length > 0;
 
   async function handleDelete() {

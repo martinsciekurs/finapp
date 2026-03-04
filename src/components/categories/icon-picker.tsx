@@ -44,7 +44,7 @@ export function IconPicker({ value, onChange, color }: IconPickerProps) {
               key={iconName}
               type="button"
               className={cn(
-                "flex size-8 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                "flex size-8 items-center justify-center rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 value === iconName && "bg-accent ring-2 ring-primary"
               )}
               onClick={() => {

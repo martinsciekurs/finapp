@@ -23,16 +23,14 @@ vi.mock("@dnd-kit/core", () => ({
     <div data-testid="drag-overlay">{children}</div>
   ),
   closestCenter: vi.fn(),
-  pointerWithin: vi.fn(),
-  getFirstCollision: vi.fn(),
   PointerSensor: class {},
   KeyboardSensor: class {},
   useSensor: vi.fn(() => ({})),
   useSensors: vi.fn(() => []),
-  useDroppable: vi.fn(() => ({
-    setNodeRef: vi.fn(),
-    isOver: false,
-  })),
+}));
+
+vi.mock("@dnd-kit/modifiers", () => ({
+  restrictToVerticalAxis: vi.fn(),
 }));
 
 vi.mock("@dnd-kit/sortable", () => ({

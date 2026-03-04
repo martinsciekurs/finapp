@@ -6,7 +6,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   MoreHorizontal,
@@ -62,12 +61,6 @@ export function CategoryGroupSection({
     id: group.id,
     data: { type: "group" as const, group },
     disabled: isOverlay,
-  });
-
-  // Droppable zone so categories can be dragged into empty groups
-  const { setNodeRef: setDroppableNodeRef } = useDroppable({
-    id: `group-droppable-${group.id}`,
-    data: { type: "group-droppable" as const, groupId: group.id },
   });
 
   const categoryIds = useMemo(
@@ -145,7 +138,7 @@ export function CategoryGroupSection({
       </div>
 
       {/* Category rows — sortable within the group */}
-      <div ref={setDroppableNodeRef} className="min-h-[2.5rem]">
+      <div className="min-h-[2.5rem]">
         <SortableContext
           items={categoryIds}
           strategy={verticalListSortingStrategy}

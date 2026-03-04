@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useId } from "react";
+import { useState, useCallback, useMemo, useEffect, useId, useTransition } from "react";
 import { Plus, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
@@ -8,20 +8,13 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
-  pointerWithin,
-  getFirstCollision,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type {
-  DragStartEvent,
-  DragOverEvent,
-  DragEndEvent,
-  CollisionDetection,
-  UniqueIdentifier,
-} from "@dnd-kit/core";
+import type { DragStartEvent, DragEndEvent, CollisionDetection } from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -77,20 +70,6 @@ type ActiveDragItem =
   | null;
 
 // ────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────
-
-/** Find which group contains a given category id. */
-function findGroupByCategory(
-  groups: CategoryGroupData[],
-  categoryId: UniqueIdentifier
-): CategoryGroupData | undefined {
-  return groups.find((g) =>
-    g.categories.some((c) => c.id === categoryId)
-  );
-}
-
-// ────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────
 
@@ -123,6 +102,10 @@ export function CategoryManager({
   const setGroups =
     activeTab === "expense" ? setLocalExpenseGroups : setLocalIncomeGroups;
 
+  // Wrap server action calls in a transition so revalidatePath() does not
+  // trigger the Suspense fallback from loading.tsx (prevents hydration error).
+  const [, startTransition] = useTransition();
+
   // ── Active drag state ──
   const [activeDrag, setActiveDrag] = useState<ActiveDragItem>(null);
 
@@ -136,25 +119,26 @@ export function CategoryManager({
     })
   );
 
-  // ── Collision detection ──
-  // Use pointerWithin for categories (better for nested containers)
-  // and closestCenter for groups
+  // ── Custom collision detection ──
+  // Without filtering, closestCenter considers ALL sortable items (groups +
+  // categories). When dragging a group the pointer often lands closer to a
+  // small category row inside another group than to the group container
+  // itself, causing handleDragEnd to receive a category id as `over` →
+  // groups.findIndex returns -1 → nothing happens, and the sort strategy
+  // oscillates transforms → visual jumping.
+  //
+  // Fix: partition droppable containers so groups only collide with groups,
+  // and categories only collide with categories.
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
-      // If dragging a group, use closestCenter on groups only
-      if (activeDrag?.type === "group") {
-        return closestCenter(args);
-      }
+      const filtered = args.droppableContainers.filter((container) => {
+        const data = container.data.current;
+        if (activeDrag?.type === "group") return data?.type === "group";
+        if (activeDrag?.type === "category") return data?.type === "category";
+        return true;
+      });
 
-      // For categories, use pointerWithin first, then fall back to closestCenter
-      const pointerCollisions = pointerWithin(args);
-      const collision = getFirstCollision(pointerCollisions);
-
-      if (collision) {
-        return pointerCollisions;
-      }
-
-      return closestCenter(args);
+      return closestCenter({ ...args, droppableContainers: filtered });
     },
     [activeDrag]
   );
@@ -177,17 +161,19 @@ export function CategoryManager({
   }, []);
 
   const handleMoveCategory = useCallback(
-    async (category: CategoryData, newGroupId: string) => {
-      const result = await updateCategory(category.id, {
-        group_id: newGroupId,
+    (category: CategoryData, newGroupId: string) => {
+      startTransition(async () => {
+        const result = await updateCategory(category.id, {
+          group_id: newGroupId,
+        });
+        if (!result.success) {
+          toast.error(result.error ?? "Failed to move category");
+          return;
+        }
+        toast.success(`Moved "${category.name}" to new group`);
       });
-      if (!result.success) {
-        toast.error(result.error ?? "Failed to move category");
-        return;
-      }
-      toast.success(`Moved "${category.name}" to new group`);
     },
-    []
+    [startTransition]
   );
 
   // ── Group handlers ──
@@ -224,75 +210,8 @@ export function CategoryManager({
     []
   );
 
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { active, over } = event;
-      if (!over || !active.data.current) return;
-
-      // Only handle cross-group category movement here
-      if (active.data.current.type !== "category") return;
-
-      const activeCatId = active.id;
-      const overData = over.data.current;
-
-      // Determine the target group
-      let targetGroupId: string | undefined;
-
-      if (overData?.type === "category") {
-        // Dragged over another category — find its group
-        const overGroup = findGroupByCategory(groups, over.id);
-        targetGroupId = overGroup?.id;
-      } else if (overData?.type === "group-droppable") {
-        // Dragged over an empty group droppable zone
-        targetGroupId = overData.groupId;
-      } else if (overData?.type === "group") {
-        // Dragged over a group header
-        targetGroupId = over.id as string;
-      }
-
-      if (!targetGroupId) return;
-
-      // Find the source group
-      const sourceGroup = findGroupByCategory(groups, activeCatId);
-      if (!sourceGroup || sourceGroup.id === targetGroupId) return;
-
-      // Move category between groups optimistically
-      setGroups((prev) => {
-        const newGroups = prev.map((g) => ({ ...g, categories: [...g.categories] }));
-        const srcGroup = newGroups.find((g) => g.id === sourceGroup.id);
-        const destGroup = newGroups.find((g) => g.id === targetGroupId);
-        if (!srcGroup || !destGroup) return prev;
-
-        const catIndex = srcGroup.categories.findIndex(
-          (c) => c.id === activeCatId
-        );
-        if (catIndex === -1) return prev;
-
-        const [movedCat] = srcGroup.categories.splice(catIndex, 1);
-        const movedWithNewGroup = { ...movedCat, group_id: targetGroupId };
-
-        // Determine insertion index
-        if (overData?.type === "category") {
-          const overIndex = destGroup.categories.findIndex(
-            (c) => c.id === over.id
-          );
-          if (overIndex !== -1) {
-            destGroup.categories.splice(overIndex, 0, movedWithNewGroup);
-          } else {
-            destGroup.categories.push(movedWithNewGroup);
-          }
-        } else {
-          destGroup.categories.push(movedWithNewGroup);
-        }
-
-        return newGroups;
-      });
-    },
-    [groups, setGroups]
-  );
-
   const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
+    (event: DragEndEvent) => {
       const { active, over } = event;
       setActiveDrag(null);
 
@@ -309,104 +228,64 @@ export function CategoryManager({
 
         const reordered = arrayMove(groups, oldIndex, newIndex);
 
-        // Optimistic update
+        // Optimistic update (immediate)
         setGroups(reordered);
 
-        // Persist — uses `reordered` (the computed array), NOT stale `groups`
+        // Persist inside transition so revalidatePath() won't trigger Suspense
         const items = reordered.map((g, i) => ({
           id: g.id,
           sort_order: i,
         }));
-
-        const result = await reorderGroups({ items });
-        if (!result.success) {
-          toast.error(result.error ?? "Failed to reorder groups");
-        }
+        startTransition(async () => {
+          const result = await reorderGroups({ items });
+          if (!result.success) {
+            toast.error(result.error ?? "Failed to reorder groups");
+          }
+        });
         return;
       }
 
-      // ── Category reorder (same group or cross-group) ──
+      // ── Category reorder (within same group only) ──
       if (activeData?.type === "category") {
-        const originalCategory = activeData.category as CategoryData;
-        const activeGroup = findGroupByCategory(groups, active.id);
-        if (!activeGroup) return;
-
-        // Track the resolved category list for persistence.
-        // We must NOT read from `groups` after setGroups — it's stale in this closure.
-        let resolvedCategories = activeGroup.categories;
-
-        // Same-group reorder
         const overData = over.data.current;
-        if (overData?.type === "category") {
-          const overGroup = findGroupByCategory(groups, over.id);
-          if (overGroup && overGroup.id === activeGroup.id) {
-            const oldIdx = resolvedCategories.findIndex(
-              (c) => c.id === active.id
-            );
-            const newIdx = resolvedCategories.findIndex(
-              (c) => c.id === over.id
-            );
+        if (overData?.type !== "category") return;
 
-            if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
-              resolvedCategories = arrayMove(
-                resolvedCategories,
-                oldIdx,
-                newIdx
-              );
+        // Both items must be in the same group
+        const activeGroupId = (activeData.category as CategoryData).group_id;
+        const overGroupId = (overData.category as CategoryData).group_id;
+        if (activeGroupId !== overGroupId) return;
 
-              // Optimistic update
-              setGroups((prev) =>
-                prev.map((g) =>
-                  g.id === activeGroup.id
-                    ? { ...g, categories: resolvedCategories }
-                    : g
-                )
-              );
-            }
-          }
-        }
+        const group = groups.find((g) => g.id === activeGroupId);
+        if (!group) return;
 
-        // Persist using `resolvedCategories` (the computed order, not stale state)
-        const items = resolvedCategories.map((c, i) => ({
+        const oldIdx = group.categories.findIndex((c) => c.id === active.id);
+        const newIdx = group.categories.findIndex((c) => c.id === over.id);
+
+        if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return;
+
+        const reordered = arrayMove(group.categories, oldIdx, newIdx);
+
+        // Optimistic update (immediate)
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === activeGroupId ? { ...g, categories: reordered } : g
+          )
+        );
+
+        // Persist inside transition
+        const items = reordered.map((c, i) => ({
           id: c.id,
           sort_order: i,
         }));
-
-        // Persist group_id change if the category was moved cross-group
-        // (handleDragOver already moved it optimistically)
-        if (originalCategory.group_id !== activeGroup.id) {
-          const moveResult = await updateCategory(originalCategory.id, {
-            group_id: activeGroup.id,
-          });
-          if (!moveResult.success) {
-            toast.error(moveResult.error ?? "Failed to move category");
-            return;
-          }
-        }
-
-        if (items.length > 0) {
+        startTransition(async () => {
           const result = await reorderCategories({ items });
           if (!result.success) {
             toast.error(result.error ?? "Failed to reorder categories");
           }
-        }
-
-        // Also persist order in the source group if cross-group move
-        if (originalCategory.group_id !== activeGroup.id) {
-          const srcGroup = groups.find(
-            (g) => g.id === originalCategory.group_id
-          );
-          if (srcGroup && srcGroup.categories.length > 0) {
-            const srcItems = srcGroup.categories.map((c, i) => ({
-              id: c.id,
-              sort_order: i,
-            }));
-            await reorderCategories({ items: srcItems });
-          }
-        }
+        });
       }
     },
-    [groups, setGroups]
+    [groups, setGroups, startTransition]
   );
 
   const handleDragCancel = useCallback(() => {
@@ -486,8 +365,8 @@ export function CategoryManager({
             id={dndId}
             sensors={sensors}
             collisionDetection={collisionDetection}
+            modifiers={[restrictToVerticalAxis]}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >

@@ -20,16 +20,7 @@ import {
   type ReorderCategoriesValues,
   type ReorderGroupsValues,
 } from "@/lib/validations/category";
-
-// ────────────────────────────────────────────
-// Result type
-// ────────────────────────────────────────────
-
-interface ActionResult<T = void> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
+import type { ActionResult } from "@/lib/types/actions";
 
 // ────────────────────────────────────────────
 // Helpers
@@ -144,7 +135,7 @@ export async function updateCategory(
     return { success: false, error: "Not authenticated" };
   }
 
-  if (!id || typeof id !== "string") {
+  if (!id) {
     return { success: false, error: "Invalid category ID" };
   }
 
@@ -235,6 +226,11 @@ export async function deleteCategory(
       success: false,
       error: firstIssue?.message ?? "Invalid delete data",
     };
+  }
+
+  // Reject self-reassign
+  if (parsed.data.reassign_to && parsed.data.reassign_to === parsed.data.id) {
+    return { success: false, error: "Cannot reassign to the same category" };
   }
 
   // Check if the category has transactions
@@ -392,7 +388,7 @@ export async function updateGroup(
     return { success: false, error: "Not authenticated" };
   }
 
-  if (!id || typeof id !== "string") {
+  if (!id) {
     return { success: false, error: "Invalid group ID" };
   }
 

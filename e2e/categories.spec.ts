@@ -1,9 +1,78 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import {
   createTestUser,
   loginViaUI,
   completeOnboardingViaUI,
 } from "./helpers";
+
+// ────────────────────────────────────────────
+// DnD helpers
+// ────────────────────────────────────────────
+
+/** Create a group via the UI and wait for it to appear. */
+async function createGroup(page: Page, name: string) {
+  await page.getByRole("button", { name: /add group/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByRole("button", { name: /create|save|add/i }).click();
+  await expect(dialog).not.toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
+}
+
+/** Create a category inside an existing group via the UI. */
+async function createCategoryInGroup(
+  page: Page,
+  groupName: string,
+  catName: string
+) {
+  await page
+    .getByRole("button", { name: `Add category to ${groupName}` })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill(catName);
+  await dialog.getByRole("button", { name: /create|save|add/i }).click();
+  await expect(dialog).not.toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(catName)).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * Perform a drag-and-drop from `source` to `target` using the low-level
+ * mouse API.  This reliably triggers @dnd-kit's PointerSensor (activation
+ * distance 8 px) because we move the pointer in small increments.
+ */
+async function performDrag(page: Page, source: Locator, target: Locator) {
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceBox || !targetBox)
+    throw new Error("Could not get element bounding boxes for drag");
+
+  const sx = sourceBox.x + sourceBox.width / 2;
+  const sy = sourceBox.y + sourceBox.height / 2;
+  const tx = targetBox.x + targetBox.width / 2;
+  const ty = targetBox.y + targetBox.height / 2;
+
+  // Move to source center and press
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+
+  // Move in steps — enough to exceed the 8 px activation threshold
+  const steps = 20;
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(
+      sx + (tx - sx) * (i / steps),
+      sy + (ty - sy) * (i / steps)
+    );
+  }
+
+  // Give dnd-kit a frame to settle the final drop position
+  await page.waitForTimeout(150);
+
+  // Drop
+  await page.mouse.up();
+
+  // Let optimistic state + server persist settle
+  await page.waitForTimeout(500);
+}
 
 // ────────────────────────────────────────────
 // Category Management E2E Tests
@@ -249,8 +318,83 @@ test.describe("Category management", () => {
     await expect(groupHandles.first()).toBeVisible();
 
     // Category drag handles
-    const catHandles = page.getByRole("button", { name: /^drag (?!.+ group)/i });
+    const catHandles = page.getByRole("button", {
+      name: /^drag (?!.+ group)/i,
+    });
     await expect(catHandles.first()).toBeVisible();
+  });
+
+  // ── Drag and drop ──
+
+  test("reorders categories within a group via drag and drop", async ({
+    page,
+  }) => {
+    // Setup: group with two categories
+    await createGroup(page, "Reorder Group");
+    await createCategoryInGroup(page, "Reorder Group", "Alpha Cat");
+    await createCategoryInGroup(page, "Reorder Group", "Beta Cat");
+
+    // Verify initial order: Alpha Cat before Beta Cat
+    const alphaY = (await page.getByText("Alpha Cat").boundingBox())!.y;
+    const betaY = (await page.getByText("Beta Cat").boundingBox())!.y;
+    expect(alphaY).toBeLessThan(betaY);
+
+    // Drag Beta Cat above Alpha Cat
+    const betaHandle = page.getByRole("button", { name: "Drag Beta Cat" });
+    const alphaHandle = page.getByRole("button", { name: "Drag Alpha Cat" });
+    await performDrag(page, betaHandle, alphaHandle);
+
+    // Reload to verify the new order was persisted to the server
+    await page.reload();
+    await expect(page.getByText("Alpha Cat")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Beta Cat")).toBeVisible({ timeout: 10000 });
+
+    // Beta Cat should now appear above Alpha Cat
+    const newAlphaY = (await page.getByText("Alpha Cat").boundingBox())!.y;
+    const newBetaY = (await page.getByText("Beta Cat").boundingBox())!.y;
+    expect(newBetaY).toBeLessThan(newAlphaY);
+  });
+
+  test("reorders groups via drag and drop", async ({ page }) => {
+    // Setup: two groups in known order
+    await createGroup(page, "First DnD Group");
+    await createGroup(page, "Second DnD Group");
+
+    // Verify initial order
+    const firstY = (
+      await page.getByText("First DnD Group").boundingBox()
+    )!.y;
+    const secondY = (
+      await page.getByText("Second DnD Group").boundingBox()
+    )!.y;
+    expect(firstY).toBeLessThan(secondY);
+
+    // Drag Second DnD Group above First DnD Group
+    const secondHandle = page.getByRole("button", {
+      name: "Drag Second DnD Group group",
+    });
+    const firstHandle = page.getByRole("button", {
+      name: "Drag First DnD Group group",
+    });
+    await performDrag(page, secondHandle, firstHandle);
+
+    // Reload to verify persistence
+    await page.reload();
+    await expect(page.getByText("First DnD Group")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText("Second DnD Group")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Second DnD Group should now appear above First DnD Group
+    const newFirstY = (
+      await page.getByText("First DnD Group").boundingBox()
+    )!.y;
+    const newSecondY = (
+      await page.getByText("Second DnD Group").boundingBox()
+    )!.y;
+    expect(newSecondY).toBeLessThan(newFirstY);
   });
 
   // ── Settings hub ──

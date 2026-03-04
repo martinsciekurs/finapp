@@ -55,13 +55,13 @@
 - [x] Server action tests — 33 tests covering all 10 actions (auth, validation, CRUD, duplicate detection, reassign flows, count queries)
 - [x] Component tests — 13 tests (CategoryManager: tab switching, group/category rendering, empty states, action buttons; CategoriesSkeleton: structure)
 - [x] All 177 pgTAP tests passing
-- [x] All 431 Vitest tests passing
+- [x] All 450 Vitest tests passing
 - [x] TypeScript strict mode: zero errors
 - [x] ESLint: zero errors, zero warnings
 
 ## Test Summary
-- **Phase 2D-i tests added (this commit)**: 94 new Vitest tests (48 schema + 33 action + 13 component)
-- **Cumulative Vitest total**: 431 tests (up from 337)
+- **Phase 2D-i tests added**: 113 new Vitest tests (48 schema + 34 action + 13 manager + 3 skeleton + 11 combobox + 4 form)
+- **Cumulative Vitest total**: 450 tests (up from 337)
 - **Cumulative pgTAP total**: 177 tests (unchanged)
 
 ## Files Created/Modified

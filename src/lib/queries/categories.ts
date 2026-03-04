@@ -16,29 +16,32 @@ export async function fetchCategoriesWithGroups(
 ): Promise<CategoryGroupData[]> {
   const supabase = await createClient();
 
-  // Fetch groups
-  const { data: groups, error: groupError } = await supabase
-    .from("category_groups")
-    .select("id, name, type, sort_order")
-    .eq("type", type)
-    .order("sort_order", { ascending: true });
+  // Fetch groups and categories in parallel
+  const [groupResult, catResult] = await Promise.all([
+    supabase
+      .from("category_groups")
+      .select("id, name, type, sort_order")
+      .eq("type", type)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("categories")
+      .select("id, name, icon, color, type, group_id, sort_order")
+      .eq("type", type)
+      .order("sort_order", { ascending: true }),
+  ]);
 
-  if (groupError) {
+  if (groupResult.error) {
     throw new Error(
-      `Failed to fetch category groups: ${groupError.message}`
+      `Failed to fetch category groups: ${groupResult.error.message}`
     );
   }
 
-  // Fetch categories for this type
-  const { data: categories, error: catError } = await supabase
-    .from("categories")
-    .select("id, name, icon, color, type, group_id, sort_order")
-    .eq("type", type)
-    .order("sort_order", { ascending: true });
-
-  if (catError) {
-    throw new Error(`Failed to fetch categories: ${catError.message}`);
+  if (catResult.error) {
+    throw new Error(`Failed to fetch categories: ${catResult.error.message}`);
   }
+
+  const groups = groupResult.data;
+  const categories = catResult.data;
 
   // Build a map of group_id -> categories
   const categoryMap = new Map<string, CategoryData[]>();

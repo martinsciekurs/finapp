@@ -61,26 +61,16 @@ export const createCategorySchema = z.object({
   group_id: z.string().uuid("Invalid group"),
 });
 
-export const updateCategorySchema = z.object({
-  name: nameSchema,
-  icon: categoryIconEnum,
-  color: hexColorSchema,
-  group_id: z.string().uuid("Invalid group"),
-}).partial();
+/** Form-only schema for add/edit category dialog (excludes `type` which is set from the tab). */
+export const categoryFormSchema = createCategorySchema.omit({ type: true });
+
+export const updateCategorySchema = categoryFormSchema.partial();
 
 export const deleteCategorySchema = z.object({
   /** ID of the category to delete */
   id: z.string().uuid("Invalid category ID"),
   /** If transactions exist, reassign them to this category */
   reassign_to: z.string().uuid("Invalid reassign category ID").optional(),
-});
-
-/** Form-only schema for add/edit category dialog (excludes `type` which is set from the tab). */
-export const categoryFormSchema = z.object({
-  name: nameSchema,
-  icon: categoryIconEnum,
-  color: hexColorSchema,
-  group_id: z.string().uuid("Invalid group"),
 });
 
 // ────────────────────────────────────────────

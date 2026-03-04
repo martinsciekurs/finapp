@@ -26,6 +26,7 @@ import type { CategoryOption } from "@/lib/types/transactions";
 // ────────────────────────────────────────────
 
 interface CategoryGroup {
+  id: string;
   name: string;
   categories: CategoryOption[];
 }
@@ -57,10 +58,10 @@ export function CategoryCombobox({
     const groupMap = new Map<string, CategoryGroup>();
 
     for (const cat of categories) {
-      const key = cat.group_name ?? "__ungrouped__";
+      const key = cat.group_id ?? "__ungrouped__";
       let group = groupMap.get(key);
       if (!group) {
-        group = { name: cat.group_name ?? "Other", categories: [] };
+        group = { id: cat.group_id ?? key, name: cat.group_name ?? "Other", categories: [] };
         groupMap.set(key, group);
         groups.push(group);
       }
@@ -104,7 +105,7 @@ export function CategoryCombobox({
           <CommandList>
             <CommandEmpty>{emptyLabel}</CommandEmpty>
             {grouped.map((group) => (
-              <CommandGroup key={group.name} heading={group.name}>
+              <CommandGroup key={group.id} heading={group.name}>
                 {group.categories.map((cat) => (
                   <CommandItem
                     key={cat.id}

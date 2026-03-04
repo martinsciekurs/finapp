@@ -45,10 +45,10 @@ export function DeleteCategoryDialog({
   const [reassignTo, setReassignTo] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get all other categories in the same type for reassignment
+  // Get all other categories of the same type for reassignment
   const otherCategories = groups
     .flatMap((g) => g.categories)
-    .filter((c) => c.id !== category.id);
+    .filter((c) => c.id !== category.id && c.type === category.type);
 
   useEffect(() => {
     if (!open) return;
