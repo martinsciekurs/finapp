@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { signUpViaUI, loginViaUI, generateTestEmail } from "./helpers";
+import {
+  signUpViaUI,
+  loginViaUI,
+  createTestUser,
+  generateTestEmail,
+} from "./helpers";
 
 test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
@@ -191,28 +196,20 @@ test.describe("Login flow", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("shows error for wrong password", async ({ page }) => {
-    // Create a real user first
-    const { email } = await signUpViaUI(page);
-    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
+  test("shows error for wrong password", async ({ page, request }) => {
+    const user = await createTestUser(request);
 
-    // Clear session and try to log in with wrong password
-    await page.context().clearCookies();
-    await loginViaUI(page, { email, password: "wrongpassword123" });
+    await loginViaUI(page, { email: user.email, password: "wrongpassword123" });
 
     await expect(
       page.locator('[data-sonner-toast][data-type="error"]')
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("successfully logs in after sign-up", async ({ page }) => {
-    // Create a real user
-    const { email, password } = await signUpViaUI(page);
-    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
+  test("successfully logs in", async ({ page, request }) => {
+    const user = await createTestUser(request);
 
-    // Clear session and log in
-    await page.context().clearCookies();
-    await loginViaUI(page, { email, password });
+    await loginViaUI(page, user);
 
     // Login succeeds — middleware redirects to /onboarding (not yet completed)
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });

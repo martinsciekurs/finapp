@@ -1,60 +1,63 @@
 import { test, expect } from "@playwright/test";
-import {
-  signUpViaUI,
-  loginViaUI,
-  completeOnboardingViaUI,
-} from "./helpers";
+import { createTestUser, loginViaUI, completeOnboardingViaUI } from "./helpers";
 
 test.describe("Onboarding", () => {
-  // Note: Full onboarding E2E tests require a running Supabase instance.
-  // These tests verify the UI structure and navigation.
-
   test("onboarding page requires authentication", async ({ page }) => {
     await page.goto("/onboarding");
-    // Should redirect to login
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });
 
 // ── Onboarding flow (requires running Supabase) ───────────
 test.describe("Onboarding wizard", () => {
-  test("displays welcome step with user name after sign-up", async ({
-    page,
-  }) => {
-    const displayName = "Onboarding Tester";
-    await signUpViaUI(page, { displayName });
+  test("displays welcome step with user name", async ({ page, request }) => {
+    const user = await createTestUser(request, {
+      displayName: "Onboarding Tester",
+    });
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     await expect(
-      page.getByText(`Welcome, ${displayName}!`)
+      page.getByRole("heading", { name: `Welcome, ${user.displayName}!` })
     ).toBeVisible();
     await expect(page.getByText("Step 1 of 3")).toBeVisible();
   });
 
-  test("navigates through all three steps", async ({ page }) => {
-    await signUpViaUI(page);
+  test("navigates through all three steps", async ({ page, request }) => {
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     // Step 0: Welcome
     await expect(page.getByText("Step 1 of 3")).toBeVisible();
-    await page.getByRole("button", { name: "Next" }).click();
+    await page
+      .getByRole("button", { name: "Next", exact: true })
+      .click();
 
     // Step 1: Categories
     await expect(page.getByText("Pick your categories")).toBeVisible();
     await expect(page.getByText("Step 2 of 3")).toBeVisible();
-    await page.getByRole("button", { name: "Next" }).click();
+    await page
+      .getByRole("button", { name: "Next", exact: true })
+      .click();
 
     // Step 2: Banner
     await expect(page.getByText("Choose your cover")).toBeVisible();
     await expect(page.getByText("Step 3 of 3")).toBeVisible();
   });
 
-  test("back button navigates to previous step", async ({ page }) => {
-    await signUpViaUI(page);
+  test("back button navigates to previous step", async ({
+    page,
+    request,
+  }) => {
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     // Go to step 1
-    await page.getByRole("button", { name: "Next" }).click();
+    await page
+      .getByRole("button", { name: "Next", exact: true })
+      .click();
     await expect(page.getByText("Pick your categories")).toBeVisible();
 
     // Go back to step 0
@@ -64,8 +67,10 @@ test.describe("Onboarding wizard", () => {
 
   test("completes onboarding and redirects to dashboard", async ({
     page,
+    request,
   }) => {
-    await signUpViaUI(page);
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     await completeOnboardingViaUI(page);
@@ -75,8 +80,10 @@ test.describe("Onboarding wizard", () => {
 
   test("redirects to dashboard if onboarding already completed", async ({
     page,
+    request,
   }) => {
-    await signUpViaUI(page);
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     await completeOnboardingViaUI(page);
@@ -88,13 +95,15 @@ test.describe("Onboarding wizard", () => {
   });
 });
 
-// ── Full user flow: sign-up → onboarding → login ──────────
+// ── Full user lifecycle ────────────────────────────────────
 test.describe("End-to-end user flow", () => {
-  test("sign up, complete onboarding, log out, log back in", async ({
+  test("complete onboarding, log out, log back in", async ({
     page,
+    request,
   }) => {
-    // 1. Sign up
-    const { email, password } = await signUpViaUI(page);
+    // 1. Create user and log in
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     // 2. Complete onboarding
@@ -105,7 +114,7 @@ test.describe("End-to-end user flow", () => {
     await page.context().clearCookies();
 
     // 4. Log back in
-    await loginViaUI(page, { email, password });
+    await loginViaUI(page, user);
 
     // 5. Should arrive at dashboard (onboarding is completed)
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
