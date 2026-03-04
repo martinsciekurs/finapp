@@ -95,27 +95,35 @@ describe("completeOnboarding", () => {
 
   it("accepts valid hex color banner", async () => {
     mockAuthenticated();
-    // Setup successful Supabase responses
-    mockFrom.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
+    // Setup table-specific Supabase responses
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") {
+        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
+      }
+      if (table === "profiles") {
+        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
+      }
+      return {};
     });
 
     const data = validOnboardingData();
     // completeOnboarding calls redirect on success which throws
     await expect(completeOnboarding(data)).rejects.toThrow("NEXT_REDIRECT");
     expect(redirect).toHaveBeenCalledWith("/dashboard");
+    expect(mockFrom).toHaveBeenCalledWith("categories");
+    expect(mockFrom).toHaveBeenCalledWith("profiles");
   });
 
   it("accepts valid gradient banner", async () => {
     mockAuthenticated();
-    mockFrom.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") {
+        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
+      }
+      if (table === "profiles") {
+        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
+      }
+      return {};
     });
 
     const data = {
@@ -174,11 +182,14 @@ describe("completeOnboarding", () => {
   it("sanitizes long category names to 100 chars", async () => {
     mockAuthenticated();
     const upsertSpy = vi.fn().mockResolvedValue({ error: null });
-    mockFrom.mockReturnValue({
-      upsert: upsertSpy,
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") {
+        return { upsert: upsertSpy };
+      }
+      if (table === "profiles") {
+        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
+      }
+      return {};
     });
 
     const data = validOnboardingData();
@@ -193,10 +204,14 @@ describe("completeOnboarding", () => {
 
   it("returns error when category upsert fails", async () => {
     mockAuthenticated();
-    mockFrom.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({
-        error: { message: "DB error" },
-      }),
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") {
+        return { upsert: vi.fn().mockResolvedValue({ error: { message: "DB error" } }) };
+      }
+      if (table === "profiles") {
+        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
+      }
+      return {};
     });
 
     const result = await completeOnboarding(validOnboardingData());
@@ -205,13 +220,14 @@ describe("completeOnboarding", () => {
 
   it("returns error when profile update fails", async () => {
     mockAuthenticated();
-    mockFrom.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({
-          error: { message: "DB error" },
-        }),
-      }),
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") {
+        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
+      }
+      if (table === "profiles") {
+        return { update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: { message: "DB error" } }) }) };
+      }
+      return {};
     });
 
     const result = await completeOnboarding(validOnboardingData());
@@ -257,13 +273,13 @@ describe("updateOnboardingStep", () => {
     expect(result).toEqual({ success: false, error: "Failed to update step" });
   });
 
-  it("accepts all valid step names", async () => {
-    mockAuthenticated();
-    mockRpc.mockResolvedValue({ error: null });
-
-    for (const step of ["welcome", "categories", "banner"] as const) {
+  it.each(["welcome", "categories", "banner"] as const)(
+    "accepts valid step name: %s",
+    async (step) => {
+      mockAuthenticated();
+      mockRpc.mockResolvedValue({ error: null });
       const result = await updateOnboardingStep(step);
       expect(result).toEqual({ success: true });
     }
-  });
+  );
 });

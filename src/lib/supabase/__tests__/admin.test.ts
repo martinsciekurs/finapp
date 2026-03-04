@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,11 +19,18 @@ import { createAdminClient } from "../admin";
 // Tests
 // ---------------------------------------------------------------------------
 
+const ORIGINAL_ENV = { ...process.env };
+
 describe("createAdminClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    vi.clearAllMocks();
   });
 
   it("throws when NEXT_PUBLIC_SUPABASE_URL is missing", () => {

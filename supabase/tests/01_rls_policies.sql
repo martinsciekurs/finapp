@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(80);
+select plan(82);
 
 -- ===========================
 -- Setup: create two test users
@@ -207,6 +207,14 @@ select throws_ok(
   'profiles: authenticated user cannot INSERT profiles'
 );
 
+-- Verify no INSERT policy exists in the catalog
+select is(
+  (select count(*)::int from pg_catalog.pg_policy
+   where polrelid = 'public.profiles'::regclass and polcmd = 'a'),
+  0,
+  'profiles: no INSERT policy exists in pg_catalog'
+);
+
 -- Owner CANNOT delete own profile (no DELETE policy — silently 0 rows)
 delete from public.profiles where id = u1();
 select reset_role();
@@ -289,11 +297,13 @@ select lives_ok(
   'categories: owner can delete own category'
 );
 
--- Cannot delete another user's category
+-- Cannot delete another user's category (attempt and verify row persists)
+delete from public.categories where id = cat2();
+select reset_role();
 select is(
-  (select count(*)::int from public.categories where user_id = u2()),
-  0,
-  'categories: user cannot see (and thus delete) another user''s categories'
+  (select count(*)::int from public.categories where id = cat2()),
+  1,
+  'categories: cross-user DELETE silently blocked — row still exists'
 );
 
 select reset_role();

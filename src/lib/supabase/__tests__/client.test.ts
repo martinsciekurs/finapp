@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,8 +19,13 @@ import { createClient } from "../client";
 describe("createClient (browser)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://localhost:54321");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
   });
 
   it("throws when NEXT_PUBLIC_SUPABASE_URL is missing", () => {

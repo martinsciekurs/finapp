@@ -81,6 +81,7 @@ begin
     json_build_object('sub', _uid, 'role', 'authenticated')::text,
     true  -- local to transaction
   );
+  perform set_config('request.jwt.claim.sub', _uid::text, true);
   perform set_config('role', 'authenticated', true);
 end;
 $$;
@@ -116,6 +117,7 @@ language plpgsql
 as $$
 begin
   perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('role', 'postgres', true);
 end;
 $$;

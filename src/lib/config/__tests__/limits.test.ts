@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PLAN_LIMITS, getPlanLimits } from "../limits";
 
 describe("PLAN_LIMITS", () => {
@@ -54,22 +54,28 @@ describe("getPlanLimits", () => {
 
 /**
  * safeParseInt is a private function, but we test its behavior indirectly
- * via PLAN_LIMITS. The env vars are read at module load time, so to test
- * safeParseInt edge cases we'd need to re-import the module with different
- * env vars. Instead we verify the default fallback values are used when no
- * env vars are set (which is the test environment).
+ * via PLAN_LIMITS. Each test clears the relevant env var, resets modules,
+ * and dynamically re-imports to ensure the module is evaluated fresh.
  */
 describe("safeParseInt (indirect via defaults)", () => {
-  it("uses default of 40 for free transactions when env is unset", () => {
-    // In test env, LIMIT_FREE_TRANSACTIONS_PER_MONTH is not set
-    expect(PLAN_LIMITS.free.transactionsPerMonth).toBe(40);
+  it("uses default of 40 for free transactions when env is unset", async () => {
+    delete process.env.LIMIT_FREE_TRANSACTIONS_PER_MONTH;
+    vi.resetModules();
+    const { PLAN_LIMITS: fresh } = await import("../limits");
+    expect(fresh.free.transactionsPerMonth).toBe(40);
   });
 
-  it("uses default of 15 for free AI credits when env is unset", () => {
-    expect(PLAN_LIMITS.free.aiCreditsPerDay).toBe(15);
+  it("uses default of 15 for free AI credits when env is unset", async () => {
+    delete process.env.LIMIT_FREE_AI_CREDITS_PER_DAY;
+    vi.resetModules();
+    const { PLAN_LIMITS: fresh } = await import("../limits");
+    expect(fresh.free.aiCreditsPerDay).toBe(15);
   });
 
-  it("uses default of 500 for pro AI credits when env is unset", () => {
-    expect(PLAN_LIMITS.pro.aiCreditsPerDay).toBe(500);
+  it("uses default of 500 for pro AI credits when env is unset", async () => {
+    delete process.env.LIMIT_PRO_AI_CREDITS_PER_DAY;
+    vi.resetModules();
+    const { PLAN_LIMITS: fresh } = await import("../limits");
+    expect(fresh.pro.aiCreditsPerDay).toBe(500);
   });
 });
