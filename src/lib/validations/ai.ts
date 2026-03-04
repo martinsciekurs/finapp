@@ -7,11 +7,16 @@ import { z } from "zod";
 export const aiInputSchema = z.object({
   text: z
     .string()
-    .min(1, "Please enter some text")
-    .max(1000, "Input must be at most 1000 characters")
-    .refine(
-      (val) => val.trim().split(/\s+/).length <= 100,
-      "Input must be at most 100 words"
+    .transform((val) => val.trim())
+    .pipe(
+      z
+        .string()
+        .min(1, "Please enter some text")
+        .max(1000, "Input must be at most 1000 characters")
+        .refine(
+          (val) => val.split(/\s+/).filter(Boolean).length <= 100,
+          "Input must be at most 100 words"
+        )
     ),
 });
 

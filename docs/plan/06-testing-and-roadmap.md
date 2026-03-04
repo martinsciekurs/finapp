@@ -60,48 +60,146 @@ Critical user flows only - these are the most expensive to maintain:
 6. Onboarding wizard: Expense category selection, banner pick, auto-create income categories
 7. Tests: Auth + onboarding E2E, middleware integration tests
 
-### Phase 2: Core App
-8. Responsive dashboard shell: Hero banner (with default), bottom nav (mobile) + sidebar nav (desktop), notification bell, guided tour (post-onboarding tooltip flow)
-9. Dashboard overview: Summary cards with animated counters (Total Spent, Total Income, Net Balance), budget chart
-10. Transactions: List view (grouped by date, filterable by type) + inline add form with type toggle and Zod validation
-11. Budget: Category cards with progress bars, inline edit (expense categories only)
-12. Reminders: Bill tracking, "Mark as Paid", due date display
-13. Debts: Debt list, add debt, log payment (with linked transaction creation), auto-settle, summary totals
-14. File attachments: Reusable `Attachments` component across transactions, debts, reminders
-15. Empty states for all views
-16. Loading skeletons for all data-fetching views
-17. Tests: Transaction CRUD E2E (expense + income), debt lifecycle E2E (including linked transactions), component unit tests, Zod schema tests
+### Phase 2A: Dashboard Shell & Layout
+8. Responsive dashboard shell: Hero banner (with default), bottom nav (mobile) + sidebar nav (desktop), notification bell placeholder
+9. Loading skeletons for the shell (nav, banner, content area)
+10. Tests: Shell renders correctly at mobile/desktop breakpoints, nav links work
 
-### Phase 3: AI & Intelligence
-18. Vercel AI SDK setup (Gemini as primary, provider-agnostic config)
-19. AI input validation: 100-word limit, shared Zod schema
-20. AI credits system: `daily_usage` table, unified credit check
-21. Inline transaction suggestions: `/api/ai/suggest` + `AiSuggestChip` component (detects expense vs income)
-22. AI actions endpoint: `/api/ai/action` (auto-classifies intent: create transaction, record debt payment with linked transaction, query data)
-23. AI memories: Auto-learn from corrections + manual rules UI in settings
-24. Voice input: MediaRecorder + Gemini transcription endpoint, `VoiceInput` component with countdown timer
-25. Telegram bot: Grammy setup, webhook (text + voice + image handling), Supabase-backed sessions, account linking flow
-26. Tests: AI suggest integration tests (mocked LLM), AI credit enforcement tests, memory learning tests, voice input component tests
+### Phase 2B: Dashboard Overview
+11. Summary cards with animated counters (Total Spent, Total Income, Net Balance)
+12. Budget overview chart (placeholder data OK until budget feature lands)
+13. Empty state for overview when no data exists
+14. Tests: Summary card unit tests, counter animation tests
 
-### Phase 4: Monetization & Notifications
-27. Plan limits config: `lib/config/limits.ts` with typed free/pro limits
-28. Stripe integration: Checkout (with promo codes), webhooks, customer portal (EUR 2.99/mo)
-29. Feature gating: Server-side enforcement for all gated actions (expenses, AI credits, Telegram, attachments, storage)
-30. Notification preferences: Per-notification toggle UI in settings
-31. Email reminders: Resend integration, Vercel Cron job (with CRON_SECRET protection), reminder templates, one-click unsubscribe
-32. Budget alerts: Per-category 80%/100% email + in-app notifications with dedup via `categories.budget_*_notified_at` timestamps
-33. In-app notification system: `notifications` table, `NotificationBell` component, notification dropdown panel, mark as read
-34. Hero banner system: Preset library, picker UI, admin management
-35. Landing page: Marketing single-page with pricing (public tiers only)
-36. Admin panel: User management, preset management, platform analytics
-37. Data export: CSV transaction export endpoint with date range and type filters
-38. Account deletion: Confirmation flow, cascading data removal
-39. Tests: Stripe webhook integration tests, upgrade flow E2E, limit enforcement tests, banner change E2E, cron job tests, account deletion E2E
+### Phase 2C: Transactions
+15. Transaction Zod schemas + validation tests
+16. Inline add form with type toggle (expense/income) and Zod validation
+17. Transaction list view (grouped by date, filterable by type)
+18. Empty state + loading skeleton for transactions
+19. Tests: Transaction CRUD E2E (expense + income), form component unit tests, schema unit tests
 
-### Phase 5: Optimization
-40. Animations: Page transitions, list staggering, micro-interactions throughout
-41. Toasts: Sonner integration for all user actions (save, delete, errors)
-42. Performance: Optimistic updates for inline editing, image optimization, bundle analysis
-43. `prefers-reduced-motion` support
-44. Error boundaries: Catch unexpected errors gracefully per route segment
-45. Final test pass: Fill coverage gaps, fix flaky tests, full E2E suite green
+### Phase 2D: Budget Management
+20. Category cards with progress bars
+21. Inline budget edit (expense categories only)
+22. Empty state + loading skeleton for budget view
+23. Tests: Budget management E2E, progress bar unit tests
+
+### Phase 2E: Reminders
+24. Reminder list with due date display
+25. "Mark as Paid" action (server action + optimistic UI)
+26. Empty state + loading skeleton for reminders
+27. Tests: Reminder component unit tests, server action integration tests
+
+### Phase 2F: Debts
+28. Debt list + add debt form with Zod validation
+29. Log payment (with linked transaction creation) + auto-settle when remaining reaches 0
+30. Debt summary totals (total owed, total lent, net)
+31. Empty state + loading skeleton for debts
+32. Tests: Debt lifecycle E2E (add -> pay -> settle), linked transaction creation tests, Zod schema tests
+
+### Phase 2G: File Attachments
+33. Reusable `Attachments` component (upload, preview, delete)
+34. Integrate into transactions, debts, and reminders views
+35. Tests: Attachment component unit tests, upload/delete integration tests
+
+### Phase 2H: Guided Tour & Polish
+36. Post-onboarding guided tour (tooltip flow across dashboard sections)
+37. Audit all empty states and loading skeletons for consistency
+38. Tests: Guided tour E2E (shows on first visit, dismisses correctly)
+
+### Phase 3A: AI Foundation
+39. Vercel AI SDK setup (Gemini as primary, provider-agnostic config)
+40. AI input validation: 100-word limit, shared Zod schema
+41. AI credits system: `daily_usage` table, unified credit check helper
+42. Tests: AI input validation schema tests, credit check unit tests
+
+### Phase 3B: Inline AI Suggestions
+43. `/api/ai/suggest` endpoint (detects expense vs income, returns structured suggestion)
+44. `AiSuggestChip` component (accept -> fills form, dismiss)
+45. Wire into transaction inline form
+46. Tests: AI suggest integration tests (mocked LLM), chip component unit tests, suggest flow E2E
+
+### Phase 3C: AI Actions & Memories
+47. `/api/ai/action` endpoint (auto-classifies intent: create transaction, record debt payment with linked transaction, query data)
+48. AI memories: Auto-learn from user corrections
+49. Manual rules UI in settings (view, add, delete memory rules)
+50. Tests: Action endpoint integration tests (mocked LLM), memory learning tests
+
+### Phase 3D: Voice Input
+51. `VoiceInput` component with MediaRecorder + countdown timer
+52. Gemini transcription endpoint (`/api/ai/transcribe`)
+53. Wire voice input into transaction form and AI actions
+54. Tests: VoiceInput component unit tests, transcription endpoint integration tests
+
+### Phase 3E: Telegram Bot
+55. Grammy bot setup + webhook endpoint (`/api/telegram`)
+56. Message handling: text, voice, and image inputs -> AI action pipeline
+57. Supabase-backed sessions + account linking flow
+58. Tests: Webhook integration tests, session management tests
+
+### Phase 4A: Plan Limits & Feature Gating
+59. Plan limits config: `lib/config/limits.ts` with typed free/pro limits
+60. Server-side feature gating: enforcement helpers for all gated actions (expenses, AI credits, Telegram, attachments, storage)
+61. Client-side upgrade prompts when limits are reached
+62. Tests: Limit enforcement unit tests, gating integration tests
+
+### Phase 4B: Stripe Integration
+63. Stripe Checkout session creation (with promo code support, EUR 2.99/mo)
+64. Stripe webhooks: subscription created/updated/deleted -> update `profiles.plan`
+65. Customer portal link for self-serve subscription management
+66. Tests: Stripe webhook integration tests, upgrade flow E2E
+
+### Phase 4C: In-App Notifications
+67. `notifications` table + server helpers (create, mark read, list)
+68. `NotificationBell` component with unread count badge
+69. Notification dropdown panel (list, mark as read, mark all read)
+70. Tests: Notification CRUD integration tests, bell component unit tests
+
+### Phase 4D: Email Reminders & Preferences
+71. Notification preferences: per-notification toggle UI in settings
+72. Resend integration + reminder email templates
+73. Vercel Cron job (`/api/cron/reminders`) with CRON_SECRET protection
+74. One-click unsubscribe link in emails
+75. Tests: Cron job integration tests, preference enforcement tests
+
+### Phase 4E: Budget Alerts
+76. Per-category 80%/100% threshold detection
+77. Email + in-app alert notifications with dedup via `categories.budget_*_notified_at` timestamps
+78. Tests: Alert threshold unit tests, dedup integration tests
+
+### Phase 4F: Hero Banner System
+79. Banner preset library (images + metadata)
+80. Banner picker UI ("Change cover" -> preset grid -> apply)
+81. Admin banner management (add/remove presets)
+82. Tests: Banner change E2E, picker component unit tests
+
+### Phase 4G: Landing Page
+83. Marketing single-page with feature highlights
+84. Pricing section (public free/pro tiers)
+85. Responsive layout, dark mode support
+
+### Phase 4H: Admin Panel
+86. Admin route protection (reject non-admins)
+87. User management: list users, view details, manage subscriptions
+88. Platform analytics dashboard (user counts, revenue, usage)
+89. Tests: Admin route protection integration tests
+
+### Phase 4I: Data Export & Account Deletion
+90. CSV transaction export endpoint with date range and type filters
+91. Account deletion: confirmation flow, cascading data removal
+92. Tests: Export endpoint integration tests, account deletion E2E
+
+### Phase 5A: Animations & Toasts
+93. Sonner integration for all user actions (save, delete, errors)
+94. Page transitions (Framer Motion layout animations)
+95. List staggering + micro-interactions throughout
+
+### Phase 5B: Performance & Accessibility
+96. Optimistic updates for inline editing (transactions, budgets, reminders)
+97. Image optimization + bundle analysis
+98. `prefers-reduced-motion` support (disable/reduce all animations)
+
+### Phase 5C: Error Handling & Final Test Pass
+99. Error boundaries per route segment (catch unexpected errors gracefully)
+100. Fill coverage gaps to meet 80%+ target on `lib/` and `components/`
+101. Fix flaky tests, full E2E suite green

@@ -11,7 +11,7 @@ create table public.reminders (
                                        check (frequency in ('monthly', 'weekly', 'yearly', 'one_time')),
   is_paid                  boolean     not null default false,
   auto_create_transaction  boolean     not null default true,
-  category_id              uuid        references public.categories (id) on delete set null,
+  category_id              uuid,
   last_notified_at         timestamptz,
   created_at               timestamptz not null default now(),
   updated_at               timestamptz not null default now()
@@ -48,3 +48,9 @@ create index idx_reminders_user_id
 
 create index idx_reminders_user_due
   on public.reminders (user_id, is_paid, due_date);
+
+-- Composite FK: enforce category belongs to same user
+alter table public.reminders
+  add constraint fk_reminders_category
+  foreign key (category_id, user_id) references public.categories (id, user_id)
+  on delete set null (category_id);

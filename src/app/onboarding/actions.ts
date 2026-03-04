@@ -31,6 +31,22 @@ export async function completeOnboarding(data: OnboardingData) {
     return { success: false, error: "Invalid banner value" };
   }
 
+  // Validate category fields before processing
+  if (!Array.isArray(data.categories)) {
+    return { success: false, error: "Invalid categories data" };
+  }
+
+  for (const cat of data.categories) {
+    if (
+      typeof cat.name !== "string" ||
+      typeof cat.icon !== "string" ||
+      typeof cat.color !== "string" ||
+      (cat.type !== "income" && cat.type !== "expense")
+    ) {
+      return { success: false, error: "Invalid category data" };
+    }
+  }
+
   // Validate minimum categories
   const expenseCategories = data.categories.filter((c) => c.type === "expense");
   if (expenseCategories.length < 2) {
@@ -47,9 +63,10 @@ export async function completeOnboarding(data: OnboardingData) {
     sort_order: index,
   }));
 
+  // Upsert for idempotency — safe on retry if profile update below fails
   const { error: categoriesError } = await supabase
     .from("categories")
-    .insert(categoriesToInsert);
+    .upsert(categoriesToInsert, { onConflict: "user_id,type,name", ignoreDuplicates: true });
 
   if (categoriesError) {
     return { success: false, error: "Failed to create categories" };
@@ -89,13 +106,17 @@ export async function updateOnboardingStep(step: OnboardingStep) {
   }
 
   // Get current steps
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("onboarding_completed_steps")
     .eq("id", user.id)
     .single();
 
-  const currentSteps = (profile?.onboarding_completed_steps as string[]) || [];
+  if (profileError || !profile) {
+    return { success: false, error: "Failed to read profile" };
+  }
+
+  const currentSteps = (profile.onboarding_completed_steps as string[]) || [];
 
   if (!currentSteps.includes(step)) {
     const { error } = await supabase

@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
     .from("profiles")
     .select("display_name, onboarding_completed_at, onboarding_completed_steps")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (profile?.onboarding_completed_at) {
     redirect("/dashboard");

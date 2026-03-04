@@ -44,3 +44,10 @@ create policy "Users can delete own categories"
 -- Indexes
 create index idx_categories_user_id
   on public.categories (user_id);
+
+-- Unique constraints: composite FK support + duplicate prevention
+alter table public.categories
+  add constraint uq_categories_id_user unique (id, user_id);
+
+alter table public.categories
+  add constraint uq_categories_user_type_name unique (user_id, type, name);

@@ -33,3 +33,27 @@ create policy "Users can delete own notifications"
 -- Index for the main notification feed query
 create index idx_notifications_user_feed
   on public.notifications (user_id, is_read, created_at desc);
+
+-- Guard: only allow updating is_read column
+create or replace function public.notifications_update_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if NEW.id != OLD.id
+    or NEW.user_id != OLD.user_id
+    or NEW.type != OLD.type
+    or NEW.title != OLD.title
+    or NEW.message != OLD.message
+    or NEW.created_at != OLD.created_at
+    or (NEW.data is distinct from OLD.data) then
+    raise exception 'Only is_read may be updated on notifications';
+  end if;
+  return NEW;
+end;
+$$;
+
+create trigger notifications_update_guard
+  before update on public.notifications
+  for each row
+  execute function public.notifications_update_guard();

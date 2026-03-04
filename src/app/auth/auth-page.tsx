@@ -137,21 +137,27 @@ function LoginForm() {
 
   async function onSubmit(values: LoginValues) {
     setIsLoading(true);
-    const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    });
+    try {
+      const supabase = createClient();
 
-    if (error) {
-      toast.error(error.message);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
@@ -238,24 +244,30 @@ function SignUpForm() {
 
   async function onSubmit(values: SignUpValues) {
     setIsLoading(true);
-    const supabase = createClient();
 
-    const { error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        data: { display_name: values.displayName },
-      },
-    });
+    try {
+      const supabase = createClient();
 
-    if (error) {
-      toast.error(error.message);
+      const { error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          data: { display_name: values.displayName },
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      router.push("/onboarding");
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    router.push("/onboarding");
-    router.refresh();
   }
 
   return (

@@ -7,7 +7,7 @@ create table public.debts (
   counterparty      text        not null,
   type              text        not null check (type in ('i_owe', 'they_owe')),
   original_amount   numeric     not null check (original_amount > 0),
-  remaining_amount  numeric     not null check (remaining_amount >= 0),
+  remaining_amount  numeric     not null check (remaining_amount >= 0 and remaining_amount <= original_amount),
   description       text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
@@ -41,3 +41,7 @@ create policy "Users can delete own debts"
 -- Indexes
 create index idx_debts_user_id
   on public.debts (user_id);
+
+-- Unique constraint for composite FK from debt_payments
+alter table public.debts
+  add constraint uq_debts_id_user unique (id, user_id);

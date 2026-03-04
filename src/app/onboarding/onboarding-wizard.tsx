@@ -70,11 +70,20 @@ export function OnboardingWizard({
       return;
     }
 
-    await updateOnboardingStep(STEPS[currentStep]);
+    try {
+      const result = await updateOnboardingStep(STEPS[currentStep]);
 
-    if (currentStep < STEPS.length - 1) {
-      setDirection(1);
-      setCurrentStep((prev) => prev + 1);
+      if (!result.success) {
+        toast.error(result.error || "Failed to save progress");
+        return;
+      }
+
+      if (currentStep < STEPS.length - 1) {
+        setDirection(1);
+        setCurrentStep((prev) => prev + 1);
+      }
+    } catch {
+      toast.error("Failed to save progress");
     }
   };
 

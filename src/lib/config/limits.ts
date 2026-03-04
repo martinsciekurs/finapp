@@ -1,15 +1,24 @@
 /**
+ * Parse an env var as a positive integer, falling back to the default.
+ */
+function safeParseInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/**
  * Centralized plan limits — overridable via environment variables.
  */
 export const PLAN_LIMITS = {
   free: {
-    transactionsPerMonth: parseInt(
-      process.env.LIMIT_FREE_TRANSACTIONS_PER_MONTH || "40",
-      10
+    transactionsPerMonth: safeParseInt(
+      process.env.LIMIT_FREE_TRANSACTIONS_PER_MONTH,
+      40
     ),
-    aiCreditsPerDay: parseInt(
-      process.env.LIMIT_FREE_AI_CREDITS_PER_DAY || "15",
-      10
+    aiCreditsPerDay: safeParseInt(
+      process.env.LIMIT_FREE_AI_CREDITS_PER_DAY,
+      15
     ),
     maxAttachments: 3,
     maxAttachmentSize: 5 * 1024 * 1024, // 5MB
@@ -17,9 +26,9 @@ export const PLAN_LIMITS = {
   },
   pro: {
     transactionsPerMonth: Infinity,
-    aiCreditsPerDay: parseInt(
-      process.env.LIMIT_PRO_AI_CREDITS_PER_DAY || "500",
-      10
+    aiCreditsPerDay: safeParseInt(
+      process.env.LIMIT_PRO_AI_CREDITS_PER_DAY,
+      500
     ),
     maxAttachments: 3,
     maxAttachmentSize: 5 * 1024 * 1024, // 5MB

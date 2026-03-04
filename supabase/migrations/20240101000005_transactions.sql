@@ -4,7 +4,7 @@
 create table public.transactions (
   id            uuid        primary key default gen_random_uuid(),
   user_id       uuid        not null references public.profiles (id) on delete cascade,
-  category_id   uuid        not null references public.categories (id) on delete restrict,
+  category_id   uuid        not null,
   amount        numeric     not null check (amount > 0),
   type          text        not null check (type in ('expense', 'income')),
   description   text,
@@ -50,3 +50,12 @@ create index idx_transactions_user_type_date
 
 create index idx_transactions_category_id
   on public.transactions (category_id);
+
+-- Composite FK: enforce category belongs to same user
+alter table public.transactions
+  add constraint fk_transactions_category
+  foreign key (category_id, user_id) references public.categories (id, user_id) on delete restrict;
+
+-- Unique constraint for composite FK from debt_payments
+alter table public.transactions
+  add constraint uq_transactions_id_user unique (id, user_id);

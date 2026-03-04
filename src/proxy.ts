@@ -39,6 +39,13 @@ export async function proxy(request: NextRequest) {
 
   // Protected routes require authentication
   if (!user) {
+    // API routes: return 401 instead of redirect
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Unauthenticated" },
+        { status: 401 }
+      );
+    }
     const redirectUrl = new URL("/auth/login", request.url);
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
