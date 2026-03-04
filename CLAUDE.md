@@ -71,7 +71,7 @@ docs/
 
 ### Dark Mode
 - Uses `next-themes` with class strategy
-- System preference by default, user can override (System / Light / Dark)
+- User can override (System / Light / Dark)
 - All components must use semantic tokens, never raw colors
 
 ## Commands

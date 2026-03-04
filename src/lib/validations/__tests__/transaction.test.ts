@@ -1,0 +1,122 @@
+import { describe, it, expect } from "vitest";
+import { createTransactionSchema } from "../transaction";
+
+describe("createTransactionSchema", () => {
+  it("accepts a valid expense transaction", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 45.5,
+      type: "expense",
+      description: "Lunch with team",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid income transaction", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 200,
+      type: "income",
+      description: "Freelance payment",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects negative amounts", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: -10,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero amount", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 0,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing type", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid type", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "transfer",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid category_id", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "not-a-uuid",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid date", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "not-a-date",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults source to web", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.source).toBe("web");
+    }
+  });
+
+  it("defaults ai_generated to false", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.ai_generated).toBe(false);
+    }
+  });
+
+  it("rejects description over 500 characters", () => {
+    const result = createTransactionSchema.safeParse({
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount: 10,
+      type: "expense",
+      date: "2026-03-04",
+      description: "a".repeat(501),
+    });
+    expect(result.success).toBe(false);
+  });
+});
