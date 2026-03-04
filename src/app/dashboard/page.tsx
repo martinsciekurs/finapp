@@ -1,16 +1,56 @@
 import type { Metadata } from "next";
+import { getCurrentMonthLabel } from "@/lib/utils/date";
+import {
+  fetchUserCurrency,
+  fetchMonthlySummary,
+  fetchUpcomingRemindersCount,
+  fetchBudgetCategories,
+  fetchRecentTransactions,
+} from "@/lib/queries/dashboard";
+import { SummaryCards } from "@/components/dashboard/summary-cards";
+import { BudgetOverview } from "@/components/dashboard/budget-overview";
+import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 
 export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [currency, { summary, spentByCategory }, upcomingReminders] =
+    await Promise.all([
+      fetchUserCurrency(),
+      fetchMonthlySummary(),
+      fetchUpcomingRemindersCount(),
+    ]);
+
+  const [budgetCategories, recentTransactions] = await Promise.all([
+    fetchBudgetCategories(spentByCategory),
+    fetchRecentTransactions(),
+  ]);
+
   return (
-    <div>
-      <h2 className="font-serif text-xl font-bold sm:text-2xl">Overview</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Summary cards, charts, and recent transactions will appear here.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl font-bold sm:text-2xl">Overview</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {getCurrentMonthLabel()}
+        </p>
+      </div>
+
+      <SummaryCards
+        totalSpent={summary.totalSpent}
+        totalIncome={summary.totalIncome}
+        weeklySpending={summary.weeklySpending}
+        upcomingReminders={upcomingReminders}
+        currency={currency}
+      />
+
+      <BudgetOverview categories={budgetCategories} currency={currency} />
+
+      <RecentTransactions
+        transactions={recentTransactions}
+        currency={currency}
+      />
     </div>
   );
 }
