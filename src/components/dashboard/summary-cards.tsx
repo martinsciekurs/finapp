@@ -6,6 +6,7 @@ import {
   DollarSign,
   TrendingUp,
   CalendarClock,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,33 +146,31 @@ export function SummaryCards({
 
       {/* Scheduled Payments card */}
       <SummaryCardItem
-        label="Scheduled Payments"
-        icon={CalendarClock}
-        subtitle={
-          <select
-            value={period}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (PERIOD_OPTIONS.some((o) => o.value === val)) {
-                setPeriod(val as ReminderPeriod);
-              }
-            }}
-            aria-label="Filter period"
-            className="cursor-pointer bg-transparent text-xs text-muted-foreground focus:outline-none"
-          >
-            {PERIOD_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        }
-        index={2}
+          label="Scheduled Payments"
+          icon={CalendarClock}
+          subtitle={
+            <div className="relative inline-flex items-center group">
+              <select
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value as ReminderPeriod)}
+                  aria-label="Filter period"
+                  className="appearance-none bg-transparent pr-4 cursor-pointer text-xs  text-muted-foreground focus:outline-none"
+              >
+                {PERIOD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                ))}
+              </select>
+              <ChevronDown
+                  className="pointer-events-none absolute right-0 size-3 opacity-70 group-hover:opacity-100 transition-opacity"
+                  strokeWidth={2.5}
+              />
+            </div>
+          }
+          index={2}
       >
-        <AnimatedCounter
-          value={totalCount}
-          formatValue={countFormatter}
-        />
+        <AnimatedCounter value={totalCount} formatValue={countFormatter} />
       </SummaryCardItem>
     </div>
   );
