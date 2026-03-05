@@ -18,7 +18,7 @@ const amountSchema = z
   .max(9999999999.99, "Amount exceeds allowed maximum")
   .refine(
     (value) =>
-      Math.abs(Math.round(value * 100) - value * 100) < 0.01,
+      Math.abs(Math.round(value * 100) - value * 100) < 1e-8,
     "Amount must have at most 2 decimal places"
   );
 

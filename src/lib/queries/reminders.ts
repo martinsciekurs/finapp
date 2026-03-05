@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatDateForInput } from "@/lib/utils/date";
+import { DEFAULT_CATEGORY_COLOR } from "@/lib/config/categories";
 import type {
   ReminderData,
   ReminderOccurrence,
@@ -247,7 +248,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
         category_id: row.category_id,
         category_name: cat?.name ?? "Uncategorized",
         category_icon: cat?.icon ?? "circle",
-        category_color: cat?.color ?? "#888888",
+        category_color: cat?.color ?? DEFAULT_CATEGORY_COLOR,
         status,
         payment_id: payment?.id ?? null,
         paid_at: payment?.paid_at ?? null,
@@ -298,7 +299,7 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
       category_id: row.category_id,
       category_name: cat?.name ?? "Uncategorized",
       category_icon: cat?.icon ?? "circle",
-      category_color: cat?.color ?? "#888888",
+      category_color: cat?.color ?? DEFAULT_CATEGORY_COLOR,
     };
   });
 }

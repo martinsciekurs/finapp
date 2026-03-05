@@ -329,7 +329,7 @@ select throws_ok(
     'insert into public.reminder_payments (user_id, reminder_id, due_date) values (%L, %L, current_date + 60)',
     :'bob_id'::uuid, current_setting('test.pay_rem_id')
   ),
-  null,
+  '42501'::char(5),
   null,
   'reminder_payments: Bob cannot insert payment for Alice''s reminder'
 );

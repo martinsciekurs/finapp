@@ -244,6 +244,18 @@ as $$
 declare
   _rid uuid;
 begin
+  -- Auto-resolve category_id when not provided (column is NOT NULL)
+  if _category_id is null then
+    select id into _category_id
+      from public.categories
+      where user_id = _user_id
+      limit 1;
+
+    if _category_id is null then
+      _category_id := create_test_category(_user_id, 'Default reminder category', 'expense');
+    end if;
+  end if;
+
   insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
   values (_user_id, _title, _amount, current_date + interval '30 days', 'monthly', _category_id)
   returning id into _rid;

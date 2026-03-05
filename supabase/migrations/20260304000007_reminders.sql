@@ -49,6 +49,10 @@ create index idx_reminders_user_id
 create index idx_reminders_user_due
   on public.reminders (user_id, is_paid, due_date);
 
+-- Supporting index for the composite FK (avoids sequential scans on parent deletes/updates)
+create index idx_reminders_category_user
+  on public.reminders (category_id, user_id);
+
 -- Composite FK: enforce category belongs to same user
 alter table public.reminders
   add constraint fk_reminders_category

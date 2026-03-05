@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(91);
+select plan(93);
 
 -- ===========================
 -- Setup: create two test users
@@ -910,7 +910,46 @@ insert into public.notifications (user_id, type, title, message)
 values (u1(), 'budget_80', 'Budget warning', 'You used 80%');
 
 -- ===========================================================================
--- 14. ANON ACCESS — verify anon is locked out of all user-scoped tables
+-- 14. REMINDER PAYMENTS — owner access + cross-user denial
+-- ===========================================================================
+
+select reset_role();
+
+-- Seed reminder_payments (reminders were re-inserted earlier for both users)
+do $$
+declare
+  _rem1 uuid;
+  _rem2 uuid;
+begin
+  select id into _rem1 from public.reminders where user_id = u1() limit 1;
+  select id into _rem2 from public.reminders where user_id = u2() limit 1;
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u1(), _rem1, current_date + 30);
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u2(), _rem2, current_date + 7);
+end;
+$$;
+
+-- Owner can read own reminder payments
+select authenticate_as(u1());
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u1()),
+  1,
+  'reminder_payments: owner can read own payments'
+);
+
+-- Cross-user denial: user cannot read another user's payments
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u2()),
+  0,
+  'reminder_payments: user cannot read another user''s payments'
+);
+
+select reset_role();
+
+-- ===========================================================================
+-- 15. ANON ACCESS — verify anon is locked out of all user-scoped tables
 -- ===========================================================================
 
 select authenticate_as_anon();

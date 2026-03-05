@@ -35,13 +35,15 @@ const uuidSchema = z.string().uuid("Invalid ID");
 
 /**
  * Verify a category belongs to the given user and is an expense category.
- * Returns true if valid, false otherwise.
+ * Returns `{ valid: true }` if the category exists and belongs to the user,
+ * `{ valid: false }` if it doesn't exist, or `{ valid: false, error }` on
+ * query failure so callers can distinguish "not found" from a real DB error.
  */
 async function verifyCategoryOwnership(
   supabase: SupabaseClient,
   categoryId: string,
   userId: string
-): Promise<boolean> {
+): Promise<{ valid: boolean; error?: string }> {
   const { data, error } = await supabase
     .from("categories")
     .select("id")
@@ -50,7 +52,11 @@ async function verifyCategoryOwnership(
     .eq("type", "expense")
     .maybeSingle();
 
-  return !error && !!data;
+  if (error) {
+    return { valid: false, error: "Failed to verify category" };
+  }
+
+  return { valid: !!data };
 }
 
 // ────────────────────────────────────────────
@@ -75,8 +81,8 @@ export async function createReminder(
     return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  const valid = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
-  if (!valid) return { success: false, error: "Category not found" };
+  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  if (!catCheck.valid) return { success: false, error: catCheck.error ?? "Category not found" };
 
   const insertPayload: TablesInsert<"reminders"> = {
     user_id: user.id,
@@ -129,8 +135,8 @@ export async function updateReminder(
     return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  const validCat = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
-  if (!validCat) return { success: false, error: "Category not found" };
+  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  if (!catCheck.valid) return { success: false, error: catCheck.error ?? "Category not found" };
 
   const updatePayload: TablesUpdate<"reminders"> = {
     title: parsed.data.title,
@@ -237,7 +243,10 @@ export async function markOccurrencePaid(
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (fetchError || !reminder) {
+  if (fetchError) {
+    return { success: false, error: "Failed to fetch reminder" };
+  }
+  if (!reminder) {
     return { success: false, error: "Reminder not found" };
   }
 
