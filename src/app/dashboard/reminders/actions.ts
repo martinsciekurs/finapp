@@ -298,10 +298,17 @@ export async function markOccurrencePaid(
     }
 
     // Link the transaction to the payment record
-    await supabase
+    const { error: linkError } = await supabase
       .from("reminder_payments")
       .update({ transaction_id: tx.id } as never)
       .eq("id", reserved.id);
+
+    if (linkError) {
+      // Roll back: delete the orphaned transaction and reserved payment
+      await supabase.from("transactions").delete().eq("id", tx.id);
+      await supabase.from("reminder_payments").delete().eq("id", reserved.id);
+      return { success: false, error: "Failed to link transaction to payment" };
+    }
   }
 
   revalidate();

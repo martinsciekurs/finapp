@@ -50,9 +50,12 @@ function mockUnauthenticated() {
 
 /**
  * Build a chainable query mock for Supabase.
+ * Returns a real Promise with fluent query methods attached so it
+ * behaves both as a thenable (for `await`) and a query builder.
  */
 function chainable(terminalResult: unknown) {
-  const chain: Record<string, unknown> = {};
+  const chain = Promise.resolve(terminalResult) as Promise<unknown> &
+    Record<string, unknown>;
 
   for (const method of [
     "select", "insert", "update", "delete", "upsert",
@@ -63,11 +66,6 @@ function chainable(terminalResult: unknown) {
 
   chain.single = vi.fn().mockResolvedValue(terminalResult);
   chain.maybeSingle = vi.fn().mockResolvedValue(terminalResult);
-
-  // Make chain thenable
-  chain.then = vi.fn().mockImplementation(
-    (resolve: (v: unknown) => void) => Promise.resolve(terminalResult).then(resolve)
-  );
 
   return { chain };
 }
