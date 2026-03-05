@@ -129,17 +129,40 @@ export async function fetchUpcomingRemindersCount(): Promise<number> {
 /**
  * Fetch expense categories with budget data for the dashboard overview.
  *
- * NOTE: Budget limits have moved from `categories.budget_limit` to the
- * `category_budgets` table (per-month). This function returns an empty
- * array until Phase 2D-ii implements the new budget system.
+ * Queries category_budgets for the current month, merges with
+ * spending data, and returns BudgetCategoryData[] for the dashboard widget.
  */
 export async function fetchBudgetCategories(
-  _spentByCategory: Map<string, number>
+  spentByCategory: Map<string, number>
 ): Promise<BudgetCategoryData[]> {
-  // TODO(Phase 2D-ii): Query category_budgets for current month,
-  // merge with spending data, and return BudgetCategoryData[].
-  void _spentByCategory;
-  return [];
+  const supabase = await createClient();
+  const { start } = getCurrentMonthRange();
+  const yearMonth = start.substring(0, 7); // "YYYY-MM"
+
+  // Fetch budgets for the current month with category info
+  const { data: budgets, error } = await supabase
+    .from("category_budgets")
+    .select("category_id, amount, categories(name, icon, color)")
+    .eq("year_month", yearMonth);
+
+  if (error) {
+    throw new Error(`Failed to fetch budget categories: ${error.message}`);
+  }
+
+  return (budgets ?? [])
+    .map((b) => {
+      const cat = parseCategoryJoin(b.categories);
+      if (!cat) return null;
+      return {
+        id: b.category_id,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        budgetLimit: b.amount,
+        spent: spentByCategory.get(b.category_id) ?? 0,
+      };
+    })
+    .filter((item): item is BudgetCategoryData => item !== null);
 }
 
 /**

@@ -118,3 +118,34 @@ export function getCurrentMonthLabel(): string {
     year: "numeric",
   }).format(new Date());
 }
+
+/**
+ * Get the current year-month as a "YYYY-MM" string.
+ *
+ * @returns e.g. "2026-03"
+ */
+export function getCurrentYearMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Get the start (inclusive) and end (exclusive) date bounds for a YYYY-MM string.
+ *
+ * @param yearMonth  e.g. "2026-03"
+ * @returns `{ start: "YYYY-MM-DD", end: "YYYY-MM-DD" }` where `end` is
+ *          the first day of the next month.
+ */
+export function getMonthRange(yearMonth: string): { start: string; end: string } {
+  const [yearStr, monthStr] = yearMonth.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr); // 1-indexed
+
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const nextMonth = new Date(year, month, 1); // month is 0-indexed in Date, so month (1-indexed) = next month
+  const endYear = nextMonth.getFullYear();
+  const endMonth = nextMonth.getMonth() + 1;
+  const end = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
+
+  return { start, end };
+}
