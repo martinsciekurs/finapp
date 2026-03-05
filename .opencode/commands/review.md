@@ -4,7 +4,7 @@ description: PR review + auto-fix — parallel agents for quality, security, and
 
 Review the current branch's changes. Base defaults to origin/main. Override: `/review <branch>`
 
-!`git fetch origin main`
+!`B=$ARGUMENTS; REF="${B:-origin/main}"; REMOTE="${REF%%/*}"; BRANCH="${REF#*/}"; git fetch "$REMOTE" "$BRANCH"`
 
 **Changed files:**
 !`B=$ARGUMENTS; git diff "${B:-origin/main}"...HEAD --stat`
@@ -24,9 +24,9 @@ Review the current branch's changes. Base defaults to origin/main. Override: `/r
 
 IMPORTANT: You MUST use the Task tool to launch exactly 3 subagents IN PARALLEL (all 3 in a single response). Do NOT review the code yourself. Delegate to:
 
-1. Task(subagent_type="review-quality") — pass it the changed file list. It reviews code quality and dead-end code.
+1. Task(subagent_type="review-quality") — pass it the changed file list. It reviews code quality, dead-end paths, and unused/dead code detection (authoritative owner of unused-code findings).
 2. Task(subagent_type="review-security") — pass it the changed file list AND specifically which migrations and test files changed (or didn't). It reviews security, SQL integrity, and DB test coverage.
-3. Task(subagent_type="review-cleanup") — pass it the changed file list. It reviews redundancy and simplification.
+3. Task(subagent_type="review-cleanup") — pass it the changed file list. It reviews redundancy and simplification opportunities only (not unused/dead code — that belongs to review-quality). Avoid duplicate findings.
 
 Include the full changed file list in each Task prompt so the subagent knows what to read.
 
@@ -43,9 +43,11 @@ Wait for all 3 to complete, then compile their findings:
 
 ---
 
-## Phase 2: Auto-Fix
+## Phase 2: Fix
 
-Fix ALL issues found. No exceptions. Apply changes directly with Edit/Write tools.
+### Low-risk — auto-apply
+
+Apply these directly with Edit/Write tools — no confirmation needed:
 
 - Unused imports, variables, dead code — remove
 - Missing return types — add them
@@ -54,12 +56,18 @@ Fix ALL issues found. No exceptions. Apply changes directly with Edit/Write tool
 - Unnecessary `"use client"` — remove directive
 - Empty catch blocks — add error handling
 - Wrapper functions adding no value — inline
-- Missing Zod validation on Server Action inputs — add schema
-- Missing RLS policies — write the SQL migration
-- Missing pgTAP tests — write them following patterns in `supabase/tests/`
-- Missing auth checks — add `supabase.auth.getUser()` guard
-- Missing FK/CHECK/UNIQUE constraints — write migration
 - Duplicated logic — extract to shared util in `src/lib/`
+- Missing Zod validation scaffolding on Server Action inputs — add schema
+
+### High-risk — require confirmation
+
+Present these to the user and wait for explicit approval before applying:
+
+- Missing auth checks — add `supabase.auth.getUser()` guard
+- Missing RLS policies — write the SQL migration
+- Missing FK/CHECK/UNIQUE constraints — write migration
+- Missing pgTAP tests — write them following patterns in `supabase/tests/`
+- Repository-wide constraint changes
 
 ---
 

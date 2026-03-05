@@ -276,7 +276,19 @@ language plpgsql
 as $$
 declare
   _pid uuid;
+  _found boolean;
 begin
+  -- Guard: ensure the reminder belongs to the given user
+  select exists(
+    select 1 from public.reminders
+    where id = _reminder_id and user_id = _user_id
+  ) into _found;
+
+  if not _found then
+    raise exception 'create_test_reminder_payment: reminder % does not belong to user %',
+      _reminder_id, _user_id;
+  end if;
+
   insert into public.reminder_payments (user_id, reminder_id, due_date)
   values (_user_id, _reminder_id, _due_date)
   returning id into _pid;
