@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(90);
+select plan(93);
 
 -- ===========================
 -- Setup: create two test users
@@ -96,11 +96,11 @@ values (u1(), cat1(), 25, 'expense');
 insert into public.transactions (user_id, category_id, amount, type)
 values (u2(), cat2(), 3000, 'income');
 
--- Reminders
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u1(), 'Rent',     800, current_date + 30, 'monthly');
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u2(), 'Gym',      40,  current_date + 7,  'monthly');
+-- Reminders (category_id is NOT NULL — use each user's category)
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u1(), 'Rent',     800, current_date + 30, 'monthly', cat1());
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u2(), 'Gym',      40,  current_date + 7,  'monthly', cat2());
 
 -- Debts
 insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type)
@@ -459,8 +459,8 @@ select is(
 );
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Hack'', 10, current_date, ''monthly'')',
-    u2()
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Hack'', 10, current_date, ''monthly'', %L)',
+    u2(), cat2()
   ),
   'new row violates row-level security policy for table "reminders"',
   'reminders: user cannot insert for another user'
@@ -487,8 +487,8 @@ select lives_ok(
 
 select reset_role();
 -- Re-insert for downstream tests
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u1(), 'Rent', 800, current_date + 30, 'monthly');
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u1(), 'Rent', 800, current_date + 30, 'monthly', cat1());
 
 -- ===========================================================================
 -- 5. DEBTS — standard CRUD isolation
@@ -910,7 +910,46 @@ insert into public.notifications (user_id, type, title, message)
 values (u1(), 'budget_80', 'Budget warning', 'You used 80%');
 
 -- ===========================================================================
--- 14. ANON ACCESS — verify anon is locked out of all user-scoped tables
+-- 14. REMINDER PAYMENTS — owner access + cross-user denial
+-- ===========================================================================
+
+select reset_role();
+
+-- Seed reminder_payments (reminders were re-inserted earlier for both users)
+do $$
+declare
+  _rem1 uuid;
+  _rem2 uuid;
+begin
+  select id into _rem1 from public.reminders where user_id = u1() limit 1;
+  select id into _rem2 from public.reminders where user_id = u2() limit 1;
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u1(), _rem1, current_date + 30);
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u2(), _rem2, current_date + 7);
+end;
+$$;
+
+-- Owner can read own reminder payments
+select authenticate_as(u1());
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u1()),
+  1,
+  'reminder_payments: owner can read own payments'
+);
+
+-- Cross-user denial: user cannot read another user's payments
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u2()),
+  0,
+  'reminder_payments: user cannot read another user''s payments'
+);
+
+select reset_role();
+
+-- ===========================================================================
+-- 15. ANON ACCESS — verify anon is locked out of all user-scoped tables
 -- ===========================================================================
 
 select authenticate_as_anon();
@@ -974,6 +1013,11 @@ select is(
   (select count(*)::int from public.notifications),
   0,
   'anon: cannot read notifications'
+);
+select is(
+  (select count(*)::int from public.reminder_payments),
+  0,
+  'anon: cannot read reminder_payments'
 );
 
 select reset_role();

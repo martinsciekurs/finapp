@@ -287,6 +287,61 @@ export type Database = {
           },
         ]
       }
+      reminder_payments: {
+        Row: {
+          id: string
+          reminder_id: string
+          user_id: string
+          due_date: string
+          paid_at: string
+          transaction_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          reminder_id: string
+          user_id: string
+          due_date: string
+          paid_at?: string
+          transaction_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          reminder_id?: string
+          user_id?: string
+          due_date?: string
+          paid_at?: string
+          transaction_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_payments_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debts: {
         Row: {
           id: string

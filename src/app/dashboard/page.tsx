@@ -3,10 +3,10 @@ import { getCurrentMonthLabel } from "@/lib/utils/date";
 import {
   fetchUserCurrency,
   fetchMonthlySummary,
-  fetchUpcomingRemindersCount,
   fetchBudgetCategories,
   fetchRecentTransactions,
 } from "@/lib/queries/dashboard";
+import { fetchUpcomingRemindersData } from "@/lib/queries/reminders";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { BudgetOverview } from "@/components/dashboard/budget-overview";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [currency, { summary, spentByCategory }, upcomingReminders, recentTransactions] =
+  const [currency, { summary, spentByCategory }, upcomingRemindersData, recentTransactions] =
     await Promise.all([
       fetchUserCurrency(),
       fetchMonthlySummary(),
-      fetchUpcomingRemindersCount(),
+      fetchUpcomingRemindersData(),
       fetchRecentTransactions(),
     ]);
 
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
         totalSpent={summary.totalSpent}
         totalIncome={summary.totalIncome}
         weeklySpending={summary.weeklySpending}
-        upcomingReminders={upcomingReminders}
+        upcomingReminders={upcomingRemindersData}
         currency={currency}
       />
 

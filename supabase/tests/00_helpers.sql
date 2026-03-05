@@ -230,12 +230,13 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- create_test_reminder(user_id, title, amount)
+-- create_test_reminder(user_id, title, amount, category_id)
 -- ---------------------------------------------------------------------------
 create or replace function create_test_reminder(
-  _user_id uuid,
-  _title   text    default 'Test Reminder',
-  _amount  numeric default 50
+  _user_id      uuid,
+  _title        text    default 'Test Reminder',
+  _amount       numeric default 50,
+  _category_id  uuid    default null
 )
 returns uuid
 language plpgsql
@@ -243,10 +244,55 @@ as $$
 declare
   _rid uuid;
 begin
-  insert into public.reminders (user_id, title, amount, due_date, frequency)
-  values (_user_id, _title, _amount, current_date + interval '30 days', 'monthly')
+  -- Auto-resolve category_id when not provided (column is NOT NULL)
+  if _category_id is null then
+    select id into _category_id
+      from public.categories
+      where user_id = _user_id
+      limit 1;
+
+    if _category_id is null then
+      _category_id := create_test_category(_user_id, 'Default reminder category', 'expense');
+    end if;
+  end if;
+
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_user_id, _title, _amount, current_date + interval '30 days', 'monthly', _category_id)
   returning id into _rid;
   return _rid;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- create_test_reminder_payment(user_id, reminder_id, due_date)
+-- ---------------------------------------------------------------------------
+create or replace function create_test_reminder_payment(
+  _user_id     uuid,
+  _reminder_id uuid,
+  _due_date    date default current_date
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  _pid uuid;
+  _found boolean;
+begin
+  -- Guard: ensure the reminder belongs to the given user
+  select exists(
+    select 1 from public.reminders
+    where id = _reminder_id and user_id = _user_id
+  ) into _found;
+
+  if not _found then
+    raise exception 'create_test_reminder_payment: reminder % does not belong to user %',
+      _reminder_id, _user_id;
+  end if;
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (_user_id, _reminder_id, _due_date)
+  returning id into _pid;
+  return _pid;
 end;
 $$;
 

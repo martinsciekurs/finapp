@@ -132,27 +132,26 @@ select throws_ok(
   'fk_reminders_category: rejects cross-user category'
 );
 
--- ON DELETE SET NULL: deleting category nullifies reminder's category_id
+-- ON DELETE RESTRICT: deleting category referenced by a reminder is blocked
 do $$
 declare
   _cat uuid;
-  _rid uuid;
 begin
-  _cat := create_test_category(u1(), 'Deletable', 'expense');
+  _cat := create_test_category(u1(), 'Restricted', 'expense');
   insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
-  values (u1(), 'Will Lose Cat', 100, current_date + 30, 'monthly', _cat)
-  returning id into _rid;
-  perform set_config('test.setnull_cat', _cat::text, true);
-  perform set_config('test.setnull_rem', _rid::text, true);
+  values (u1(), 'Blocks Delete', 100, current_date + 30, 'monthly', _cat);
+  perform set_config('test.restrict_cat', _cat::text, true);
 end;
 $$;
 
-delete from public.categories where id = current_setting('test.setnull_cat')::uuid;
-
-select is(
-  (select category_id from public.reminders where id = current_setting('test.setnull_rem')::uuid),
+select throws_ok(
+  format(
+    'delete from public.categories where id = %L',
+    current_setting('test.restrict_cat')::uuid
+  ),
+  '23503'::char(5),
   null,
-  'fk_reminders_category: ON DELETE SET NULL nullifies category_id'
+  'fk_reminders_category: ON DELETE RESTRICT blocks category deletion'
 );
 
 -- ===========================================================================
@@ -300,8 +299,8 @@ select throws_ok(
 -- Reminders: negative amount
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Bad'', -5, current_date, ''monthly'')',
-    u1()
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Bad'', -5, current_date, ''monthly'', %L)',
+    u1(), c1_exp()
   ),
   '23514'::char(5),
   null,
@@ -565,8 +564,8 @@ select lives_ok(
 
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Bad Freq'', 50, current_date, ''biweekly'')',
-    u1()
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Bad Freq'', 50, current_date, ''biweekly'', %L)',
+    u1(), c1_exp()
   ),
   '23514'::char(5),
   null,

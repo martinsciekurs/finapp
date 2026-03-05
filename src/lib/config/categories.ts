@@ -1,3 +1,6 @@
+/** Fallback color used when a category has no color (e.g., deleted/orphaned join). */
+export const DEFAULT_CATEGORY_COLOR = "#888888";
+
 /**
  * Default category presets shown during onboarding.
  * Users select which to keep. Categories are created per-user in the database.

@@ -1,16 +1,30 @@
 import type { Metadata } from "next";
+import {
+  fetchReminders,
+  fetchReminderTemplates,
+  fetchReminderCategories,
+} from "@/lib/queries/reminders";
+import { fetchUserCurrency } from "@/lib/queries/dashboard";
+import { ReminderList } from "@/components/reminders/reminder-list";
 
 export const metadata: Metadata = {
   title: "Reminders",
 };
 
-export default function RemindersPage() {
+export default async function RemindersPage() {
+  const [groupedOccurrences, reminders, categories, currency] = await Promise.all([
+    fetchReminders(),
+    fetchReminderTemplates(),
+    fetchReminderCategories(),
+    fetchUserCurrency(),
+  ]);
+
   return (
-    <div>
-      <h2 className="font-serif text-xl font-bold sm:text-2xl">Reminders</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Upcoming bills and due dates coming in Phase 2E.
-      </p>
-    </div>
+    <ReminderList
+      data={groupedOccurrences}
+      reminders={reminders}
+      categories={categories}
+      currency={currency}
+    />
   );
 }
