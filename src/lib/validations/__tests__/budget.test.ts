@@ -65,8 +65,9 @@ describe("upsertCategoryBudgetSchema", () => {
   });
 
   it("rejects missing categoryId", () => {
-    const { categoryId: _, ...rest } = validData;
-    expect(upsertCategoryBudgetSchema.safeParse(rest).success).toBe(false);
+    expect(
+      upsertCategoryBudgetSchema.safeParse({ yearMonth: validData.yearMonth, amount: validData.amount }).success
+    ).toBe(false);
   });
 
   it("rejects invalid UUID for categoryId", () => {
@@ -76,8 +77,9 @@ describe("upsertCategoryBudgetSchema", () => {
   });
 
   it("rejects missing yearMonth", () => {
-    const { yearMonth: _, ...rest } = validData;
-    expect(upsertCategoryBudgetSchema.safeParse(rest).success).toBe(false);
+    expect(
+      upsertCategoryBudgetSchema.safeParse({ categoryId: validData.categoryId, amount: validData.amount }).success
+    ).toBe(false);
   });
 
   it("rejects invalid yearMonth format", () => {
@@ -87,8 +89,9 @@ describe("upsertCategoryBudgetSchema", () => {
   });
 
   it("rejects missing amount", () => {
-    const { amount: _, ...rest } = validData;
-    expect(upsertCategoryBudgetSchema.safeParse(rest).success).toBe(false);
+    expect(
+      upsertCategoryBudgetSchema.safeParse({ categoryId: validData.categoryId, yearMonth: validData.yearMonth }).success
+    ).toBe(false);
   });
 
   it("rejects zero amount", () => {
