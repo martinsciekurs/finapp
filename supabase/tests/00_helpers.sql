@@ -250,6 +250,27 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------------------
+-- create_test_reminder_payment(user_id, reminder_id, due_date)
+-- ---------------------------------------------------------------------------
+create or replace function create_test_reminder_payment(
+  _user_id     uuid,
+  _reminder_id uuid,
+  _due_date    date default current_date
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  _pid uuid;
+begin
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (_user_id, _reminder_id, _due_date)
+  returning id into _pid;
+  return _pid;
+end;
+$$;
+
 -- Dummy test so this file doesn't fail when supabase test db runs it
 begin;
 select plan(1);

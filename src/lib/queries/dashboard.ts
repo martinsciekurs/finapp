@@ -107,26 +107,6 @@ export async function fetchMonthlySummary(): Promise<{
 }
 
 /**
- * Fetch the count of unpaid reminders with a due date of today or later.
- */
-export async function fetchUpcomingRemindersCount(): Promise<number> {
-  const supabase = await createClient();
-  const today = formatDateForInput(new Date());
-
-  const { count, error } = await supabase
-    .from("reminders")
-    .select("id", { count: "exact", head: true })
-    .eq("is_paid", false)
-    .gte("due_date", today);
-
-  if (error) {
-    throw new Error(`Failed to fetch reminders count: ${error.message}`);
-  }
-
-  return count ?? 0;
-}
-
-/**
  * Fetch expense categories with budget data for the dashboard overview.
  *
  * Queries category_budgets for the current month, merges with

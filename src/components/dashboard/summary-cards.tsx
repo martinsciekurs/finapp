@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   DollarSign,
@@ -11,6 +11,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils/currency";
 import { AnimatedCounter } from "./animated-counter";
+import type { UpcomingRemindersData, ReminderPeriod } from "@/lib/types/reminder";
 
 // ────────────────────────────────────────────
 // Types
@@ -20,14 +21,14 @@ export interface SummaryCardsProps {
   totalSpent: number;
   totalIncome: number;
   weeklySpending: number;
-  upcomingReminders: number;
+  upcomingReminders: UpcomingRemindersData;
   currency: string;
 }
 
 interface SummaryCardItemProps {
   label: string;
   icon: LucideIcon;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   index: number;
   children: React.ReactNode;
 }
@@ -70,7 +71,7 @@ function SummaryCardItem({
 
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <div className="text-xs text-muted-foreground">{subtitle}</div>
           )}
         </CardContent>
       </Card>
@@ -79,15 +80,18 @@ function SummaryCardItem({
 }
 
 // ────────────────────────────────────────────
+// Period filter
+// ────────────────────────────────────────────
+
+const PERIOD_OPTIONS: { value: ReminderPeriod; label: string }[] = [
+  { value: "7d", label: "Next 7 days" },
+  { value: "end_of_month", label: "Until end of month" },
+];
+
+// ────────────────────────────────────────────
 // SummaryCards (exported)
 // ────────────────────────────────────────────
 
-/**
- * Three summary cards matching the dashboard overview design:
- * - Total Spent This Month (currency)
- * - Weekly Spending (currency, last 7 days)
- * - Upcoming Reminders (count)
- */
 export function SummaryCards({
   totalSpent,
   totalIncome,
@@ -95,6 +99,8 @@ export function SummaryCards({
   upcomingReminders,
   currency,
 }: SummaryCardsProps) {
+  const [period, setPeriod] = useState<ReminderPeriod>("7d");
+
   const currencyFormatter = useCallback(
     (n: number) => formatCurrency(n, currency),
     [currency]
@@ -103,6 +109,9 @@ export function SummaryCards({
     (n: number) => String(Math.round(n)),
     []
   );
+
+  const periodStats = upcomingReminders.byPeriod[period];
+  const totalCount = periodStats.count + upcomingReminders.overdueCount;
 
   return (
     <div
@@ -134,14 +143,28 @@ export function SummaryCards({
         />
       </SummaryCardItem>
 
+      {/* Scheduled Payments card */}
       <SummaryCardItem
-        label="Upcoming Reminders"
+        label="Scheduled Payments"
         icon={CalendarClock}
-        subtitle="Bills & scheduled payments"
+        subtitle={
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as ReminderPeriod)}
+            aria-label="Filter period"
+            className="cursor-pointer bg-transparent text-xs text-muted-foreground focus:outline-none"
+          >
+            {PERIOD_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        }
         index={2}
       >
         <AnimatedCounter
-          value={upcomingReminders}
+          value={totalCount}
           formatValue={countFormatter}
         />
       </SummaryCardItem>
