@@ -472,7 +472,11 @@ describe("markOccurrencePaid", () => {
     });
 
     // Update payment to link transaction (second reminder_payments call)
-    const { chain: updatePayChain } = chainable({ data: null, error: null });
+    const { chain: updatePayChain } = chainable(undefined);
+    updatePayChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-2" },
+      error: null,
+    });
 
     let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {

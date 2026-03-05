@@ -290,23 +290,49 @@ export async function markOccurrencePaid(
 
     if (txError) {
       // Roll back the reserved payment to avoid an orphaned record
-      await supabase
+      const { error: rbError } = await supabase
         .from("reminder_payments")
         .delete()
         .eq("id", reserved.id);
+      if (rbError) {
+        console.error("Rollback failed: could not delete reserved payment", {
+          paymentId: reserved.id,
+          error: rbError.message,
+        });
+      }
       return { success: false, error: "Failed to create transaction" };
     }
 
     // Link the transaction to the payment record
-    const { error: linkError } = await supabase
+    const { data: linkedRow, error: linkError } = await supabase
       .from("reminder_payments")
       .update({ transaction_id: tx.id } as never)
-      .eq("id", reserved.id);
+      .eq("id", reserved.id)
+      .select("id")
+      .maybeSingle();
 
-    if (linkError) {
+    if (linkError || !linkedRow) {
       // Roll back: delete the orphaned transaction and reserved payment
-      await supabase.from("transactions").delete().eq("id", tx.id);
-      await supabase.from("reminder_payments").delete().eq("id", reserved.id);
+      const { error: rbTxErr } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", tx.id);
+      if (rbTxErr) {
+        console.error("Rollback failed: could not delete transaction", {
+          transactionId: tx.id,
+          error: rbTxErr.message,
+        });
+      }
+      const { error: rbPayErr } = await supabase
+        .from("reminder_payments")
+        .delete()
+        .eq("id", reserved.id);
+      if (rbPayErr) {
+        console.error("Rollback failed: could not delete reserved payment", {
+          paymentId: reserved.id,
+          error: rbPayErr.message,
+        });
+      }
       return { success: false, error: "Failed to link transaction to payment" };
     }
   }
