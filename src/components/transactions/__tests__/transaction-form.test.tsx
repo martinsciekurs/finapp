@@ -19,62 +19,44 @@ vi.mock("framer-motion", () => ({
   useReducedMotion: () => true,
 }));
 
-// Mock CategoryIcon
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({
-    name,
-    "aria-label": label,
-  }: {
-    name: string;
-    "aria-label"?: string;
-  }) => (
-    <span data-testid="category-icon" aria-label={label}>
-      {name}
-    </span>
-  ),
-}));
-
-// Module-level ref for threading Select's onValueChange to SelectItem
-let _selectOnValueChange: ((v: string) => void) | undefined;
-
-// Mock Radix Select — Radix portals don't work in jsdom.
-// We thread onValueChange via a module-level ref so SelectItem can trigger it.
-vi.mock("@/components/ui/select", () => ({
-  Select: ({
-    children,
-    onValueChange,
-  }: {
-    children: React.ReactNode;
-    value?: string;
-    onValueChange?: (v: string) => void;
-  }) => {
-    // Synchronous assignment during render — no useEffect needed
-    _selectOnValueChange = onValueChange;
-    return <div data-testid="mock-select">{children}</div>;
-  },
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  SelectItem: ({
-    children,
+// Mock CategoryCombobox — renders categories as simple buttons
+vi.mock("../category-combobox", () => ({
+  CategoryCombobox: ({
+    categories,
     value,
+    onValueChange,
+    emptyLabel,
   }: {
-    children: React.ReactNode;
+    categories: Array<{
+      id: string;
+      name: string;
+      icon: string;
+      group_name: string | null;
+    }>;
     value: string;
+    onValueChange: (v: string) => void;
+    emptyLabel?: string;
   }) => (
-    <button
-      type="button"
-      role="option"
-      aria-selected={false}
-      onClick={() => _selectOnValueChange?.(value)}
-      data-value={value}
-    >
-      {children}
-    </button>
+    <div data-testid="category-combobox">
+      <span data-testid="combobox-value">{value}</span>
+      {categories.map((cat) => (
+        <button
+          key={cat.id}
+          type="button"
+          role="option"
+          aria-selected={value === cat.id}
+          onClick={() => onValueChange(cat.id)}
+          data-value={cat.id}
+        >
+          {cat.name}
+        </button>
+      ))}
+      {categories.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          {emptyLabel ?? "No categories"}
+        </div>
+      )}
+    </div>
   ),
 }));
 
@@ -110,6 +92,8 @@ const sampleCategories: CategoryOption[] = [
     icon: "shopping-cart",
     color: "#4CAF50",
     type: "expense",
+    group_id: "g1",
+    group_name: "Essentials",
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440002",
@@ -117,6 +101,8 @@ const sampleCategories: CategoryOption[] = [
     icon: "car",
     color: "#2196F3",
     type: "expense",
+    group_id: "g1",
+    group_name: "Essentials",
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440003",
@@ -124,6 +110,8 @@ const sampleCategories: CategoryOption[] = [
     icon: "briefcase",
     color: "#FF9800",
     type: "income",
+    group_id: "g2",
+    group_name: "Earnings",
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440004",
@@ -131,6 +119,8 @@ const sampleCategories: CategoryOption[] = [
     icon: "laptop",
     color: "#9C27B0",
     type: "income",
+    group_id: "g2",
+    group_name: "Earnings",
   },
 ];
 
@@ -155,7 +145,6 @@ async function fillForm(
 describe("TransactionForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    _selectOnValueChange = undefined;
   });
 
   it("renders the form with all fields", () => {
@@ -340,6 +329,65 @@ describe("TransactionForm", () => {
 
     await waitFor(() => {
       expect(submitButton).toBeDisabled();
+    });
+  });
+
+  it("renders category combobox component", () => {
+    render(<TransactionForm categories={sampleCategories} />);
+
+    expect(screen.getByTestId("category-combobox")).toBeInTheDocument();
+  });
+
+  it("submits income transaction with correct type and toast", async () => {
+    const user = userEvent.setup();
+    mockCreateTransaction.mockResolvedValue({
+      success: true,
+      data: { id: "new-tx-id" },
+    });
+
+    render(<TransactionForm categories={sampleCategories} />);
+
+    // Switch to income
+    await user.click(screen.getByRole("radio", { name: "Income" }));
+
+    await user.type(screen.getByLabelText("Amount"), "3000");
+    await user.click(screen.getByRole("option", { name: /salary/i }));
+    await user.click(screen.getByRole("button", { name: /add income/i }));
+
+    await waitFor(() => {
+      expect(mockCreateTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "income" })
+      );
+      expect(mockToastSuccess).toHaveBeenCalledWith("Income added");
+    });
+  });
+
+  it("resets category_id when switching type", async () => {
+    const user = userEvent.setup();
+
+    render(<TransactionForm categories={sampleCategories} />);
+
+    // Select an expense category
+    await user.click(screen.getByRole("option", { name: /groceries/i }));
+
+    // Switch to income — should clear the selection
+    await user.click(screen.getByRole("radio", { name: "Income" }));
+
+    // The combobox value should be empty
+    expect(screen.getByTestId("combobox-value")).toHaveTextContent("");
+  });
+
+  it("shows 'Something went wrong' toast on network exception", async () => {
+    const user = userEvent.setup();
+    mockCreateTransaction.mockRejectedValue(new Error("Network error"));
+
+    render(<TransactionForm categories={sampleCategories} />);
+
+    await fillForm(user, { amount: "10" });
+    await user.click(screen.getByRole("button", { name: /add expense/i }));
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Something went wrong");
     });
   });
 });

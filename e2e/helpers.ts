@@ -114,6 +114,23 @@ export async function loginViaUI(
 }
 
 /**
+ * Hides the Next.js dev-tools overlay so it cannot intercept clicks.
+ *
+ * In dev mode (`npm run dev`), Next.js injects a `<nextjs-portal>` element
+ * that renders an issues badge in the bottom-left corner. When an intermittent
+ * dev warning fires, the badge expands and covers nearby fixed-position
+ * elements (like the onboarding Back button). Setting `pointer-events: none`
+ * prevents it from stealing clicks without removing it from the DOM.
+ */
+export async function dismissDevOverlay(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll("nextjs-portal").forEach((el) => {
+      (el as HTMLElement).style.pointerEvents = "none";
+    });
+  });
+}
+
+/**
  * Completes the 3-step onboarding wizard using all defaults.
  * Assumes the page is already on /onboarding.
  * Does NOT wait for the redirect — callers should assert `toHaveURL(/\/dashboard/)`.

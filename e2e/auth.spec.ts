@@ -170,8 +170,9 @@ test.describe("Sign-up flow", () => {
     await signUpViaUI(page, { email });
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
-    // Clear session and attempt duplicate sign-up
+    // Clear session completely (cookies + localStorage where Supabase stores tokens)
     await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
     await signUpViaUI(page, { email });
 
     // Should not reach onboarding — either error toast or redirect to login

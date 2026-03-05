@@ -650,6 +650,40 @@ export type Database = {
         }
         Returns: undefined
       }
+      batch_reorder_categories: {
+        Args: { p_items: Json }
+        Returns: undefined
+      }
+      batch_reorder_groups: {
+        Args: { p_items: Json }
+        Returns: undefined
+      }
+      create_category_auto_sort: {
+        Args: {
+          p_group_id: string
+          p_name: string
+          p_type: string
+          p_icon: string
+          p_color: string
+        }
+        Returns: string
+      }
+      create_group_auto_sort: {
+        Args: { p_name: string; p_type: string }
+        Returns: string
+      }
+      delete_category_with_reassign: {
+        Args: { p_category_id: string; p_reassign_to?: string }
+        Returns: undefined
+      }
+      delete_group_with_reassign: {
+        Args: { p_group_id: string; p_reassign_to?: string }
+        Returns: undefined
+      }
+      is_admin: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
     }
     Enums: {
       user_role: "admin" | "user"

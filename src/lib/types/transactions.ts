@@ -31,6 +31,8 @@ export interface CategoryOption {
   icon: string;
   color: string;
   type: "expense" | "income";
+  group_id: string | null;
+  group_name: string | null;
 }
 
 // ────────────────────────────────────────────

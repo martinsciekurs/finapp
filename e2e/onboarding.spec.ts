@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createTestUser, loginViaUI, completeOnboardingViaUI } from "./helpers";
+import { createTestUser, loginViaUI, completeOnboardingViaUI, dismissDevOverlay } from "./helpers";
 
 test.describe("Onboarding", () => {
   test("onboarding page requires authentication", async ({ page }) => {
@@ -61,6 +61,9 @@ test.describe("Onboarding wizard", () => {
     await expect(page.getByText("Pick your categories")).toBeVisible();
 
     // Go back to step 0
+    // Dismiss dev overlay — its "issues badge" sits in the bottom-left and
+    // can intermittently cover the Back button (dev-mode only).
+    await dismissDevOverlay(page);
     await page.getByRole("button", { name: "Back" }).click();
     await expect(page.getByText("Step 1 of 3")).toBeVisible();
   });

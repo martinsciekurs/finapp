@@ -17,14 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { CategoryIcon } from "@/components/ui/category-icon";
+import { CategoryCombobox } from "./category-combobox";
 import { cn } from "@/lib/utils";
 import { formatDateForInput } from "@/lib/utils/date";
 import {
@@ -194,32 +187,14 @@ export function TransactionForm({ categories }: TransactionFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <CategoryIcon
-                            name={cat.icon}
-                            className="size-4 text-muted-foreground"
-                          />
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                      {filteredCategories.length === 0 && (
-                        <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                          No {currentType} categories
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <CategoryCombobox
+                      categories={filteredCategories}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      emptyLabel={`No ${currentType} categories`}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

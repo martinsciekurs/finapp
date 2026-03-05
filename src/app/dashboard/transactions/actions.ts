@@ -8,16 +8,7 @@ import {
   type CreateTransactionValues,
   type UpdateTransactionValues,
 } from "@/lib/validations/transaction";
-
-// ────────────────────────────────────────────
-// Result type
-// ────────────────────────────────────────────
-
-interface ActionResult<T = void> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
+import type { ActionResult } from "@/lib/types/actions";
 
 // ────────────────────────────────────────────
 // Create transaction
