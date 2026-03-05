@@ -82,6 +82,7 @@ describe("createReminder", () => {
     amount: 800,
     due_date: "2026-04-01",
     frequency: "monthly" as const,
+    category_id: validUuid,
     auto_create_transaction: true,
   };
 
@@ -128,25 +129,7 @@ describe("createReminder", () => {
     expect(result).toEqual({ success: false, error: "Category not found" });
   });
 
-  it("returns success on valid create without category", async () => {
-    mockAuthenticated();
-    const { chain: reminderChain } = chainable(undefined);
-    reminderChain.single = vi.fn().mockResolvedValue({
-      data: { id: "reminder-id-1" },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "reminders") return reminderChain;
-      return {};
-    });
-
-    const result = await createReminder(validData);
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({ id: "reminder-id-1" });
-  });
-
-  it("returns success on valid create with category", async () => {
+  it("returns success on valid create", async () => {
     mockAuthenticated();
     const { chain: catChain } = chainable({
       data: { id: validUuid },
@@ -154,7 +137,7 @@ describe("createReminder", () => {
     });
     const { chain: reminderChain } = chainable(undefined);
     reminderChain.single = vi.fn().mockResolvedValue({
-      data: { id: "reminder-id-2" },
+      data: { id: "reminder-id-1" },
       error: null,
     });
 
@@ -164,16 +147,17 @@ describe("createReminder", () => {
       return {};
     });
 
-    const result = await createReminder({
-      ...validData,
-      category_id: validUuid,
-    });
+    const result = await createReminder(validData);
     expect(result.success).toBe(true);
-    expect(result.data).toEqual({ id: "reminder-id-2" });
+    expect(result.data).toEqual({ id: "reminder-id-1" });
   });
 
   it("returns error on insert failure", async () => {
     mockAuthenticated();
+    const { chain: catChain } = chainable({
+      data: { id: validUuid },
+      error: null,
+    });
     const { chain: reminderChain } = chainable(undefined);
     reminderChain.single = vi.fn().mockResolvedValue({
       data: null,
@@ -181,6 +165,7 @@ describe("createReminder", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") return catChain;
       if (table === "reminders") return reminderChain;
       return {};
     });
@@ -205,6 +190,7 @@ describe("updateReminder", () => {
     amount: 900,
     due_date: "2026-05-01",
     frequency: "monthly" as const,
+    category_id: validUuid,
     auto_create_transaction: false,
   };
 
@@ -225,14 +211,19 @@ describe("updateReminder", () => {
 
   it("returns success on valid update", async () => {
     mockAuthenticated();
-    const { chain } = chainable(undefined);
-    chain.select = vi.fn().mockResolvedValue({
+    const { chain: catChain } = chainable({
+      data: { id: validUuid },
+      error: null,
+    });
+    const { chain: reminderChain } = chainable(undefined);
+    reminderChain.select = vi.fn().mockResolvedValue({
       data: [{ id: validUuid }],
       error: null,
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "reminders") return chain;
+      if (table === "categories") return catChain;
+      if (table === "reminders") return reminderChain;
       return {};
     });
 
@@ -242,14 +233,19 @@ describe("updateReminder", () => {
 
   it("returns error when reminder not found", async () => {
     mockAuthenticated();
-    const { chain } = chainable(undefined);
-    chain.select = vi.fn().mockResolvedValue({
+    const { chain: catChain } = chainable({
+      data: { id: validUuid },
+      error: null,
+    });
+    const { chain: reminderChain } = chainable(undefined);
+    reminderChain.select = vi.fn().mockResolvedValue({
       data: [],
       error: null,
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "reminders") return chain;
+      if (table === "categories") return catChain;
+      if (table === "reminders") return reminderChain;
       return {};
     });
 
@@ -258,6 +254,11 @@ describe("updateReminder", () => {
       success: false,
       error: "Reminder not found",
     });
+  });
+
+  it("returns error for invalid id", async () => {
+    const result = await updateReminder("bad-id", validData);
+    expect(result).toEqual({ success: false, error: "Invalid reminder ID" });
   });
 });
 
@@ -379,6 +380,8 @@ describe("markOccurrencePaid", () => {
         id: validUuid,
         title: "Rent",
         amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
         category_id: null,
         auto_create_transaction: false,
       },
@@ -415,6 +418,8 @@ describe("markOccurrencePaid", () => {
         id: validUuid,
         title: "Rent",
         amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
         category_id: null,
         auto_create_transaction: false,
       },
@@ -451,6 +456,8 @@ describe("markOccurrencePaid", () => {
         id: validUuid,
         title: "Monthly Rent",
         amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
         category_id: catId,
         auto_create_transaction: true,
       },
@@ -495,38 +502,200 @@ describe("markOccurrencePaid", () => {
     expect(mockFrom).toHaveBeenCalledWith("transactions");
   });
 
-  it("does NOT create transaction when auto_create is true but no category", async () => {
-    mockAuthenticated();
+  // category_id is now NOT NULL — the "no category" scenario is impossible
 
-    // Reminder fetch — auto_create_transaction=true but category_id=null
+  it("rolls back reserved payment when transaction insert fails", async () => {
+    mockAuthenticated();
+    const catId = "660e8400-e29b-41d4-a716-446655440000";
+
+    // Reminder fetch
     const { chain: reminderChain } = chainable(undefined);
     reminderChain.maybeSingle = vi.fn().mockResolvedValue({
       data: {
         id: validUuid,
-        title: "No Cat Reminder",
-        amount: 50,
-        category_id: null,
+        title: "Rent",
+        amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
+        category_id: catId,
         auto_create_transaction: true,
       },
       error: null,
     });
 
     // Reserve payment succeeds
-    const { chain: paymentChain } = chainable(undefined);
-    paymentChain.single = vi.fn().mockResolvedValue({
-      data: { id: "pay-id-3" },
+    const { chain: reserveChain } = chainable(undefined);
+    reserveChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-rb" },
       error: null,
     });
 
+    // Transaction insert fails
+    const { chain: txChain } = chainable(undefined);
+    txChain.single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "DB insert error" },
+    });
+
+    // Rollback: delete reserved payment succeeds
+    const { chain: rollbackChain } = chainable({
+      data: null,
+      error: null,
+    });
+
+    let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "reminders") return reminderChain;
-      if (table === "reminder_payments") return paymentChain;
+      if (table === "reminder_payments") {
+        paymentCalls++;
+        return paymentCalls === 1 ? reserveChain : rollbackChain;
+      }
+      if (table === "transactions") return txChain;
       return {};
     });
 
     const result = await markOccurrencePaid(validPayload);
-    expect(result).toEqual({ success: true });
-    expect(mockFrom).not.toHaveBeenCalledWith("transactions");
+    expect(result).toEqual({
+      success: false,
+      error: "Failed to create transaction",
+    });
+    // Verify rollback was attempted (second call to reminder_payments)
+    expect(paymentCalls).toBe(2);
+  });
+
+  it("surfaces rollback failure when transaction insert and rollback both fail", async () => {
+    mockAuthenticated();
+    const catId = "660e8400-e29b-41d4-a716-446655440000";
+
+    // Reminder fetch
+    const { chain: reminderChain } = chainable(undefined);
+    reminderChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: validUuid,
+        title: "Rent",
+        amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
+        category_id: catId,
+        auto_create_transaction: true,
+      },
+      error: null,
+    });
+
+    // Reserve payment succeeds
+    const { chain: reserveChain } = chainable(undefined);
+    reserveChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-rb2" },
+      error: null,
+    });
+
+    // Transaction insert fails
+    const { chain: txChain } = chainable(undefined);
+    txChain.single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "DB insert error" },
+    });
+
+    // Rollback: delete reserved payment also fails
+    const { chain: rollbackChain } = chainable({
+      data: null,
+      error: { message: "rollback delete error" },
+    });
+
+    let paymentCalls = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "reminders") return reminderChain;
+      if (table === "reminder_payments") {
+        paymentCalls++;
+        return paymentCalls === 1 ? reserveChain : rollbackChain;
+      }
+      if (table === "transactions") return txChain;
+      return {};
+    });
+
+    const result = await markOccurrencePaid(validPayload);
+    expect(result.success).toBe(false);
+    // Error message should be generic — no internal details
+    expect(result.error).toBe(
+      "Failed to create transaction and rollback failed. Please contact support."
+    );
+  });
+
+  it("surfaces rollback failure when link update fails and rollback fails", async () => {
+    mockAuthenticated();
+    const catId = "660e8400-e29b-41d4-a716-446655440000";
+
+    // Reminder fetch
+    const { chain: reminderChain } = chainable(undefined);
+    reminderChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: validUuid,
+        title: "Rent",
+        amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
+        category_id: catId,
+        auto_create_transaction: true,
+      },
+      error: null,
+    });
+
+    // Reserve payment succeeds
+    const { chain: reserveChain } = chainable(undefined);
+    reserveChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-link" },
+      error: null,
+    });
+
+    // Transaction insert succeeds
+    const { chain: txChain } = chainable(undefined);
+    txChain.single = vi.fn().mockResolvedValue({
+      data: { id: "tx-id-link" },
+      error: null,
+    });
+
+    // Link update fails (second reminder_payments call)
+    const { chain: linkChain } = chainable(undefined);
+    linkChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "link update error" },
+    });
+
+    // Rollback: delete transaction fails
+    const { chain: rbTxChain } = chainable({
+      data: null,
+      error: { message: "rb tx delete error" },
+    });
+
+    // Rollback: delete payment fails
+    const { chain: rbPayChain } = chainable({
+      data: null,
+      error: { message: "rb pay delete error" },
+    });
+
+    let paymentCalls = 0;
+    let txCalls = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "reminders") return reminderChain;
+      if (table === "reminder_payments") {
+        paymentCalls++;
+        if (paymentCalls === 1) return reserveChain;
+        if (paymentCalls === 2) return linkChain;
+        return rbPayChain;
+      }
+      if (table === "transactions") {
+        txCalls++;
+        return txCalls === 1 ? txChain : rbTxChain;
+      }
+      return {};
+    });
+
+    const result = await markOccurrencePaid(validPayload);
+    expect(result.success).toBe(false);
+    // Error message should be generic — no internal details
+    expect(result.error).toBe(
+      "Failed to link transaction to payment and rollback failed. Please contact support."
+    );
   });
 
   it("returns error when payment insert fails", async () => {
@@ -538,6 +707,8 @@ describe("markOccurrencePaid", () => {
         id: validUuid,
         title: "Rent",
         amount: 800,
+        due_date: "2026-04-01",
+        frequency: "monthly",
         category_id: null,
         auto_create_transaction: false,
       },

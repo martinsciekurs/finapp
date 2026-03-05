@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(90);
+select plan(91);
 
 -- ===========================
 -- Setup: create two test users
@@ -96,11 +96,11 @@ values (u1(), cat1(), 25, 'expense');
 insert into public.transactions (user_id, category_id, amount, type)
 values (u2(), cat2(), 3000, 'income');
 
--- Reminders
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u1(), 'Rent',     800, current_date + 30, 'monthly');
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u2(), 'Gym',      40,  current_date + 7,  'monthly');
+-- Reminders (category_id is NOT NULL — use each user's category)
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u1(), 'Rent',     800, current_date + 30, 'monthly', cat1());
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u2(), 'Gym',      40,  current_date + 7,  'monthly', cat2());
 
 -- Debts
 insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type)
@@ -459,8 +459,8 @@ select is(
 );
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Hack'', 10, current_date, ''monthly'')',
-    u2()
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Hack'', 10, current_date, ''monthly'', %L)',
+    u2(), cat2()
   ),
   'new row violates row-level security policy for table "reminders"',
   'reminders: user cannot insert for another user'
@@ -487,8 +487,8 @@ select lives_ok(
 
 select reset_role();
 -- Re-insert for downstream tests
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (u1(), 'Rent', 800, current_date + 30, 'monthly');
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (u1(), 'Rent', 800, current_date + 30, 'monthly', cat1());
 
 -- ===========================================================================
 -- 5. DEBTS — standard CRUD isolation
@@ -974,6 +974,11 @@ select is(
   (select count(*)::int from public.notifications),
   0,
   'anon: cannot read notifications'
+);
+select is(
+  (select count(*)::int from public.reminder_payments),
+  0,
+  'anon: cannot read reminder_payments'
 );
 
 select reset_role();

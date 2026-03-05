@@ -26,26 +26,22 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDate } from "@/lib/utils/date";
 import type {
   ReminderData,
+  ReminderFrequency,
   ReminderOccurrence,
   GroupedOccurrences,
 } from "@/lib/types/reminder";
 import type { CategoryOption } from "@/lib/types/transactions";
 
+import { FREQUENCY_LABELS } from "@/lib/config/reminders";
+
 // ────────────────────────────────────────────
 // Frequency badge
 // ────────────────────────────────────────────
 
-const FREQUENCY_LABELS: Record<string, string> = {
-  monthly: "Monthly",
-  weekly: "Weekly",
-  yearly: "Yearly",
-  one_time: "One-time",
-};
-
-function FrequencyBadge({ frequency }: { frequency: string }) {
+function FrequencyBadge({ frequency }: { frequency: ReminderFrequency }) {
   return (
     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      {FREQUENCY_LABELS[frequency] ?? frequency}
+      {FREQUENCY_LABELS[frequency]}
     </span>
   );
 }
@@ -78,7 +74,7 @@ function CategoryBadge({
 // ────────────────────────────────────────────
 
 function DaysBadge({ days }: { days: number }) {
-  if (days === 0) return <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Due today</span>;
+  if (days === 0) return <span className="text-xs font-medium text-warning">Due today</span>;
   if (days === 1) return <span className="text-xs text-muted-foreground">Tomorrow</span>;
   if (days > 0) return <span className="text-xs text-muted-foreground">in {days} days</span>;
   if (days === -1) return <span className="text-xs font-medium text-destructive">1 day overdue</span>;
@@ -144,18 +140,12 @@ function OccurrenceRow({
     <div className="group flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:gap-3">
       {/* Left: icon + info */}
       <div className="flex flex-1 items-center gap-3">
-        {occurrence.category_icon && occurrence.category_color ? (
-          <div
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
-            style={{ color: occurrence.category_color }}
-          >
-            <CategoryIcon name={occurrence.category_icon} className="size-4" />
-          </div>
-        ) : (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
-            <Bell className="size-4 text-muted-foreground" />
-          </div>
-        )}
+        <div
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
+          style={{ color: occurrence.category_color }}
+        >
+          <CategoryIcon name={occurrence.category_icon} className="size-4" />
+        </div>
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{occurrence.title}</p>
@@ -173,13 +163,11 @@ function OccurrenceRow({
       {/* Center: badges + amount */}
       <div className="flex flex-wrap items-center gap-2">
         <FrequencyBadge frequency={occurrence.frequency} />
-        {occurrence.category_name && occurrence.category_icon && occurrence.category_color && (
-          <CategoryBadge
-            name={occurrence.category_name}
-            icon={occurrence.category_icon}
-            color={occurrence.category_color}
-          />
-        )}
+        <CategoryBadge
+          name={occurrence.category_name}
+          icon={occurrence.category_icon}
+          color={occurrence.category_color}
+        />
         <span className="text-sm font-semibold">
           {formatCurrency(occurrence.amount, currency)}
         </span>
@@ -387,7 +375,7 @@ export function ReminderList({
           <StatusSection
             title="Paid"
             icon={CheckCircle2}
-            iconClassName="size-4 text-green-600 dark:text-green-500"
+            iconClassName="size-4 text-success"
             occurrences={data.paid}
             currency={currency}
             onEditReminder={handleEditReminder}

@@ -3,8 +3,8 @@ import {
   fetchReminders,
   fetchReminderTemplates,
   fetchReminderCategories,
-  fetchReminderCurrency,
 } from "@/lib/queries/reminders";
+import { fetchUserCurrency } from "@/lib/queries/dashboard";
 import { ReminderList } from "@/components/reminders/reminder-list";
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default async function RemindersPage() {
     fetchReminders(),
     fetchReminderTemplates(),
     fetchReminderCategories(),
-    fetchReminderCurrency(),
+    fetchUserCurrency(),
   ]);
 
   return (

@@ -56,3 +56,18 @@ export function parseCategoryJoin(raw: unknown): CategoryJoinRow | null {
   }
   return null;
 }
+
+/** Shape returned by `category_groups(name)` join in Supabase queries. */
+export interface GroupJoinRow {
+  name: string;
+}
+
+/**
+ * Safely parse the category_groups join result from a Supabase query.
+ */
+export function parseGroupJoin(raw: unknown): GroupJoinRow | null {
+  if (raw && typeof raw === "object" && "name" in raw) {
+    return raw as GroupJoinRow;
+  }
+  return null;
+}

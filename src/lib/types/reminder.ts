@@ -25,10 +25,10 @@ export interface ReminderData {
   frequency: ReminderFrequency;
   is_paid: boolean;
   auto_create_transaction: boolean;
-  category_id: string | null;
-  category_name: string | null;
-  category_icon: string | null;
-  category_color: string | null;
+  category_id: string;
+  category_name: string;
+  category_icon: string;
+  category_color: string;
 }
 
 // ────────────────────────────────────────────
@@ -43,10 +43,10 @@ export interface ReminderOccurrence {
   due_date: string;
   frequency: ReminderFrequency;
   auto_create_transaction: boolean;
-  category_id: string | null;
-  category_name: string | null;
-  category_icon: string | null;
-  category_color: string | null;
+  category_id: string;
+  category_name: string;
+  category_icon: string;
+  category_color: string;
   status: OccurrenceStatus;
   /** If paid, the payment record ID */
   payment_id: string | null;
@@ -70,7 +70,7 @@ export interface GroupedOccurrences {
 // Dashboard period filter
 // ────────────────────────────────────────────
 
-export type ReminderPeriod = "7d" | "30d" | "end_of_month";
+export type ReminderPeriod = "7d" | "end_of_month";
 
 // ────────────────────────────────────────────
 // Dashboard card data
@@ -79,16 +79,13 @@ export type ReminderPeriod = "7d" | "30d" | "end_of_month";
 /** Per-period stats for the upcoming reminders card. */
 export interface PeriodStats {
   count: number;
-  totalAmount: number;
 }
 
 /** Full data for the dashboard reminders card. */
 export interface UpcomingRemindersData {
-  /** Upcoming stats per period (all 3 precomputed). */
+  /** Upcoming stats per period (all precomputed). */
   byPeriod: Record<ReminderPeriod, PeriodStats>;
   /** Number of overdue (unpaid, past due) occurrences. */
   overdueCount: number;
-  /** Days until the nearest upcoming due date (null if none). */
-  nextDueDays: number | null;
 }
 

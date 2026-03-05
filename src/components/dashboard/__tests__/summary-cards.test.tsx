@@ -48,12 +48,10 @@ function makeRemindersData(
 ): UpcomingRemindersData {
   return {
     byPeriod: {
-      "7d": { count: 1, totalAmount: 100 },
-      "30d": { count: 3, totalAmount: 950 },
-      end_of_month: { count: 2, totalAmount: 500 },
+      "7d": { count: 1 },
+      end_of_month: { count: 2 },
     },
     overdueCount: 0,
-    nextDueDays: 5,
     ...overrides,
   };
 }
@@ -135,11 +133,9 @@ describe("SummaryCards", () => {
   it("renders zero values correctly", () => {
     const zeroReminders = makeRemindersData({
       byPeriod: {
-        "7d": { count: 0, totalAmount: 0 },
-        "30d": { count: 0, totalAmount: 0 },
-        end_of_month: { count: 0, totalAmount: 0 },
+        "7d": { count: 0 },
+        end_of_month: { count: 0 },
       },
-      nextDueDays: null,
     });
     render(
       <SummaryCards

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import React from "react";
 import type {
   GroupedOccurrences,
   ReminderData,
@@ -44,10 +43,10 @@ function makeOccurrence(overrides: Partial<ReminderOccurrence> = {}): ReminderOc
     due_date: "2026-04-01",
     frequency: "monthly",
     auto_create_transaction: true,
-    category_id: null,
-    category_name: null,
-    category_icon: null,
-    category_color: null,
+    category_id: "cat-1",
+    category_name: "Bills",
+    category_icon: "banknote",
+    category_color: "#FF5722",
     status: "upcoming",
     payment_id: null,
     paid_at: null,
@@ -65,10 +64,10 @@ function makeTemplate(overrides: Partial<ReminderData> = {}): ReminderData {
     frequency: "monthly",
     is_paid: false,
     auto_create_transaction: true,
-    category_id: null,
-    category_name: null,
-    category_icon: null,
-    category_color: null,
+    category_id: "cat-1",
+    category_name: "Bills",
+    category_icon: "banknote",
+    category_color: "#FF5722",
     ...overrides,
   };
 }
@@ -136,7 +135,10 @@ const sampleData: GroupedOccurrences = {
       amount: 1200,
       due_date: "2026-01-15",
       frequency: "one_time",
-      category_id: null,
+      category_id: "cat-1",
+      category_name: "Bills",
+      category_icon: "banknote",
+      category_color: "#FF5722",
       status: "paid",
       payment_id: "pay-1",
       paid_at: "2026-01-15T10:00:00Z",
@@ -291,7 +293,7 @@ describe("ReminderList", () => {
       />
     );
     const billsBadges = screen.getAllByText("Bills");
-    expect(billsBadges.length).toBe(2); // Electricity + Rent
+    expect(billsBadges.length).toBe(3); // Electricity + Rent + Annual Insurance
     expect(screen.getByText("Subscriptions")).toBeInTheDocument();
   });
 

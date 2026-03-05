@@ -3,15 +3,18 @@
 -- ===========================================================================
 -- Tests specific to the reminders table beyond the general RLS and
 -- constraint tests in 01/03. Covers:
---   1. Reminder CRUD as owner (full lifecycle)
---   2. Mark-as-paid simulation for one_time vs recurring
---   3. Category join with ON DELETE SET NULL behavior
+--   1. Default values (is_paid=false, auto_create_transaction=true)
+--   2. Reminder CRUD as owner (full lifecycle)
+--   3. Cross-user isolation (RLS)
 --   4. Composite FK enforcement (category must belong to same user)
---   5. Default values (is_paid=false, auto_create_transaction=true)
+--   5. One-time / recurring mark-as-paid simulation
+--   6. ON DELETE RESTRICT for category (can't delete category with reminders)
+--   7. Constraints (amount, frequency)
+--   8. reminder_payments: CRUD, isolation, constraints, cascades
 -- ===========================================================================
 
 begin;
-select plan(25);
+select plan(26);
 
 -- ---------------------------------------------------------------------------
 -- Setup
@@ -33,14 +36,18 @@ select create_test_category(:'alice_id'::uuid, 'Alice Rent', 'expense', :'alice_
 select create_test_category_group(:'bob_id'::uuid, 'Bob Bills', 'expense') as bob_group \gset
 select create_test_category(:'bob_id'::uuid, 'Bob Rent', 'expense', :'bob_group'::uuid) as bob_cat \gset
 
+-- Store alice_id in a GUC so it's accessible inside DO blocks
+select set_config('test.alice_id', :'alice_id'::text, true);
+select set_config('test.alice_cat', :'alice_cat'::text, true);
+
 -- ===========================================================================
 -- 1. Default values on insert
 -- ===========================================================================
 
 select reset_role();
 
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (:'alice_id'::uuid, 'Default Test', 100, current_date + 30, 'monthly');
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (:'alice_id'::uuid, 'Default Test', 100, current_date + 30, 'monthly', :'alice_cat'::uuid);
 
 select is(
   (select is_paid from public.reminders where title = 'Default Test'),
@@ -52,12 +59,6 @@ select is(
   (select auto_create_transaction from public.reminders where title = 'Default Test'),
   true,
   'defaults: auto_create_transaction defaults to true'
-);
-
-select is(
-  (select category_id from public.reminders where title = 'Default Test'),
-  null::uuid,
-  'defaults: category_id defaults to null'
 );
 
 -- ===========================================================================
@@ -97,8 +98,8 @@ select is(
 
 -- Alice cannot read Bob's reminders
 select reset_role();
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (:'bob_id'::uuid, 'Bob Gym', 40, current_date + 7, 'weekly');
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (:'bob_id'::uuid, 'Bob Gym', 40, current_date + 7, 'weekly', :'bob_cat'::uuid);
 
 select authenticate_as(:'alice_id'::uuid);
 select is(
@@ -147,8 +148,8 @@ select throws_ok(
 
 select reset_role();
 
-insert into public.reminders (user_id, title, amount, due_date, frequency)
-values (:'alice_id'::uuid, 'One-time Payment', 500, current_date, 'one_time');
+insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+values (:'alice_id'::uuid, 'One-time Payment', 500, current_date, 'one_time', :'alice_cat'::uuid);
 
 -- Simulate marking as paid
 update public.reminders set is_paid = true where title = 'One-time Payment';
@@ -193,45 +194,41 @@ select ok(
 );
 
 -- ===========================================================================
--- 7. ON DELETE SET NULL for category
+-- 7. ON DELETE RESTRICT for category
 -- ===========================================================================
 
 select reset_role();
-
--- Store alice_id in a GUC so it's accessible inside DO blocks
-select set_config('test.alice_id', :'alice_id'::text, true);
 
 do $$
 declare
   _uid uuid := current_setting('test.alice_id')::uuid;
   _group_id uuid;
   _cat_id uuid;
-  _rem_id uuid;
 begin
   insert into public.category_groups (id, user_id, name, type, sort_order)
-  values (gen_random_uuid(), _uid, 'Temp Group', 'expense', 99)
+  values (gen_random_uuid(), _uid, 'Restrict Group', 'expense', 99)
   returning id into _group_id;
 
   insert into public.categories (user_id, name, icon, color, type, group_id, sort_order)
-  values (_uid, 'Temp Category', 'circle', '#000000', 'expense', _group_id, 99)
+  values (_uid, 'Restrict Category', 'circle', '#000000', 'expense', _group_id, 99)
   returning id into _cat_id;
 
   insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
-  values (_uid, 'SetNull Test', 50, current_date + 30, 'monthly', _cat_id)
-  returning id into _rem_id;
+  values (_uid, 'Restrict Test', 50, current_date + 30, 'monthly', _cat_id);
 
-  perform set_config('test.setnull_rem_id', _rem_id::text, true);
-  perform set_config('test.setnull_cat_id', _cat_id::text, true);
+  perform set_config('test.restrict_cat_id', _cat_id::text, true);
 end;
 $$;
 
--- Delete the category
-delete from public.categories where id = current_setting('test.setnull_cat_id')::uuid;
-
-select is(
-  (select category_id from public.reminders where id = current_setting('test.setnull_rem_id')::uuid),
-  null::uuid,
-  'ON DELETE SET NULL: deleting category nullifies reminder category_id'
+-- Deleting a category referenced by a reminder should fail with restrict
+select throws_ok(
+  format(
+    'delete from public.categories where id = %L',
+    current_setting('test.restrict_cat_id')::uuid
+  ),
+  '23503'::char(5),
+  null,
+  'ON DELETE RESTRICT: cannot delete category referenced by a reminder'
 );
 
 -- ===========================================================================
@@ -240,8 +237,8 @@ select is(
 
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Negative'', -10, current_date, ''monthly'')',
-    :'alice_id'::uuid
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Negative'', -10, current_date, ''monthly'', %L)',
+    :'alice_id'::uuid, :'alice_cat'::uuid
   ),
   '23514'::char(5),
   null,
@@ -250,8 +247,8 @@ select throws_ok(
 
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Zero'', 0, current_date, ''monthly'')',
-    :'alice_id'::uuid
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Zero'', 0, current_date, ''monthly'', %L)',
+    :'alice_id'::uuid, :'alice_cat'::uuid
   ),
   '23514'::char(5),
   null,
@@ -264,8 +261,8 @@ select throws_ok(
 
 select throws_ok(
   format(
-    'insert into public.reminders (user_id, title, amount, due_date, frequency) values (%L, ''Bad Freq'', 50, current_date, ''daily'')',
-    :'alice_id'::uuid
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, ''Bad Freq'', 50, current_date, ''daily'', %L)',
+    :'alice_id'::uuid, :'alice_cat'::uuid
   ),
   '23514'::char(5),
   null,
@@ -278,16 +275,14 @@ select throws_ok(
 
 select reset_role();
 
--- Create a reminder for payment tests
-select set_config('test.alice_id', :'alice_id'::text, true);
-
 do $$
 declare
   _uid uuid := current_setting('test.alice_id')::uuid;
+  _cat uuid := current_setting('test.alice_cat')::uuid;
   _rid uuid;
 begin
-  insert into public.reminders (user_id, title, amount, due_date, frequency)
-  values (_uid, 'Payment Test Reminder', 100, current_date + 30, 'monthly')
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_uid, 'Payment Test Reminder', 100, current_date + 30, 'monthly', _cat)
   returning id into _rid;
   perform set_config('test.pay_rem_id', _rid::text, true);
 end;
@@ -328,6 +323,17 @@ select is(
   'reminder_payments: Bob cannot read Alice''s payment records'
 );
 
+-- Bob cannot insert a payment for Alice's reminder (RLS INSERT policy check)
+select throws_ok(
+  format(
+    'insert into public.reminder_payments (user_id, reminder_id, due_date) values (%L, %L, current_date + 60)',
+    :'bob_id'::uuid, current_setting('test.pay_rem_id')
+  ),
+  null,
+  null,
+  'reminder_payments: Bob cannot insert payment for Alice''s reminder'
+);
+
 -- ===========================================================================
 -- 12. reminder_payments: unique constraint on (reminder_id, due_date)
 -- ===========================================================================
@@ -353,10 +359,11 @@ select reset_role();
 do $$
 declare
   _uid uuid := current_setting('test.alice_id')::uuid;
+  _cat uuid := current_setting('test.alice_cat')::uuid;
   _rid uuid;
 begin
-  insert into public.reminders (user_id, title, amount, due_date, frequency)
-  values (_uid, 'Cascade Test', 75, current_date + 10, 'weekly')
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_uid, 'Cascade Test', 75, current_date + 10, 'weekly', _cat)
   returning id into _rid;
 
   insert into public.reminder_payments (user_id, reminder_id, due_date)
@@ -393,11 +400,12 @@ select reset_role();
 do $$
 declare
   _uid uuid := current_setting('test.alice_id')::uuid;
+  _cat uuid := current_setting('test.alice_cat')::uuid;
   _rid uuid;
   _pid uuid;
 begin
-  insert into public.reminders (user_id, title, amount, due_date, frequency)
-  values (_uid, 'Delete Payment Test', 200, current_date + 15, 'monthly')
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_uid, 'Delete Payment Test', 200, current_date + 15, 'monthly', _cat)
   returning id into _rid;
 
   insert into public.reminder_payments (user_id, reminder_id, due_date)
@@ -405,7 +413,6 @@ begin
   returning id into _pid;
 
   perform set_config('test.del_pay_id', _pid::text, true);
-  perform set_config('test.del_pay_rem_id', _rid::text, true);
 end;
 $$;
 
@@ -418,6 +425,47 @@ select is(
    where id = current_setting('test.del_pay_id')::uuid),
   0,
   'reminder_payments: owner can delete own payment record'
+);
+
+-- ===========================================================================
+-- 15. reminder_payments: ON DELETE SET NULL for transaction_id
+-- ===========================================================================
+
+select reset_role();
+
+do $$
+declare
+  _uid uuid := current_setting('test.alice_id')::uuid;
+  _cat uuid := current_setting('test.alice_cat')::uuid;
+  _rid uuid;
+  _tid uuid;
+  _pid uuid;
+begin
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_uid, 'TxLink Test', 150, current_date + 20, 'monthly', _cat)
+  returning id into _rid;
+
+  insert into public.transactions (user_id, category_id, amount, type, description, date)
+  values (_uid, _cat, 150, 'expense', 'TxLink Test', current_date)
+  returning id into _tid;
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date, transaction_id)
+  values (_uid, _rid, current_date + 20, _tid)
+  returning id into _pid;
+
+  perform set_config('test.txlink_pay_id', _pid::text, true);
+  perform set_config('test.txlink_tx_id', _tid::text, true);
+end;
+$$;
+
+-- Delete the linked transaction
+delete from public.transactions where id = current_setting('test.txlink_tx_id')::uuid;
+
+select is(
+  (select transaction_id from public.reminder_payments
+   where id = current_setting('test.txlink_pay_id')::uuid),
+  null::uuid,
+  'reminder_payments: ON DELETE SET NULL nullifies transaction_id when transaction deleted'
 );
 
 -- ===========================================================================

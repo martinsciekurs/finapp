@@ -43,6 +43,7 @@ import {
 import type { ReminderData } from "@/lib/types/reminder";
 import type { CategoryOption } from "@/lib/types/transactions";
 import { formatDateForInput } from "@/lib/utils/date";
+import { FREQUENCY_OPTIONS } from "@/lib/config/reminders";
 
 interface ReminderFormDialogProps {
   open: boolean;
@@ -51,13 +52,6 @@ interface ReminderFormDialogProps {
   /** If provided, we're editing this reminder. Otherwise creating new. */
   reminder?: ReminderData;
 }
-
-const FREQUENCY_OPTIONS = [
-  { value: "monthly", label: "Monthly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "yearly", label: "Yearly" },
-  { value: "one_time", label: "One-time" },
-] as const;
 
 export function ReminderFormDialog({
   open,
@@ -68,29 +62,26 @@ export function ReminderFormDialog({
   const isEditing = !!reminder;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function getFormDefaults(r?: ReminderData): ReminderFormValues {
+    return {
+      title: r?.title ?? "",
+      amount: r?.amount ?? (undefined as unknown as number),
+      due_date: r?.due_date ?? formatDateForInput(new Date()),
+      frequency: r?.frequency ?? "monthly",
+      category_id: r?.category_id ?? "",
+      auto_create_transaction: r?.auto_create_transaction ?? true,
+    };
+  }
+
   const form = useForm<ReminderFormValues>({
     resolver: zodResolver(reminderFormSchema),
-    defaultValues: {
-      title: reminder?.title ?? "",
-      amount: reminder?.amount ?? (undefined as unknown as number),
-      due_date: reminder?.due_date ?? formatDateForInput(new Date()),
-      frequency: reminder?.frequency ?? "monthly",
-      category_id: reminder?.category_id ?? undefined,
-      auto_create_transaction: reminder?.auto_create_transaction ?? true,
-    },
+    defaultValues: getFormDefaults(reminder),
   });
 
   // Reset form when dialog opens or reminder prop changes to avoid stale state
   useEffect(() => {
     if (open) {
-      form.reset({
-        title: reminder?.title ?? "",
-        amount: reminder?.amount ?? (undefined as unknown as number),
-        due_date: reminder?.due_date ?? formatDateForInput(new Date()),
-        frequency: reminder?.frequency ?? "monthly",
-        category_id: reminder?.category_id ?? undefined,
-        auto_create_transaction: reminder?.auto_create_transaction ?? true,
-      });
+      form.reset(getFormDefaults(reminder));
     }
   }, [open, reminder, form]);
 
@@ -99,10 +90,7 @@ export function ReminderFormDialog({
 
     try {
       if (isEditing) {
-        const result = await updateReminder(reminder.id, {
-          ...values,
-          category_id: values.category_id ?? null,
-        });
+        const result = await updateReminder(reminder.id, values);
         if (!result.success) {
           toast.error(result.error ?? "Failed to update reminder");
           return;
@@ -233,15 +221,13 @@ export function ReminderFormDialog({
                 name="category_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category (optional)</FormLabel>
+                    <FormLabel>Category</FormLabel>
                     <FormControl>
                       <CategoryCombobox
                         categories={categories}
-                        value={field.value ?? ""}
-                        onValueChange={(v) =>
-                          field.onChange(v === "" ? undefined : v)
-                        }
-                        placeholder="No category"
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select category"
                         emptyLabel="No expense categories"
                       />
                     </FormControl>

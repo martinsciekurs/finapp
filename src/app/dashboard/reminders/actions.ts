@@ -1,8 +1,11 @@
 "use server";
 
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { formatDateForInput } from "@/lib/utils/date";
+import { isValidOccurrence } from "@/lib/utils/recurrence";
+import { formatParseError } from "@/lib/utils/validation";
 import {
   createReminderSchema,
   updateReminderSchema,
@@ -16,32 +19,38 @@ import {
   type MarkOccurrenceUnpaidValues,
 } from "@/lib/validations/reminder";
 import type { ActionResult } from "@/lib/types/actions";
-import type { Database } from "@/lib/supabase/database.types";
-
-// Generated types mark category_id as required string, but the DB column is
-// nullable. Override until types are regenerated with `supabase gen types`.
-type RemindersInsert = Omit<
-  Database["public"]["Tables"]["reminders"]["Insert"],
-  "category_id"
-> & { category_id: string | null };
-
-type RemindersUpdate = Omit<
-  Database["public"]["Tables"]["reminders"]["Update"],
-  "category_id"
-> & { category_id?: string | null };
-
-type RemindersInsertGenerated =
-  Database["public"]["Tables"]["reminders"]["Insert"];
-type RemindersUpdateGenerated =
-  Database["public"]["Tables"]["reminders"]["Update"];
+import type { TablesInsert, TablesUpdate } from "@/lib/supabase/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────
 
-function revalidate() {
+function revalidate(): void {
   revalidatePath("/dashboard/reminders");
   revalidatePath("/dashboard");
+}
+
+const uuidSchema = z.string().uuid("Invalid ID");
+
+/**
+ * Verify a category belongs to the given user and is an expense category.
+ * Returns true if valid, false otherwise.
+ */
+async function verifyCategoryOwnership(
+  supabase: SupabaseClient,
+  categoryId: string,
+  userId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", categoryId)
+    .eq("user_id", userId)
+    .eq("type", "expense")
+    .maybeSingle();
+
+  return !error && !!data;
 }
 
 // ────────────────────────────────────────────
@@ -63,41 +72,25 @@ export async function createReminder(
 
   const parsed = createReminderSchema.safeParse(values);
   if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return {
-      success: false,
-      error: firstIssue?.message ?? "Invalid reminder data",
-    };
+    return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  // Verify category belongs to the user and is an expense category
-  if (parsed.data.category_id) {
-    const { data: category, error: catError } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("id", parsed.data.category_id)
-      .eq("user_id", user.id)
-      .eq("type", "expense")
-      .maybeSingle();
+  const valid = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  if (!valid) return { success: false, error: "Category not found" };
 
-    if (catError || !category) {
-      return { success: false, error: "Category not found" };
-    }
-  }
-
-  const insertPayload: RemindersInsert = {
+  const insertPayload: TablesInsert<"reminders"> = {
     user_id: user.id,
     title: parsed.data.title,
     amount: parsed.data.amount,
     due_date: parsed.data.due_date,
     frequency: parsed.data.frequency,
-    category_id: parsed.data.category_id ?? null,
+    category_id: parsed.data.category_id,
     auto_create_transaction: parsed.data.auto_create_transaction,
   };
 
   const { data, error } = await supabase
     .from("reminders")
-    .insert(insertPayload as RemindersInsertGenerated)
+    .insert(insertPayload)
     .select("id")
     .single();
 
@@ -117,6 +110,10 @@ export async function updateReminder(
   id: string,
   values: UpdateReminderValues
 ): Promise<ActionResult> {
+  if (!uuidSchema.safeParse(id).success) {
+    return { success: false, error: "Invalid reminder ID" };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -129,40 +126,24 @@ export async function updateReminder(
 
   const parsed = updateReminderSchema.safeParse(values);
   if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return {
-      success: false,
-      error: firstIssue?.message ?? "Invalid reminder data",
-    };
+    return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  // Verify category belongs to the user and is an expense category
-  if (parsed.data.category_id) {
-    const { data: category, error: catError } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("id", parsed.data.category_id)
-      .eq("user_id", user.id)
-      .eq("type", "expense")
-      .maybeSingle();
+  const validCat = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  if (!validCat) return { success: false, error: "Category not found" };
 
-    if (catError || !category) {
-      return { success: false, error: "Category not found" };
-    }
-  }
-
-  const updatePayload: RemindersUpdate = {
+  const updatePayload: TablesUpdate<"reminders"> = {
     title: parsed.data.title,
     amount: parsed.data.amount,
     due_date: parsed.data.due_date,
     frequency: parsed.data.frequency,
-    category_id: parsed.data.category_id ?? null,
+    category_id: parsed.data.category_id,
     auto_create_transaction: parsed.data.auto_create_transaction,
   };
 
   const { data: updated, error } = await supabase
     .from("reminders")
-    .update(updatePayload as RemindersUpdateGenerated)
+    .update(updatePayload)
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id");
@@ -198,11 +179,7 @@ export async function deleteReminder(
 
   const parsed = deleteReminderSchema.safeParse(values);
   if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return {
-      success: false,
-      error: firstIssue?.message ?? "Invalid data",
-    };
+    return { success: false, error: formatParseError(parsed.error, "Invalid data") };
   }
 
   const { data: deleted, error } = await supabase
@@ -247,23 +224,33 @@ export async function markOccurrencePaid(
 
   const parsed = markOccurrencePaidSchema.safeParse(values);
   if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return {
-      success: false,
-      error: firstIssue?.message ?? "Invalid data",
-    };
+    return { success: false, error: formatParseError(parsed.error, "Invalid data") };
   }
 
   // Fetch the reminder template
   const { data: reminder, error: fetchError } = await supabase
     .from("reminders")
-    .select("id, title, amount, category_id, auto_create_transaction")
+    .select(
+      "id, title, amount, due_date, frequency, category_id, auto_create_transaction"
+    )
     .eq("id", parsed.data.reminder_id)
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (fetchError || !reminder) {
     return { success: false, error: "Reminder not found" };
+  }
+
+  // Validate that the due_date is a valid occurrence for this reminder's
+  // recurrence schedule — prevents off-schedule payments.
+  if (
+    !isValidOccurrence(
+      reminder.due_date,
+      reminder.frequency,
+      parsed.data.due_date
+    )
+  ) {
+    return { success: false, error: "Invalid due_date for this reminder" };
   }
 
   // Reserve the payment record first — the unique constraint on
@@ -288,7 +275,7 @@ export async function markOccurrencePaid(
   }
 
   // Create expense transaction if auto_create_transaction is enabled
-  if (reminder.auto_create_transaction && reminder.category_id) {
+  if (reminder.auto_create_transaction) {
     const { data: tx, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -316,7 +303,7 @@ export async function markOccurrencePaid(
         });
         return {
           success: false,
-          error: `Failed to create transaction and rollback failed: could not delete reminder_payments (id: ${reserved.id}): ${rbError.message}`,
+          error: "Failed to create transaction and rollback failed. Please contact support.",
         };
       }
       return { success: false, error: "Failed to create transaction" };
@@ -365,7 +352,7 @@ export async function markOccurrencePaid(
       if (rollbackErrors.length > 0) {
         return {
           success: false,
-          error: `Failed to link transaction to payment and rollback failed: ${rollbackErrors.join("; ")}`,
+          error: "Failed to link transaction to payment and rollback failed. Please contact support.",
         };
       }
       return { success: false, error: "Failed to link transaction to payment" };
@@ -400,11 +387,7 @@ export async function markOccurrenceUnpaid(
 
   const parsed = markOccurrenceUnpaidSchema.safeParse(values);
   if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return {
-      success: false,
-      error: firstIssue?.message ?? "Invalid data",
-    };
+    return { success: false, error: formatParseError(parsed.error, "Invalid data") };
   }
 
   const { data: deleted, error } = await supabase

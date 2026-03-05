@@ -12,6 +12,7 @@ import type {
   UpcomingRemindersData,
 } from "@/lib/types/reminder";
 import type { CategoryOption } from "@/lib/types/transactions";
+import { parseCategoryJoin, parseGroupJoin } from "@/lib/types/dashboard";
 
 // ────────────────────────────────────────────
 // Helpers
@@ -30,11 +31,6 @@ function getPeriodEnd(period: ReminderPeriod): string {
   if (period === "7d") {
     const d = new Date(now);
     d.setDate(d.getDate() + 7);
-    return formatDateForInput(d);
-  }
-  if (period === "30d") {
-    const d = new Date(now);
-    d.setDate(d.getDate() + 30);
     return formatDateForInput(d);
   }
   // end_of_month
@@ -207,11 +203,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
   };
 
   for (const row of remindersResult.data ?? []) {
-    const cat = row.categories as unknown as {
-      name: string;
-      icon: string;
-      color: string;
-    } | null;
+    const cat = parseCategoryJoin(row.categories);
 
     // Generate occurrences for this reminder within the window
     const occurrenceDates = generateOccurrences(
@@ -253,9 +245,9 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
         frequency: row.frequency,
         auto_create_transaction: row.auto_create_transaction,
         category_id: row.category_id,
-        category_name: cat?.name ?? null,
-        category_icon: cat?.icon ?? null,
-        category_color: cat?.color ?? null,
+        category_name: cat?.name ?? "Uncategorized",
+        category_icon: cat?.icon ?? "circle",
+        category_color: cat?.color ?? "#888888",
         status,
         payment_id: payment?.id ?? null,
         paid_at: payment?.paid_at ?? null,
@@ -293,11 +285,7 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
   }
 
   return (data ?? []).map((row) => {
-    const cat = row.categories as unknown as {
-      name: string;
-      icon: string;
-      color: string;
-    } | null;
+    const cat = parseCategoryJoin(row.categories);
 
     return {
       id: row.id,
@@ -308,9 +296,9 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
       is_paid: row.is_paid,
       auto_create_transaction: row.auto_create_transaction,
       category_id: row.category_id,
-      category_name: cat?.name ?? null,
-      category_icon: cat?.icon ?? null,
-      category_color: cat?.color ?? null,
+      category_name: cat?.name ?? "Uncategorized",
+      category_icon: cat?.icon ?? "circle",
+      category_color: cat?.color ?? "#888888",
     };
   });
 }
@@ -329,10 +317,9 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
   const today = formatDateForInput(new Date());
 
   // Compute all period ends
-  const periods: ReminderPeriod[] = ["7d", "30d", "end_of_month"];
+  const periods: ReminderPeriod[] = ["7d", "end_of_month"];
   const periodEnds: Record<ReminderPeriod, string> = {
     "7d": getPeriodEnd("7d"),
-    "30d": getPeriodEnd("30d"),
     end_of_month: getPeriodEnd("end_of_month"),
   };
 
@@ -369,12 +356,10 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
 
   // Initialize accumulators
   const byPeriod: Record<ReminderPeriod, PeriodStats> = {
-    "7d": { count: 0, totalAmount: 0 },
-    "30d": { count: 0, totalAmount: 0 },
-    end_of_month: { count: 0, totalAmount: 0 },
+    "7d": { count: 0 },
+    end_of_month: { count: 0 },
   };
   let overdueCount = 0;
-  let nextDueDays: number | null = null;
 
   for (const rem of remindersResult.data ?? []) {
     // Generate occurrences from the overdue lookback to the furthest period end
@@ -400,23 +385,17 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
         if (foundNextUpcoming) continue;
         foundNextUpcoming = true;
 
-        const diff = daysDiff(dueDate, today);
-        if (nextDueDays === null || diff < nextDueDays) {
-          nextDueDays = diff;
-        }
-
         // Add to each period this occurrence falls within
         for (const p of periods) {
           if (dueDate <= periodEnds[p]) {
             byPeriod[p].count++;
-            byPeriod[p].totalAmount += rem.amount;
           }
         }
       }
     }
   }
 
-  return { byPeriod, overdueCount, nextDueDays };
+  return { byPeriod, overdueCount };
 }
 
 // ────────────────────────────────────────────
@@ -437,7 +416,7 @@ export async function fetchReminderCategories(): Promise<CategoryOption[]> {
   }
 
   return (data ?? []).map((cat) => {
-    const group = cat.category_groups as unknown as { name: string } | null;
+    const group = parseGroupJoin(cat.category_groups);
     return {
       id: cat.id,
       name: cat.name,
@@ -450,24 +429,4 @@ export async function fetchReminderCategories(): Promise<CategoryOption[]> {
   });
 }
 
-// ────────────────────────────────────────────
-// Fetch user currency
-// ────────────────────────────────────────────
 
-export async function fetchReminderCurrency(): Promise<string> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return "EUR";
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("currency")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return data?.currency ?? "EUR";
-}

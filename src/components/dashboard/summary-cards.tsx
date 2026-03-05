@@ -150,7 +150,12 @@ export function SummaryCards({
         subtitle={
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value as ReminderPeriod)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (PERIOD_OPTIONS.some((o) => o.value === val)) {
+                setPeriod(val as ReminderPeriod);
+              }
+            }}
             aria-label="Filter period"
             className="cursor-pointer bg-transparent text-xs text-muted-foreground focus:outline-none"
           >

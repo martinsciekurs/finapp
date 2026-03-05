@@ -5,7 +5,6 @@ import {
   deleteReminderSchema,
   markOccurrencePaidSchema,
   markOccurrenceUnpaidSchema,
-  markAsPaidSchema,
   reminderFrequencyEnum,
   reminderFormSchema,
 } from "../reminder";
@@ -41,18 +40,12 @@ describe("createReminderSchema", () => {
     amount: 800,
     due_date: "2026-04-01",
     frequency: "monthly" as const,
+    category_id: validUuid,
     auto_create_transaction: true,
   };
 
   it("accepts valid data with all fields", () => {
     expect(createReminderSchema.safeParse(validData).success).toBe(true);
-  });
-
-  it("accepts valid data with optional category_id", () => {
-    expect(
-      createReminderSchema.safeParse({ ...validData, category_id: validUuid })
-        .success
-    ).toBe(true);
   });
 
   it("defaults auto_create_transaction to true", () => {
@@ -61,6 +54,7 @@ describe("createReminderSchema", () => {
       amount: validData.amount,
       due_date: validData.due_date,
       frequency: validData.frequency,
+      category_id: validData.category_id,
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -98,6 +92,7 @@ describe("createReminderSchema", () => {
         amount: validData.amount,
         due_date: validData.due_date,
         frequency: validData.frequency,
+        category_id: validData.category_id,
         auto_create_transaction: validData.auto_create_transaction,
       }).success
     ).toBe(false);
@@ -109,6 +104,7 @@ describe("createReminderSchema", () => {
         title: validData.title,
         due_date: validData.due_date,
         frequency: validData.frequency,
+        category_id: validData.category_id,
         auto_create_transaction: validData.auto_create_transaction,
       }).success
     ).toBe(false);
@@ -146,6 +142,12 @@ describe("createReminderSchema", () => {
     ).toBe(true);
   });
 
+  it("rejects amount with more than two decimal places", () => {
+    expect(
+      createReminderSchema.safeParse({ ...validData, amount: 12.345 }).success
+    ).toBe(false);
+  });
+
   it("rejects invalid due_date format", () => {
     expect(
       createReminderSchema.safeParse({ ...validData, due_date: "not-a-date" })
@@ -158,6 +160,19 @@ describe("createReminderSchema", () => {
       createReminderSchema.safeParse({
         title: validData.title,
         amount: validData.amount,
+        frequency: validData.frequency,
+        category_id: validData.category_id,
+        auto_create_transaction: validData.auto_create_transaction,
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects missing category_id", () => {
+    expect(
+      createReminderSchema.safeParse({
+        title: validData.title,
+        amount: validData.amount,
+        due_date: validData.due_date,
         frequency: validData.frequency,
         auto_create_transaction: validData.auto_create_transaction,
       }).success
@@ -180,9 +195,6 @@ describe("createReminderSchema", () => {
     ).toBe(false);
   });
 
-  it("accepts missing category_id (optional)", () => {
-    expect(createReminderSchema.safeParse(validData).success).toBe(true);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -195,6 +207,7 @@ describe("updateReminderSchema", () => {
     amount: 900,
     due_date: "2026-05-01",
     frequency: "monthly" as const,
+    category_id: validUuid,
     auto_create_transaction: false,
   };
 
@@ -202,18 +215,9 @@ describe("updateReminderSchema", () => {
     expect(updateReminderSchema.safeParse(validData).success).toBe(true);
   });
 
-  it("accepts null category_id", () => {
-    expect(
-      updateReminderSchema.safeParse({ ...validData, category_id: null })
-        .success
-    ).toBe(true);
-  });
-
-  it("accepts valid category_id", () => {
-    expect(
-      updateReminderSchema.safeParse({ ...validData, category_id: validUuid })
-        .success
-    ).toBe(true);
+  it("rejects missing category_id", () => {
+    const { category_id: _, ...noCategory } = validData;
+    expect(updateReminderSchema.safeParse(noCategory).success).toBe(false);
   });
 
   it("rejects empty title", () => {
@@ -349,26 +353,6 @@ describe("markOccurrenceUnpaidSchema", () => {
 });
 
 // ---------------------------------------------------------------------------
-// markAsPaidSchema (legacy, kept for backward compat)
-// ---------------------------------------------------------------------------
-
-describe("markAsPaidSchema", () => {
-  it("accepts valid UUID", () => {
-    expect(markAsPaidSchema.safeParse({ id: validUuid }).success).toBe(true);
-  });
-
-  it("rejects invalid UUID", () => {
-    expect(
-      markAsPaidSchema.safeParse({ id: "not-a-uuid" }).success
-    ).toBe(false);
-  });
-
-  it("rejects missing id", () => {
-    expect(markAsPaidSchema.safeParse({}).success).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // reminderFormSchema
 // ---------------------------------------------------------------------------
 
@@ -378,6 +362,7 @@ describe("reminderFormSchema", () => {
     amount: 50,
     due_date: "2026-04-01",
     frequency: "monthly" as const,
+    category_id: validUuid,
     auto_create_transaction: true,
   };
 
@@ -392,14 +377,13 @@ describe("reminderFormSchema", () => {
         amount: validData.amount,
         due_date: validData.due_date,
         frequency: validData.frequency,
+        category_id: validData.category_id,
       }).success
     ).toBe(false);
   });
 
-  it("accepts optional category_id", () => {
-    expect(
-      reminderFormSchema.safeParse({ ...validData, category_id: validUuid })
-        .success
-    ).toBe(true);
+  it("rejects missing category_id", () => {
+    const { category_id: _, ...noCategory } = validData;
+    expect(reminderFormSchema.safeParse(noCategory).success).toBe(false);
   });
 });

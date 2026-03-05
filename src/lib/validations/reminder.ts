@@ -15,7 +15,12 @@ export const reminderFrequencyEnum = z.enum([
 const amountSchema = z
   .number({ message: "Amount is required" })
   .positive("Amount must be positive")
-  .max(9999999999.99, "Amount exceeds allowed maximum");
+  .max(9999999999.99, "Amount exceeds allowed maximum")
+  .refine(
+    (value) =>
+      Math.abs(Math.round(value * 100) - value * 100) < 0.01,
+    "Amount must have at most 2 decimal places"
+  );
 
 // ────────────────────────────────────────────
 // Create reminder
@@ -29,7 +34,7 @@ export const createReminderSchema = z.object({
   amount: amountSchema,
   due_date: z.string().date("Invalid date"),
   frequency: reminderFrequencyEnum,
-  category_id: z.string().uuid("Invalid category").optional(),
+  category_id: z.string().uuid("Invalid category"),
   auto_create_transaction: z.boolean().default(true),
 });
 
@@ -45,7 +50,7 @@ export const updateReminderSchema = z.object({
   amount: amountSchema,
   due_date: z.string().date("Invalid date"),
   frequency: reminderFrequencyEnum,
-  category_id: z.string().uuid("Invalid category").optional().nullable(),
+  category_id: z.string().uuid("Invalid category"),
   auto_create_transaction: z.boolean(),
 });
 
@@ -76,14 +81,6 @@ export const markOccurrenceUnpaidSchema = z.object({
 });
 
 // ────────────────────────────────────────────
-// Legacy: mark as paid (kept for backward compat)
-// ────────────────────────────────────────────
-
-export const markAsPaidSchema = z.object({
-  id: z.string().uuid("Invalid reminder ID"),
-});
-
-// ────────────────────────────────────────────
 // Form-only schema (excludes auto_create_transaction default
 // to avoid react-hook-form input/output type mismatch)
 // ────────────────────────────────────────────
@@ -96,7 +93,7 @@ export const reminderFormSchema = z.object({
   amount: amountSchema,
   due_date: z.string().date("Invalid date"),
   frequency: reminderFrequencyEnum,
-  category_id: z.string().uuid("Invalid category").optional(),
+  category_id: z.string().uuid("Invalid category"),
   auto_create_transaction: z.boolean(),
 });
 
@@ -109,5 +106,4 @@ export type UpdateReminderValues = z.infer<typeof updateReminderSchema>;
 export type DeleteReminderValues = z.infer<typeof deleteReminderSchema>;
 export type MarkOccurrencePaidValues = z.infer<typeof markOccurrencePaidSchema>;
 export type MarkOccurrenceUnpaidValues = z.infer<typeof markOccurrenceUnpaidSchema>;
-export type MarkAsPaidValues = z.infer<typeof markAsPaidSchema>;
 export type ReminderFormValues = z.infer<typeof reminderFormSchema>;

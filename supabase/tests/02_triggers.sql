@@ -18,7 +18,7 @@
 -- ===========================================================================
 
 begin;
-select plan(52);
+select plan(53);
 
 select reset_role();
 
@@ -164,6 +164,36 @@ select ok(
    from public.ai_memories
    where id = current_setting('test.upd_mem')::uuid),
   'set_updated_at: works on ai_memories'
+);
+
+-- set_updated_at on reminder_payments
+do $$
+declare
+  _uid uuid := current_setting('test.upd_uid')::uuid;
+  _cat uuid;
+  _rid uuid;
+  _pid uuid;
+begin
+  _cat := create_test_category(_uid, 'RP Trigger Cat', 'expense');
+  _rid := create_test_reminder(_uid, 'RP Trigger Rem', 50, _cat);
+  _pid := create_test_reminder_payment(_uid, _rid, current_date);
+  perform set_config('test.upd_rp', _pid::text, true);
+end;
+$$;
+
+update public.reminder_payments
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_rp')::uuid;
+
+update public.reminder_payments
+set paid_at = now()
+where id = current_setting('test.upd_rp')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.reminder_payments
+   where id = current_setting('test.upd_rp')::uuid),
+  'set_updated_at: works on reminder_payments'
 );
 
 -- ===========================================================================
@@ -569,7 +599,7 @@ begin
   _cat := create_test_category(_uid, 'Attach Cat', 'expense');
   _tid := create_test_transaction(_uid, _cat, 50, 'expense');
   _did := create_test_debt(_uid, 'Attach Peer', 500, 'i_owe');
-  _rid := create_test_reminder(_uid, 'Attach Reminder', 25);
+  _rid := create_test_reminder(_uid, 'Attach Reminder', 25, _cat);
   perform set_config('test.attach_uid', _uid::text, true);
   perform set_config('test.attach_txn', _tid::text, true);
   perform set_config('test.attach_debt', _did::text, true);
@@ -652,8 +682,10 @@ do $$
 declare
   _rid uuid;
   _aid uuid;
+  _cat uuid;
 begin
-  _rid := create_test_reminder(current_setting('test.attach_uid')::uuid, 'Cleanup Reminder', 30);
+  _cat := create_test_category(current_setting('test.attach_uid')::uuid, 'Cleanup Cat', 'expense');
+  _rid := create_test_reminder(current_setting('test.attach_uid')::uuid, 'Cleanup Reminder', 30, _cat);
   insert into public.attachments (user_id, record_type, record_id, file_path, file_name, file_size, mime_type)
   values (current_setting('test.attach_uid')::uuid, 'reminder', _rid, '/f/cleanup.pdf', 'cleanup.pdf', 100, 'application/pdf')
   returning id into _aid;

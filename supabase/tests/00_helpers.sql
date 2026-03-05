@@ -230,12 +230,13 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- create_test_reminder(user_id, title, amount)
+-- create_test_reminder(user_id, title, amount, category_id)
 -- ---------------------------------------------------------------------------
 create or replace function create_test_reminder(
-  _user_id uuid,
-  _title   text    default 'Test Reminder',
-  _amount  numeric default 50
+  _user_id      uuid,
+  _title        text    default 'Test Reminder',
+  _amount       numeric default 50,
+  _category_id  uuid    default null
 )
 returns uuid
 language plpgsql
@@ -243,8 +244,8 @@ as $$
 declare
   _rid uuid;
 begin
-  insert into public.reminders (user_id, title, amount, due_date, frequency)
-  values (_user_id, _title, _amount, current_date + interval '30 days', 'monthly')
+  insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
+  values (_user_id, _title, _amount, current_date + interval '30 days', 'monthly', _category_id)
   returning id into _rid;
   return _rid;
 end;
