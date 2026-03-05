@@ -363,10 +363,7 @@ export async function fetchSpendingSuggestions(): Promise<SpendingSuggestion[]> 
     if (!cat) continue;
 
     const totalSpent = Array.from(monthData.values()).reduce((s, v) => s + v, 0);
-    const monthsWithData = monthData.size;
-    if (monthsWithData === 0) continue;
-
-    const avg = totalSpent / monthsWithData;
+    const avg = totalSpent / monthData.size;
     const rounded = Math.ceil(avg / 10) * 10;
 
     if (rounded > 0) {

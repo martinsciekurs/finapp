@@ -2,12 +2,13 @@
 
 import { startTransition, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Sparkles, Copy, CalendarRange } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, CopyCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { CategoryIcon } from "@/components/ui/category-icon";
-import { formatCurrencyCompact } from "@/lib/utils/currency";
+import { formatCurrencyCompact, roundAmount } from "@/lib/utils/currency";
 import {
   upsertIncomeTarget,
   bulkUpsertCategoryBudgets,
@@ -15,15 +16,6 @@ import {
 } from "@/app/dashboard/budget/actions";
 import { getCurrentYearMonth } from "@/lib/utils/date";
 import type { PlannerData, SpendingSuggestion } from "@/lib/types/budget";
-
-// ────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────
-
-/** Round to 2 decimal places to match DB numeric(12,2). */
-function roundAmount(value: string): number {
-  return Math.round(parseFloat(value) * 100) / 100;
-}
 
 const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -84,12 +76,14 @@ function EditableCell({
   isPast,
   currency,
   onSave,
+  onCopyToFuture,
 }: {
   value: number;
   spent: number;
   isPast: boolean;
   currency: string;
   onSave: (amount: number) => void;
+  onCopyToFuture?: (amount: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value > 0 ? String(value) : "");
@@ -102,22 +96,49 @@ function EditableCell({
     setEditing(false);
   }
 
+  function handleCopyToFuture(e: React.MouseEvent) {
+    e.preventDefault(); // prevent blur from firing first
+    const amount = roundAmount(inputValue);
+    if (amount > 0 && onCopyToFuture) {
+      onSave(amount);
+      onCopyToFuture(amount);
+    }
+    setEditing(false);
+  }
+
   if (editing) {
     return (
-      <Input
-        type="number"
-        step="0.01"
-        min="0"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className="h-6 w-full min-w-[60px] text-right text-xs"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSave();
-          if (e.key === "Escape") setEditing(false);
-        }}
-        onBlur={handleSave}
-        autoFocus
-      />
+      <div className="flex items-center gap-1">
+        <Input
+          type="text"
+          inputMode="decimal"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          className="h-6 w-full border-none bg-transparent text-right text-xs shadow-none focus-visible:ring-0"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={handleSave}
+          autoFocus
+        />
+        {onCopyToFuture && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-primary"
+                onMouseDown={handleCopyToFuture}
+                aria-label="Apply to future months"
+              >
+                <CopyCheck className="size-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              Apply to all future months
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
     );
   }
 
@@ -157,10 +178,11 @@ function IncomeRow({
       <td className="sticky left-0 bg-muted/30 px-3 py-2 text-xs font-semibold">
         Income Target
       </td>
-      {cells.map((cell) => {
+      {cells.map((cell, cellIndex) => {
         const isPast = cell.yearMonth < currentYM;
+        const futureCells = cells.slice(cellIndex + 1);
         return (
-          <td key={cell.yearMonth} className="px-1 py-1.5">
+          <td key={cell.yearMonth} className={`px-1 py-1.5 ${cellIndex === cells.length - 1 ? "pr-3" : ""}`}>
             <EditableCell
               value={cell.amount}
               spent={0}
@@ -174,11 +196,25 @@ function IncomeRow({
                   });
                 });
               }}
+              onCopyToFuture={
+                futureCells.length > 0
+                  ? (amount) => {
+                      const items = futureCells.map((c) => ({
+                        yearMonth: c.yearMonth,
+                        amount,
+                      }));
+                      for (const item of items) {
+                        startTransition(async () => {
+                          await upsertIncomeTarget(item);
+                        });
+                      }
+                    }
+                  : undefined
+              }
             />
           </td>
         );
       })}
-      <td className="px-2 py-1.5" />
     </tr>
   );
 }
@@ -194,7 +230,6 @@ function CategoryRow({
   color,
   cells,
   currency,
-  suggestions,
 }: {
   categoryId: string;
   name: string;
@@ -202,37 +237,8 @@ function CategoryRow({
   color: string;
   cells: { yearMonth: string; budgeted: number; spent: number }[];
   currency: string;
-  suggestions: Map<string, number>;
 }) {
   const currentYM = getCurrentYearMonth();
-
-  function handleFillFromSpending() {
-    const suggested = suggestions.get(categoryId);
-    if (suggested && suggested > 0) {
-      const items = cells.map((c) => ({
-        categoryId,
-        yearMonth: c.yearMonth,
-        amount: suggested,
-      }));
-      startTransition(async () => {
-        await bulkUpsertCategoryBudgets({ items });
-      });
-    }
-  }
-
-  function handleApplyToRemaining() {
-    const currentCell = cells.find((c) => c.yearMonth === currentYM);
-    const amount = currentCell?.budgeted;
-    if (!amount || amount <= 0) return;
-    const futureItems = cells
-      .filter((c) => c.yearMonth > currentYM)
-      .map((c) => ({ categoryId, yearMonth: c.yearMonth, amount }));
-    if (futureItems.length > 0) {
-      startTransition(async () => {
-        await bulkUpsertCategoryBudgets({ items: futureItems });
-      });
-    }
-  }
 
   return (
     <tr className="border-b last:border-b-0">
@@ -247,10 +253,11 @@ function CategoryRow({
           <span className="truncate text-xs font-medium">{name}</span>
         </div>
       </td>
-      {cells.map((cell) => {
+      {cells.map((cell, cellIndex) => {
         const isPast = cell.yearMonth < currentYM;
+        const futureCells = cells.slice(cellIndex + 1);
         return (
-          <td key={cell.yearMonth} className="px-1 py-1.5">
+          <td key={cell.yearMonth} className={`px-1 py-1.5 ${cellIndex === cells.length - 1 ? "pr-3" : ""}`}>
             <EditableCell
               value={cell.budgeted}
               spent={cell.spent}
@@ -265,31 +272,24 @@ function CategoryRow({
                   });
                 });
               }}
+              onCopyToFuture={
+                futureCells.length > 0
+                  ? (amount) => {
+                      const items = futureCells.map((c) => ({
+                        categoryId,
+                        yearMonth: c.yearMonth,
+                        amount,
+                      }));
+                      startTransition(async () => {
+                        await bulkUpsertCategoryBudgets({ items });
+                      });
+                    }
+                  : undefined
+              }
             />
           </td>
         );
       })}
-      <td className="px-2 py-1.5">
-        <div className="flex gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            title="Fill from 3-month average"
-            onClick={handleFillFromSpending}
-            disabled={!suggestions.has(categoryId)}
-          >
-            <Sparkles className="size-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            title="Apply current month to future"
-            onClick={handleApplyToRemaining}
-          >
-            <Copy className="size-3" />
-          </Button>
-        </div>
-      </td>
     </tr>
   );
 }
@@ -302,18 +302,16 @@ function GroupRows({
   groupName,
   categories,
   currency,
-  suggestionsMap,
 }: {
   groupName: string;
   categories: PlannerData["categories"];
   currency: string;
-  suggestionsMap: Map<string, number>;
 }) {
   return (
     <>
       <tr>
         <td
-          colSpan={14}
+          colSpan={13}
           className="bg-muted/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
           {groupName}
@@ -328,7 +326,6 @@ function GroupRows({
           color={cat.color}
           cells={cat.cells}
           currency={currency}
-          suggestions={suggestionsMap}
         />
       ))}
     </>
@@ -400,7 +397,13 @@ export function BudgetPlanViewClient({
 
       <Card className="overflow-hidden">
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+          <table className="w-full min-w-[840px] table-fixed border-collapse text-sm">
+            <colgroup>
+              <col className="w-[180px]" />
+              {MONTH_LABELS.map((_, i) => (
+                <col key={i} className="w-[56px]" />
+              ))}
+            </colgroup>
             <thead>
               <tr className="border-b">
                 <th className="sticky left-0 bg-card px-3 py-2 text-left text-xs font-medium text-muted-foreground">
@@ -409,14 +412,11 @@ export function BudgetPlanViewClient({
                 {MONTH_LABELS.map((label, i) => (
                   <th
                     key={i}
-                    className="px-1 py-2 text-center text-xs font-medium text-muted-foreground"
+                    className={`px-1 py-2 text-center text-xs font-medium text-muted-foreground ${i === 11 ? "pr-3" : ""}`}
                   >
                     {label}
                   </th>
                 ))}
-                <th className="px-2 py-2 text-xs font-medium text-muted-foreground">
-                  <CalendarRange className="mx-auto size-3.5" />
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -427,7 +427,6 @@ export function BudgetPlanViewClient({
                   groupName={groupName}
                   categories={cats}
                   currency={currency}
-                  suggestionsMap={suggestionsMap}
                 />
               ))}
             </tbody>

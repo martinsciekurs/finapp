@@ -4,15 +4,10 @@ import { startTransition, useState } from "react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatCurrencyCompact } from "@/lib/utils/currency";
+import { formatCurrencyCompact, roundAmount } from "@/lib/utils/currency";
 import { upsertCategoryBudget } from "@/app/dashboard/budget/actions";
 import type { BudgetCategoryItem, UnbudgetedCategoryItem } from "@/lib/types/budget";
 import { Check, X } from "lucide-react";
-
-/** Round to 2 decimal places to match DB numeric(12,2). */
-function roundAmount(value: string): number {
-  return Math.round(parseFloat(value) * 100) / 100;
-}
 
 // ────────────────────────────────────────────
 // Budgeted category row (with progress bar)
@@ -55,11 +50,14 @@ export function BudgetedCategoryRow({
     try {
       await new Promise<void>((resolve) => {
         startTransition(async () => {
-          await upsertCategoryBudget({
+          const result = await upsertCategoryBudget({
             categoryId: item.categoryId,
             yearMonth,
             amount,
           });
+          if (!result.success) {
+            setInputValue(String(item.budgeted));
+          }
           resolve();
         });
       });
@@ -100,9 +98,8 @@ export function BudgetedCategoryRow({
             {editing ? (
               <div className="flex items-center gap-0.5">
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="h-6 w-20 text-right text-sm"
@@ -191,11 +188,14 @@ export function UnbudgetedCategoryRow({
     try {
       await new Promise<void>((resolve) => {
         startTransition(async () => {
-          await upsertCategoryBudget({
+          const result = await upsertCategoryBudget({
             categoryId: item.categoryId,
             yearMonth,
             amount,
           });
+          if (!result.success) {
+            setInputValue("");
+          }
           resolve();
         });
       });
@@ -235,9 +235,8 @@ export function UnbudgetedCategoryRow({
             {editing ? (
               <div className="flex items-center gap-0.5">
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="h-6 w-20 text-right text-sm"

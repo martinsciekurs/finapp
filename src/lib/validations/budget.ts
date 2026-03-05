@@ -11,6 +11,12 @@ export const yearMonthSchema = z
     "Must be a valid year-month in YYYY-MM format"
   );
 
+/** Reusable amount schema matching DB numeric(12,2). */
+const amountSchema = z
+  .number({ message: "Amount is required" })
+  .positive("Amount must be positive")
+  .max(9999999999.99, "Amount exceeds allowed maximum");
+
 // ────────────────────────────────────────────
 // Category budget schemas
 // ────────────────────────────────────────────
@@ -18,9 +24,7 @@ export const yearMonthSchema = z
 export const upsertCategoryBudgetSchema = z.object({
   categoryId: z.string().uuid("Invalid category"),
   yearMonth: yearMonthSchema,
-  amount: z
-    .number({ message: "Amount is required" })
-    .positive("Amount must be positive"),
+  amount: amountSchema,
 });
 
 export const removeCategoryBudgetSchema = z.object({
@@ -28,12 +32,25 @@ export const removeCategoryBudgetSchema = z.object({
   yearMonth: yearMonthSchema,
 });
 
-export const bulkUpsertCategoryBudgetsSchema = z.object({
-  items: z
-    .array(upsertCategoryBudgetSchema)
-    .min(1, "At least one budget item is required")
-    .max(500, "Too many items in a single request"),
-});
+export const bulkUpsertCategoryBudgetsSchema = z
+  .object({
+    items: z
+      .array(upsertCategoryBudgetSchema)
+      .min(1, "At least one budget item is required")
+      .max(500, "Too many items in a single request"),
+  })
+  .refine(
+    (data) => {
+      const keys = new Set<string>();
+      for (const item of data.items) {
+        const key = `${item.categoryId}:${item.yearMonth}`;
+        if (keys.has(key)) return false;
+        keys.add(key);
+      }
+      return true;
+    },
+    { message: "Duplicate category/month pairs are not allowed" }
+  );
 
 // ────────────────────────────────────────────
 // Income target schemas
@@ -41,9 +58,7 @@ export const bulkUpsertCategoryBudgetsSchema = z.object({
 
 export const upsertIncomeTargetSchema = z.object({
   yearMonth: yearMonthSchema,
-  amount: z
-    .number({ message: "Amount is required" })
-    .positive("Amount must be positive"),
+  amount: amountSchema,
 });
 
 export const removeIncomeTargetSchema = z.object({

@@ -108,6 +108,18 @@ describe("upsertCategoryBudgetSchema", () => {
       upsertCategoryBudgetSchema.safeParse({ ...validData, amount: 99.99 }).success
     ).toBe(true);
   });
+
+  it("rejects amount exceeding numeric(12,2) max", () => {
+    expect(
+      upsertCategoryBudgetSchema.safeParse({ ...validData, amount: 10000000000 }).success
+    ).toBe(false);
+  });
+
+  it("accepts amount at numeric(12,2) max", () => {
+    expect(
+      upsertCategoryBudgetSchema.safeParse({ ...validData, amount: 9999999999.99 }).success
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -180,6 +192,25 @@ describe("bulkUpsertCategoryBudgetsSchema", () => {
       }).success
     ).toBe(false);
   });
+
+  it("rejects duplicate category/month pairs", () => {
+    const result = bulkUpsertCategoryBudgetsSchema.safeParse({
+      items: [validItem, validItem],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts same category with different months", () => {
+    expect(
+      bulkUpsertCategoryBudgetsSchema.safeParse({
+        items: [
+          validItem,
+          { ...validItem, yearMonth: "2026-04" },
+          { ...validItem, yearMonth: "2026-05" },
+        ],
+      }).success
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -210,6 +241,12 @@ describe("upsertIncomeTargetSchema", () => {
   it("rejects negative amount", () => {
     expect(
       upsertIncomeTargetSchema.safeParse({ yearMonth: "2026-03", amount: -1000 }).success
+    ).toBe(false);
+  });
+
+  it("rejects amount exceeding numeric(12,2) max", () => {
+    expect(
+      upsertIncomeTargetSchema.safeParse({ yearMonth: "2026-03", amount: 10000000000 }).success
     ).toBe(false);
   });
 });

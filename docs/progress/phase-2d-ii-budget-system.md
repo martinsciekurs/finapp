@@ -3,7 +3,7 @@
 ## Database Migration (DONE)
 - [x] `category_budgets` table — id, user_id, category_id, year_month, amount, created_at, updated_at
 - [x] Composite FK `(category_id, user_id) → categories(id, user_id)` for RLS alignment
-- [x] `UNIQUE(user_id, category_id, year_month)` — one budget per category per month
+- [x] `UNIQUE(category_id, year_month)` — one budget per category per month
 - [x] CHECK constraints: amount > 0, year_month format `YYYY-MM`
 - [x] `monthly_income_targets` table — id, user_id, year_month, amount, created_at, updated_at
 - [x] `UNIQUE(user_id, year_month)` — one income target per month

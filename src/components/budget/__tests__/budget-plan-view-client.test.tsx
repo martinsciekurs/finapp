@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { PlannerData, SpendingSuggestion } from "@/lib/types/budget";
 
 const pushMock = vi.fn();
@@ -88,26 +89,26 @@ const emptyPlannerData: PlannerData = {
   categories: [],
 };
 
-describe("BudgetPlanViewClient", () => {
-  it("renders the year in the year selector", () => {
-    render(
+function renderPlanView(props?: { data?: PlannerData; suggestions?: SpendingSuggestion[] }) {
+  return render(
+    <TooltipProvider>
       <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
+        data={props?.data ?? plannerData}
+        suggestions={props?.suggestions ?? suggestions}
         currency="USD"
       />
-    );
+    </TooltipProvider>
+  );
+}
+
+describe("BudgetPlanViewClient", () => {
+  it("renders the year in the year selector", () => {
+    renderPlanView();
     expect(screen.getByText("2026")).toBeInTheDocument();
   });
 
   it("renders all 12 month column headers", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     for (const month of months) {
       expect(screen.getByText(month)).toBeInTheDocument();
@@ -115,84 +116,42 @@ describe("BudgetPlanViewClient", () => {
   });
 
   it("renders Income Target row", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByText("Income Target")).toBeInTheDocument();
   });
 
   it("renders category names", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByText("Groceries")).toBeInTheDocument();
     expect(screen.getByText("Entertainment")).toBeInTheDocument();
   });
 
   it("renders group headers", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByText("Essentials")).toBeInTheDocument();
     expect(screen.getByText("Lifestyle")).toBeInTheDocument();
   });
 
   it("renders Fill from spending button", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByText("Fill from spending")).toBeInTheDocument();
   });
 
   it("disables Fill from spending button when no suggestions", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={[]}
-        currency="USD"
-      />
-    );
+    renderPlanView({ suggestions: [] });
     const fillButton = screen.getByText("Fill from spending").closest("button");
     expect(fillButton).toBeDisabled();
   });
 
   it("renders year navigation buttons", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByLabelText("Previous year")).toBeInTheDocument();
     expect(screen.getByLabelText("Next year")).toBeInTheDocument();
   });
 
   it("navigates to previous year on click", async () => {
     const user = userEvent.setup();
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     await user.click(screen.getByLabelText("Previous year"));
     expect(pushMock).toHaveBeenCalledWith(
       expect.stringContaining("year=2025")
@@ -200,25 +159,19 @@ describe("BudgetPlanViewClient", () => {
   });
 
   it("renders Category column header", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     expect(screen.getByText("Category")).toBeInTheDocument();
   });
 
   it("renders category icons", () => {
-    render(
-      <BudgetPlanViewClient
-        data={plannerData}
-        suggestions={suggestions}
-        currency="USD"
-      />
-    );
+    renderPlanView();
     const icons = screen.getAllByTestId("category-icon");
     expect(icons).toHaveLength(2);
+  });
+
+  it("renders table with no category rows when data is empty", () => {
+    renderPlanView({ data: emptyPlannerData });
+    expect(screen.getByText("Income Target")).toBeInTheDocument();
+    expect(screen.queryByTestId("category-icon")).not.toBeInTheDocument();
   });
 });

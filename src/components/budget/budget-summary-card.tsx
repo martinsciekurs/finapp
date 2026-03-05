@@ -4,15 +4,10 @@ import { startTransition, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatCurrencyCompact } from "@/lib/utils/currency";
+import { formatCurrencyCompact, roundAmount } from "@/lib/utils/currency";
 import { upsertIncomeTarget } from "@/app/dashboard/budget/actions";
 import type { BudgetSummary } from "@/lib/types/budget";
 import { Check, Pencil, X } from "lucide-react";
-
-/** Round to 2 decimal places to match DB numeric(12,2). */
-function roundAmount(value: string): number {
-  return Math.round(parseFloat(value) * 100) / 100;
-}
 
 interface BudgetSummaryCardProps {
   summary: BudgetSummary;
@@ -38,7 +33,12 @@ export function BudgetSummaryCard({
     try {
       await new Promise<void>((resolve) => {
         startTransition(async () => {
-          await upsertIncomeTarget({ yearMonth, amount });
+          const result = await upsertIncomeTarget({ yearMonth, amount });
+          if (!result.success) {
+            setInputValue(
+              summary.incomeTarget > 0 ? String(summary.incomeTarget) : ""
+            );
+          }
           resolve();
         });
       });
@@ -65,9 +65,8 @@ export function BudgetSummaryCard({
             {editing ? (
               <div className="mt-1 flex items-center gap-1">
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="h-7 w-24 text-sm"
