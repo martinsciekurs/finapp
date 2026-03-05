@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -79,6 +79,20 @@ export function ReminderFormDialog({
       auto_create_transaction: reminder?.auto_create_transaction ?? true,
     },
   });
+
+  // Reset form when dialog opens or reminder prop changes to avoid stale state
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: reminder?.title ?? "",
+        amount: reminder?.amount ?? (undefined as unknown as number),
+        due_date: reminder?.due_date ?? formatDateForInput(new Date()),
+        frequency: reminder?.frequency ?? "monthly",
+        category_id: reminder?.category_id ?? undefined,
+        auto_create_transaction: reminder?.auto_create_transaction ?? true,
+      });
+    }
+  }, [open, reminder, form]);
 
   async function onSubmit(values: ReminderFormValues) {
     setIsSubmitting(true);

@@ -52,13 +52,14 @@ export async function createReminder(
     };
   }
 
-  // Verify category belongs to the user (if provided)
+  // Verify category belongs to the user and is an expense category
   if (parsed.data.category_id) {
     const { data: category, error: catError } = await supabase
       .from("categories")
       .select("id")
       .eq("id", parsed.data.category_id)
       .eq("user_id", user.id)
+      .eq("type", "expense")
       .maybeSingle();
 
     if (catError || !category) {
@@ -119,13 +120,14 @@ export async function updateReminder(
     };
   }
 
-  // Verify category belongs to the user (if provided)
+  // Verify category belongs to the user and is an expense category
   if (parsed.data.category_id) {
     const { data: category, error: catError } = await supabase
       .from("categories")
       .select("id")
       .eq("id", parsed.data.category_id)
       .eq("user_id", user.id)
+      .eq("type", "expense")
       .maybeSingle();
 
     if (catError || !category) {
@@ -249,19 +251,26 @@ export async function markOccurrencePaid(
     return { success: false, error: "Reminder not found" };
   }
 
-  // Check if already paid
-  const { data: existing } = await supabase
+  // Reserve the payment record first — the unique constraint on
+  // (reminder_id, due_date) prevents races / double-pay atomically.
+  const { data: reserved, error: reserveError } = await supabase
     .from("reminder_payments")
+    .insert({
+      reminder_id: parsed.data.reminder_id,
+      user_id: user.id,
+      due_date: parsed.data.due_date,
+      transaction_id: null,
+    })
     .select("id")
-    .eq("reminder_id", parsed.data.reminder_id)
-    .eq("due_date", parsed.data.due_date)
-    .maybeSingle();
+    .single();
 
-  if (existing) {
-    return { success: false, error: "This occurrence is already paid" };
+  if (reserveError) {
+    // 23505 = unique_violation → already paid
+    if (reserveError.code === "23505") {
+      return { success: false, error: "This occurrence is already paid" };
+    }
+    return { success: false, error: "Failed to record payment" };
   }
-
-  let transactionId: string | null = null;
 
   // Create expense transaction if auto_create_transaction is enabled
   if (reminder.auto_create_transaction && reminder.category_id) {
@@ -280,24 +289,19 @@ export async function markOccurrencePaid(
       .single();
 
     if (txError) {
+      // Roll back the reserved payment to avoid an orphaned record
+      await supabase
+        .from("reminder_payments")
+        .delete()
+        .eq("id", reserved.id);
       return { success: false, error: "Failed to create transaction" };
     }
 
-    transactionId = tx.id;
-  }
-
-  // Create payment record
-  const { error: payError } = await supabase
-    .from("reminder_payments")
-    .insert({
-      reminder_id: parsed.data.reminder_id,
-      user_id: user.id,
-      due_date: parsed.data.due_date,
-      transaction_id: transactionId,
-    });
-
-  if (payError) {
-    return { success: false, error: "Failed to record payment" };
+    // Link the transaction to the payment record
+    await supabase
+      .from("reminder_payments")
+      .update({ transaction_id: tx.id } as never)
+      .eq("id", reserved.id);
   }
 
   revalidate();

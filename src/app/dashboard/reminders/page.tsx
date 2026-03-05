@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RemindersPage() {
-  const [data, reminders, categories, currency] = await Promise.all([
+  const [groupedOccurrences, reminders, categories, currency] = await Promise.all([
     fetchReminders(),
     fetchReminderTemplates(),
     fetchReminderCategories(),
@@ -21,7 +21,7 @@ export default async function RemindersPage() {
 
   return (
     <ReminderList
-      data={data}
+      data={groupedOccurrences}
       reminders={reminders}
       categories={categories}
       currency={currency}

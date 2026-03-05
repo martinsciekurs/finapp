@@ -43,6 +43,18 @@ function getPeriodEnd(period: ReminderPeriod): string {
 }
 
 /**
+ * Advance a date by N months, clamping the day to the last day of the
+ * target month to prevent end-of-month drift (e.g., Jan 31 + 1 month = Feb 28).
+ */
+function advanceMonths(year: number, month: number, originalDay: number, addMonths: number): Date {
+  const targetMonth = month + addMonths;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const targetMon = ((targetMonth % 12) + 12) % 12; // handle negatives
+  const lastDay = new Date(targetYear, targetMon + 1, 0).getDate();
+  return new Date(targetYear, targetMon, Math.min(originalDay, lastDay));
+}
+
+/**
  * Generate occurrence dates for a reminder within a date range.
  * Returns an array of YYYY-MM-DD strings.
  */
@@ -61,9 +73,9 @@ function generateOccurrences(
     return dates;
   }
 
-  // Parse starting date
-  const [y, m, d] = startDate.split("-").map(Number);
-  const current = new Date(y, m - 1, d);
+  // Parse starting date — remember the original day for clamping
+  const [startY, startM, startD] = startDate.split("-").map(Number);
+  const originalDay = startD;
   const end = new Date(rangeEnd + "T23:59:59");
 
   // The effective start of the range is the later of rangeStart and
@@ -72,35 +84,65 @@ function generateOccurrences(
   const effectiveStart = startDate > rangeStart ? startDate : rangeStart;
   const effectiveStartDate = new Date(effectiveStart + "T00:00:00");
 
-  // Advance forward from the reminder's due_date until we reach
-  // the effective start of the window.
-  const maxIterations = 500; // safety limit
-  let iterations = 0;
-  while (current < effectiveStartDate && iterations < maxIterations) {
-    if (frequency === "weekly") current.setDate(current.getDate() + 7);
-    else if (frequency === "monthly") current.setMonth(current.getMonth() + 1);
-    else if (frequency === "yearly") current.setFullYear(current.getFullYear() + 1);
-    iterations++;
+  // Jump forward deterministically to the first occurrence >= effectiveStart
+  let current: Date;
+  if (frequency === "weekly") {
+    // Compute the first occurrence on or after effectiveStart
+    const base = new Date(startY, startM - 1, startD);
+    const diffMs = effectiveStartDate.getTime() - base.getTime();
+    if (diffMs <= 0) {
+      current = base;
+    } else {
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const weeksAhead = Math.floor(diffDays / 7);
+      current = new Date(base.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+      // If we landed before effectiveStart, still in range — the generate
+      // loop below will filter by effectiveStart string comparison
+    }
+  } else if (frequency === "monthly") {
+    const baseMonth = (startY - 1) * 12 + (startM - 1);
+    const effY = effectiveStartDate.getFullYear();
+    const effM = effectiveStartDate.getMonth();
+    const targetMonth = (effY - 1) * 12 + effM;
+    let monthsAhead = targetMonth - baseMonth;
+    if (monthsAhead < 0) monthsAhead = 0;
+    current = advanceMonths(startY, startM - 1, originalDay, monthsAhead);
+    // Step back one if we overshot, so the loop catches the boundary
+    if (current > effectiveStartDate) {
+      current = advanceMonths(startY, startM - 1, originalDay, monthsAhead - 1);
+    }
+  } else {
+    // yearly
+    let yearsAhead = effectiveStartDate.getFullYear() - startY;
+    if (yearsAhead < 0) yearsAhead = 0;
+    current = advanceMonths(startY, startM - 1, originalDay, yearsAhead * 12);
+    if (current > effectiveStartDate) {
+      current = advanceMonths(startY, startM - 1, originalDay, (yearsAhead - 1) * 12);
+    }
   }
 
-  // If we overshot, step back one period so we don't skip the
-  // first occurrence that falls within the window.
-  if (current > effectiveStartDate) {
-    if (frequency === "weekly") current.setDate(current.getDate() - 7);
-    else if (frequency === "monthly") current.setMonth(current.getMonth() - 1);
-    else if (frequency === "yearly") current.setFullYear(current.getFullYear() - 1);
-  }
+  // Track total months offset from start for monthly/yearly clamped advance
+  let monthOffset = frequency === "weekly"
+    ? 0
+    : (current.getFullYear() - startY) * 12 + (current.getMonth() - (startM - 1));
 
   // Generate forward from current
-  iterations = 0;
+  const maxIterations = 500; // safety limit
+  let iterations = 0;
   while (current <= end && iterations < maxIterations) {
     const dateStr = formatDateForInput(current);
     if (dateStr >= effectiveStart && dateStr <= rangeEnd) {
       dates.push(dateStr);
     }
-    if (frequency === "weekly") current.setDate(current.getDate() + 7);
-    else if (frequency === "monthly") current.setMonth(current.getMonth() + 1);
-    else if (frequency === "yearly") current.setFullYear(current.getFullYear() + 1);
+    if (frequency === "weekly") {
+      current = new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000);
+    } else if (frequency === "monthly") {
+      monthOffset++;
+      current = advanceMonths(startY, startM - 1, originalDay, monthOffset);
+    } else {
+      monthOffset += 12;
+      current = advanceMonths(startY, startM - 1, originalDay, monthOffset);
+    }
     iterations++;
   }
 

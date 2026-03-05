@@ -371,7 +371,7 @@ describe("markOccurrencePaid", () => {
     });
   });
 
-  it("returns error when occurrence is already paid", async () => {
+  it("returns error when occurrence is already paid (unique constraint)", async () => {
     mockAuthenticated();
 
     // Reminder fetch succeeds
@@ -387,11 +387,11 @@ describe("markOccurrencePaid", () => {
       error: null,
     });
 
-    // Payment already exists
+    // Reserve insert fails with unique_violation
     const { chain: paymentChain } = chainable(undefined);
-    paymentChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: "existing-payment-id" },
-      error: null,
+    paymentChain.single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "23505", message: "duplicate key" },
     });
 
     mockFrom.mockImplementation((table: string) => {
@@ -423,27 +423,16 @@ describe("markOccurrencePaid", () => {
       error: null,
     });
 
-    // No existing payment
-    const { chain: checkPaymentChain } = chainable(undefined);
-    checkPaymentChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: null,
+    // Reserve payment succeeds
+    const { chain: paymentChain } = chainable(undefined);
+    paymentChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-1" },
       error: null,
     });
 
-    // Insert payment
-    const { chain: insertPaymentChain } = chainable(undefined);
-    insertPaymentChain.then = vi.fn().mockImplementation(
-      (resolve: (v: unknown) => void) =>
-        Promise.resolve({ data: null, error: null }).then(resolve)
-    );
-
-    let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "reminders") return reminderChain;
-      if (table === "reminder_payments") {
-        paymentCalls++;
-        return paymentCalls === 1 ? checkPaymentChain : insertPaymentChain;
-      }
+      if (table === "reminder_payments") return paymentChain;
       return {};
     });
 
@@ -470,33 +459,29 @@ describe("markOccurrencePaid", () => {
       error: null,
     });
 
-    // No existing payment
-    const { chain: checkPaymentChain } = chainable(undefined);
-    checkPaymentChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: null,
+    // Reserve payment succeeds
+    const { chain: reserveChain } = chainable(undefined);
+    reserveChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-2" },
       error: null,
     });
 
-    // Transaction insert
+    // Transaction insert succeeds
     const { chain: txChain } = chainable(undefined);
     txChain.single = vi.fn().mockResolvedValue({
       data: { id: "tx-id-1" },
       error: null,
     });
 
-    // Payment insert
-    const { chain: insertPaymentChain } = chainable(undefined);
-    insertPaymentChain.then = vi.fn().mockImplementation(
-      (resolve: (v: unknown) => void) =>
-        Promise.resolve({ data: null, error: null }).then(resolve)
-    );
+    // Update payment to link transaction (second reminder_payments call)
+    const { chain: updatePayChain } = chainable({ data: null, error: null });
 
     let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "reminders") return reminderChain;
       if (table === "reminder_payments") {
         paymentCalls++;
-        return paymentCalls === 1 ? checkPaymentChain : insertPaymentChain;
+        return paymentCalls === 1 ? reserveChain : updatePayChain;
       }
       if (table === "transactions") return txChain;
       return {};
@@ -524,27 +509,16 @@ describe("markOccurrencePaid", () => {
       error: null,
     });
 
-    // No existing payment
-    const { chain: checkPaymentChain } = chainable(undefined);
-    checkPaymentChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: null,
+    // Reserve payment succeeds
+    const { chain: paymentChain } = chainable(undefined);
+    paymentChain.single = vi.fn().mockResolvedValue({
+      data: { id: "pay-id-3" },
       error: null,
     });
 
-    // Payment insert
-    const { chain: insertPaymentChain } = chainable(undefined);
-    insertPaymentChain.then = vi.fn().mockImplementation(
-      (resolve: (v: unknown) => void) =>
-        Promise.resolve({ data: null, error: null }).then(resolve)
-    );
-
-    let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "reminders") return reminderChain;
-      if (table === "reminder_payments") {
-        paymentCalls++;
-        return paymentCalls === 1 ? checkPaymentChain : insertPaymentChain;
-      }
+      if (table === "reminder_payments") return paymentChain;
       return {};
     });
 
@@ -568,25 +542,16 @@ describe("markOccurrencePaid", () => {
       error: null,
     });
 
-    const { chain: checkPaymentChain } = chainable(undefined);
-    checkPaymentChain.maybeSingle = vi.fn().mockResolvedValue({
+    // Reserve insert fails (non-unique error)
+    const { chain: paymentChain } = chainable(undefined);
+    paymentChain.single = vi.fn().mockResolvedValue({
       data: null,
-      error: null,
+      error: { code: "42000", message: "DB error" },
     });
 
-    const { chain: insertPaymentChain } = chainable(undefined);
-    insertPaymentChain.then = vi.fn().mockImplementation(
-      (resolve: (v: unknown) => void) =>
-        Promise.resolve({ data: null, error: { message: "DB error" } }).then(resolve)
-    );
-
-    let paymentCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "reminders") return reminderChain;
-      if (table === "reminder_payments") {
-        paymentCalls++;
-        return paymentCalls === 1 ? checkPaymentChain : insertPaymentChain;
-      }
+      if (table === "reminder_payments") return paymentChain;
       return {};
     });
 

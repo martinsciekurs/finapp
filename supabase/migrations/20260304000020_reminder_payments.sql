@@ -33,6 +33,17 @@ create policy "Users can view own reminder payments"
 
 create policy "Users can insert own reminder payments"
   on public.reminder_payments for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.reminders
+      where id = reminder_id and user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update own reminder payments"
+  on public.reminder_payments for update
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 create policy "Users can delete own reminder payments"
