@@ -16,6 +16,24 @@ import {
   type MarkOccurrenceUnpaidValues,
 } from "@/lib/validations/reminder";
 import type { ActionResult } from "@/lib/types/actions";
+import type { Database } from "@/lib/supabase/database.types";
+
+// Generated types mark category_id as required string, but the DB column is
+// nullable. Override until types are regenerated with `supabase gen types`.
+type RemindersInsert = Omit<
+  Database["public"]["Tables"]["reminders"]["Insert"],
+  "category_id"
+> & { category_id: string | null };
+
+type RemindersUpdate = Omit<
+  Database["public"]["Tables"]["reminders"]["Update"],
+  "category_id"
+> & { category_id?: string | null };
+
+type RemindersInsertGenerated =
+  Database["public"]["Tables"]["reminders"]["Insert"];
+type RemindersUpdateGenerated =
+  Database["public"]["Tables"]["reminders"]["Update"];
 
 // ────────────────────────────────────────────
 // Helpers
@@ -67,9 +85,7 @@ export async function createReminder(
     }
   }
 
-  // category_id is nullable in the DB but the generated types mark it as
-  // required string. Use a type assertion for the insert payload.
-  const insertPayload: Record<string, unknown> = {
+  const insertPayload: RemindersInsert = {
     user_id: user.id,
     title: parsed.data.title,
     amount: parsed.data.amount,
@@ -81,7 +97,7 @@ export async function createReminder(
 
   const { data, error } = await supabase
     .from("reminders")
-    .insert(insertPayload as never)
+    .insert(insertPayload as RemindersInsertGenerated)
     .select("id")
     .single();
 
@@ -135,8 +151,7 @@ export async function updateReminder(
     }
   }
 
-  // category_id is nullable in DB but generated types don't reflect this.
-  const updatePayload: Record<string, unknown> = {
+  const updatePayload: RemindersUpdate = {
     title: parsed.data.title,
     amount: parsed.data.amount,
     due_date: parsed.data.due_date,
@@ -147,7 +162,7 @@ export async function updateReminder(
 
   const { data: updated, error } = await supabase
     .from("reminders")
-    .update(updatePayload as never)
+    .update(updatePayload as RemindersUpdateGenerated)
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id");
@@ -299,6 +314,10 @@ export async function markOccurrencePaid(
           paymentId: reserved.id,
           error: rbError.message,
         });
+        return {
+          success: false,
+          error: `Failed to create transaction and rollback failed: could not delete reminder_payments (id: ${reserved.id}): ${rbError.message}`,
+        };
       }
       return { success: false, error: "Failed to create transaction" };
     }
@@ -306,13 +325,15 @@ export async function markOccurrencePaid(
     // Link the transaction to the payment record
     const { data: linkedRow, error: linkError } = await supabase
       .from("reminder_payments")
-      .update({ transaction_id: tx.id } as never)
+      .update({ transaction_id: tx.id })
       .eq("id", reserved.id)
       .select("id")
       .maybeSingle();
 
     if (linkError || !linkedRow) {
       // Roll back: delete the orphaned transaction and reserved payment
+      const rollbackErrors: string[] = [];
+
       const { error: rbTxErr } = await supabase
         .from("transactions")
         .delete()
@@ -322,7 +343,11 @@ export async function markOccurrencePaid(
           transactionId: tx.id,
           error: rbTxErr.message,
         });
+        rollbackErrors.push(
+          `delete transactions (id: ${tx.id}): ${rbTxErr.message}`
+        );
       }
+
       const { error: rbPayErr } = await supabase
         .from("reminder_payments")
         .delete()
@@ -332,6 +357,16 @@ export async function markOccurrencePaid(
           paymentId: reserved.id,
           error: rbPayErr.message,
         });
+        rollbackErrors.push(
+          `delete reminder_payments (id: ${reserved.id}): ${rbPayErr.message}`
+        );
+      }
+
+      if (rollbackErrors.length > 0) {
+        return {
+          success: false,
+          error: `Failed to link transaction to payment and rollback failed: ${rollbackErrors.join("; ")}`,
+        };
       }
       return { success: false, error: "Failed to link transaction to payment" };
     }
