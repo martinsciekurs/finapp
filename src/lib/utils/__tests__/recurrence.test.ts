@@ -16,7 +16,8 @@ describe("isValidOccurrence", () => {
   });
 
   it("returns false for unknown frequency", () => {
-    expect(isValidOccurrence("2026-04-01", "daily", "2026-04-02")).toBe(false);
+    // Intentionally passing an invalid frequency to test the fallback path
+    expect(isValidOccurrence("2026-04-01", "daily" as never, "2026-04-02")).toBe(false);
   });
 
   // ── One-time ─────────────────────────────────────────────

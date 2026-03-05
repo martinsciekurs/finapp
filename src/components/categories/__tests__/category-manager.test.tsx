@@ -4,17 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { CategoryManager } from "../category-manager";
 import type { CategoryGroupData } from "@/lib/types/categories";
 
-// ── Mock framer-motion ──
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: (props: React.PropsWithChildren<Record<string, unknown>>) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { children, initial, animate, transition, ...domProps } = props;
-      return <div {...domProps}>{children}</div>;
-    },
-  },
-  useReducedMotion: () => false,
-}));
+// Shared mock — Proxy strips animation props automatically
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 // ── Mock @dnd-kit ──
 vi.mock("@dnd-kit/core", () => ({

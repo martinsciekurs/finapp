@@ -4,21 +4,8 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import type { UpcomingRemindersData } from "@/lib/types/reminder";
 
-// Mock framer-motion to render static elements
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      ...rest
-    }: React.ComponentProps<"div">) => (
-      <div className={className} {...rest}>
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => true,
-}));
+// Shared mock
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 // Mock AnimatedCounter to render the formatted value directly
 vi.mock("../animated-counter", () => ({
@@ -58,9 +45,8 @@ function makeRemindersData(
 
 describe("SummaryCards", () => {
   const defaultProps = {
-    totalSpent: 1948.49,
-    totalIncome: 3200,
-    weeklySpending: 143.49,
+    income: { month: 3200, "7d": 800 },
+    spending: { month: 1948.49, "7d": 143.49 },
     upcomingReminders: makeRemindersData(),
     currency: "USD",
   };
@@ -68,18 +54,20 @@ describe("SummaryCards", () => {
   it("renders three summary cards with correct labels", () => {
     render(<SummaryCards {...defaultProps} />);
 
-    expect(screen.getByText("Total Spent This Month")).toBeInTheDocument();
-    expect(screen.getByText("Weekly Spending")).toBeInTheDocument();
+    expect(screen.getByText("Income")).toBeInTheDocument();
+    expect(screen.getByText("Spending")).toBeInTheDocument();
     expect(screen.getByText("Scheduled Payments")).toBeInTheDocument();
   });
 
-  it("renders formatted currency values for spending cards", () => {
+  it("renders formatted currency values (monthly by default)", () => {
     render(<SummaryCards {...defaultProps} />);
 
     const counters = screen.getAllByTestId("animated-counter");
     expect(counters).toHaveLength(3);
-    expect(counters[0].textContent).toBe("$1,948.49");
-    expect(counters[1].textContent).toBe("$143.49");
+    // Income card (month) first
+    expect(counters[0].textContent).toBe("$3,200.00");
+    // Spending card (month) second
+    expect(counters[1].textContent).toBe("$1,948.49");
   });
 
   it("renders reminder count for the default period (7d) + overdue", () => {
@@ -103,16 +91,18 @@ describe("SummaryCards", () => {
     expect(counters[2].textContent).toBe("3");
   });
 
-  it("renders subtitles for spending cards", () => {
+  it("renders period selectors for income and spending cards", () => {
     render(<SummaryCards {...defaultProps} />);
 
-    expect(screen.getByText("Last 7 days")).toBeInTheDocument();
-  });
-
-  it("shows income as subtitle on the first card", () => {
-    render(<SummaryCards {...defaultProps} />);
-
-    expect(screen.getByText("Income: $3,200.00")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Income period" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Spending period" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Filter period" })
+    ).toBeInTheDocument();
   });
 
   it("renders with EUR currency", () => {
@@ -139,9 +129,8 @@ describe("SummaryCards", () => {
     });
     render(
       <SummaryCards
-        totalSpent={0}
-        totalIncome={0}
-        weeklySpending={0}
+        income={{ month: 0, "7d": 0 }}
+        spending={{ month: 0, "7d": 0 }}
         upcomingReminders={zeroReminders}
         currency="USD"
       />
@@ -153,28 +142,75 @@ describe("SummaryCards", () => {
     expect(counters[2].textContent).toBe("0");
   });
 
-  it("renders period filter dropdown with all options", () => {
+  it("renders income/spending period options", () => {
     render(<SummaryCards {...defaultProps} />);
 
-    const select = screen.getByRole("combobox", { name: "Filter period" });
-    expect(select).toBeInTheDocument();
-
-    const options = Array.from(
-      (select as HTMLSelectElement).options
-    ).map((o) => o.text);
-    expect(options).toEqual(["Next 7 days", "Until end of month"]);
+    const incomeSelect = screen.getByRole("combobox", {
+      name: "Income period",
+    }) as HTMLSelectElement;
+    const options = Array.from(incomeSelect.options).map((o) => o.text);
+    expect(options).toEqual(["This month", "Last 7 days"]);
   });
 
-  it("defaults to 7d period in dropdown", () => {
+  it("renders reminder period options", () => {
     render(<SummaryCards {...defaultProps} />);
 
     const select = screen.getByRole("combobox", {
       name: "Filter period",
     }) as HTMLSelectElement;
-    expect(select.value).toBe("7d");
+    const options = Array.from(select.options).map((o) => o.text);
+    expect(options).toEqual(["Next 7 days", "Until end of month"]);
   });
 
-  it("switches period and updates count on select change", async () => {
+  it("defaults to monthly period for income and spending", () => {
+    render(<SummaryCards {...defaultProps} />);
+
+    const incomeSelect = screen.getByRole("combobox", {
+      name: "Income period",
+    }) as HTMLSelectElement;
+    const spendingSelect = screen.getByRole("combobox", {
+      name: "Spending period",
+    }) as HTMLSelectElement;
+
+    expect(incomeSelect.value).toBe("month");
+    expect(spendingSelect.value).toBe("month");
+  });
+
+  it("switches income period and updates value", async () => {
+    const user = userEvent.setup();
+    render(<SummaryCards {...defaultProps} />);
+
+    const counters = screen.getAllByTestId("animated-counter");
+    // Default is month → $3,200.00
+    expect(counters[0].textContent).toBe("$3,200.00");
+
+    // Switch to "Last 7 days" → $800.00
+    const incomeSelect = screen.getByRole("combobox", {
+      name: "Income period",
+    });
+    await user.selectOptions(incomeSelect, "7d");
+    const updated = screen.getAllByTestId("animated-counter");
+    expect(updated[0].textContent).toBe("$800.00");
+  });
+
+  it("switches spending period and updates value", async () => {
+    const user = userEvent.setup();
+    render(<SummaryCards {...defaultProps} />);
+
+    const counters = screen.getAllByTestId("animated-counter");
+    // Default is month → $1,948.49
+    expect(counters[1].textContent).toBe("$1,948.49");
+
+    // Switch to "Last 7 days" → $143.49
+    const spendingSelect = screen.getByRole("combobox", {
+      name: "Spending period",
+    });
+    await user.selectOptions(spendingSelect, "7d");
+    const updated = screen.getAllByTestId("animated-counter");
+    expect(updated[1].textContent).toBe("$143.49");
+  });
+
+  it("switches reminder period and updates count", async () => {
     const user = userEvent.setup();
     render(<SummaryCards {...defaultProps} />);
 

@@ -93,30 +93,4 @@ export async function fetchUserCategories(): Promise<CategoryOption[]> {
   return parsed.map(({ _group_sort, _cat_sort, ...cat }) => cat);
 }
 
-// ────────────────────────────────────────────
-// Fetch user currency
-// ────────────────────────────────────────────
 
-/**
- * Fetch the authenticated user's currency from their profile.
- */
-export async function fetchTransactionPageCurrency(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return "EUR";
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("currency")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to fetch user currency: ${error.message}`);
-  }
-
-  return profile?.currency ?? "EUR";
-}

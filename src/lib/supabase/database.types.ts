@@ -235,7 +235,6 @@ export type Database = {
           amount: number
           due_date: string
           frequency: Database["public"]["Enums"]["reminder_frequency"]
-          is_paid: boolean
           auto_create_transaction: boolean
           category_id: string
           last_notified_at: string | null
@@ -249,7 +248,6 @@ export type Database = {
           amount: number
           due_date: string
           frequency: Database["public"]["Enums"]["reminder_frequency"]
-          is_paid?: boolean
           auto_create_transaction?: boolean
           category_id: string
           last_notified_at?: string | null
@@ -263,7 +261,6 @@ export type Database = {
           amount?: number
           due_date?: string
           frequency?: Database["public"]["Enums"]["reminder_frequency"]
-          is_paid?: boolean
           auto_create_transaction?: boolean
           category_id?: string
           last_notified_at?: string | null

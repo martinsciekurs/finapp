@@ -6,7 +6,12 @@ import {
   getLast7DaysStart,
   formatDateForInput,
 } from "@/lib/utils/date";
-import type { BudgetCategoryData, RecentTransactionData } from "@/lib/types/dashboard";
+import type {
+  BudgetCategoryData,
+  BudgetOverviewData,
+  UnbudgetedCategoryData,
+  RecentTransactionData,
+} from "@/lib/types/dashboard";
 import { parseCategoryJoin } from "@/lib/types/dashboard";
 
 // ────────────────────────────────────────────
@@ -17,6 +22,7 @@ export interface DashboardSummary {
   totalSpent: number;
   totalIncome: number;
   weeklySpending: number;
+  weeklyIncome: number;
 }
 
 // ────────────────────────────────────────────
@@ -79,10 +85,12 @@ export async function fetchMonthlySummary(): Promise<{
   let totalSpent = 0;
   let totalIncome = 0;
   let weeklySpending = 0;
+  let weeklyIncome = 0;
   const spentByCategory = new Map<string, number>();
 
   for (const tx of txList) {
     const inCurrentMonth = tx.date >= start && tx.date < end;
+    const inLastWeek = tx.date >= weekStart && tx.date <= today;
 
     if (tx.type === "expense") {
       if (inCurrentMonth) {
@@ -92,57 +100,118 @@ export async function fetchMonthlySummary(): Promise<{
           (spentByCategory.get(tx.category_id) ?? 0) + tx.amount
         );
       }
-      if (tx.date >= weekStart && tx.date <= today) {
+      if (inLastWeek) {
         weeklySpending += tx.amount;
       }
-    } else if (inCurrentMonth) {
-      totalIncome += tx.amount;
+    } else {
+      if (inCurrentMonth) {
+        totalIncome += tx.amount;
+      }
+      if (inLastWeek) {
+        weeklyIncome += tx.amount;
+      }
     }
   }
 
   return {
-    summary: { totalSpent, totalIncome, weeklySpending },
+    summary: { totalSpent, totalIncome, weeklySpending, weeklyIncome },
     spentByCategory,
   };
 }
 
 /**
- * Fetch expense categories with budget data for the dashboard overview.
+ * Fetch all data needed for the dashboard budget overview widget.
  *
- * Queries category_budgets for the current month, merges with
- * spending data, and returns BudgetCategoryData[] for the dashboard widget.
+ * Returns the monthly income target, total budgeted amount,
+ * budgeted categories with spending, and unbudgeted expense categories
+ * that have spending this month.
  */
-export async function fetchBudgetCategories(
+export async function fetchBudgetOverviewData(
   spentByCategory: Map<string, number>
-): Promise<BudgetCategoryData[]> {
+): Promise<BudgetOverviewData> {
   const supabase = await createClient();
   const { start } = getCurrentMonthRange();
   const yearMonth = start.substring(0, 7); // "YYYY-MM"
 
-  // Fetch budgets for the current month with category info
-  const { data: budgets, error } = await supabase
-    .from("category_budgets")
-    .select("category_id, amount, categories(name, icon, color)")
-    .eq("year_month", yearMonth);
+  // Fetch income target and budgets in parallel
+  const [incomeResult, budgetResult] = await Promise.all([
+    supabase
+      .from("monthly_income_targets")
+      .select("amount")
+      .eq("year_month", yearMonth)
+      .maybeSingle(),
+    supabase
+      .from("category_budgets")
+      .select("category_id, amount, categories(name, icon, color)")
+      .eq("year_month", yearMonth),
+  ]);
 
-  if (error) {
-    throw new Error(`Failed to fetch budget categories: ${error.message}`);
+  if (incomeResult.error) {
+    throw new Error(
+      `Failed to fetch income target: ${incomeResult.error.message}`
+    );
+  }
+  if (budgetResult.error) {
+    throw new Error(
+      `Failed to fetch budget categories: ${budgetResult.error.message}`
+    );
   }
 
-  return (budgets ?? [])
-    .map((b) => {
-      const cat = parseCategoryJoin(b.categories);
-      if (!cat) return null;
-      return {
-        id: b.category_id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color,
-        budgetLimit: b.amount,
-        spent: spentByCategory.get(b.category_id) ?? 0,
-      };
-    })
-    .filter((item): item is BudgetCategoryData => item !== null);
+  const incomeTarget = incomeResult.data?.amount ?? 0;
+
+  // Build budgeted categories
+  const budgetedCategoryIds = new Set<string>();
+  const budgetedCategories: BudgetCategoryData[] = [];
+  let totalBudgeted = 0;
+
+  for (const b of budgetResult.data ?? []) {
+    const cat = parseCategoryJoin(b.categories);
+    if (!cat) continue;
+    budgetedCategoryIds.add(b.category_id);
+    totalBudgeted += b.amount;
+    budgetedCategories.push({
+      id: b.category_id,
+      name: cat.name,
+      icon: cat.icon,
+      color: cat.color,
+      budgetLimit: b.amount,
+      spent: spentByCategory.get(b.category_id) ?? 0,
+    });
+  }
+
+  // Fetch ALL expense categories to identify unbudgeted ones
+  const { data: allExpenseCategories, error: catError } = await supabase
+    .from("categories")
+    .select("id, name, icon, color")
+    .eq("type", "expense")
+    .order("sort_order", { ascending: true });
+
+  if (catError) {
+    throw new Error(
+      `Failed to fetch expense categories: ${catError.message}`
+    );
+  }
+
+  // Unbudgeted = expense categories without a budget that have spending this month
+  const unbudgetedCategories: UnbudgetedCategoryData[] = (
+    allExpenseCategories ?? []
+  )
+    .filter((c) => !budgetedCategoryIds.has(c.id) && (spentByCategory.get(c.id) ?? 0) > 0)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: c.icon,
+      color: c.color,
+      spent: spentByCategory.get(c.id) ?? 0,
+    }))
+    .sort((a, b) => b.spent - a.spent);
+
+  return {
+    incomeTarget,
+    totalBudgeted,
+    budgetedCategories,
+    unbudgetedCategories,
+  };
 }
 
 /**

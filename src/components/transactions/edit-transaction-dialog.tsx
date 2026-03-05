@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -19,77 +26,71 @@ import {
 } from "@/components/ui/form";
 import { CategoryCombobox } from "./category-combobox";
 import { TransactionTypeToggle } from "./transaction-type-toggle";
-import { formatDateForInput } from "@/lib/utils/date";
 import {
   transactionFormSchema,
   type TransactionFormValues,
 } from "@/lib/validations/transaction";
-import { createTransaction } from "@/app/dashboard/transactions/actions";
-import type { CategoryOption } from "@/lib/types/transactions";
+import { updateTransaction } from "@/app/dashboard/transactions/actions";
+import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
 
 // ────────────────────────────────────────────
 // Props
 // ────────────────────────────────────────────
 
-interface TransactionFormProps {
+interface EditTransactionDialogProps {
+  transaction: TransactionData;
   categories: CategoryOption[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // ────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────
 
-export function TransactionForm({ categories }: TransactionFormProps) {
+export function EditTransactionDialog({
+  transaction,
+  categories,
+  open,
+  onOpenChange,
+}: EditTransactionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
-
-  const today = formatDateForInput(new Date());
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
-      type: "expense",
-      amount: undefined,
-      category_id: "",
-      description: "",
-      date: today,
+      type: transaction.type,
+      amount: transaction.amount,
+      category_id: transaction.categoryId,
+      description: transaction.description,
+      date: transaction.date,
     },
   });
 
   const currentType = form.watch("type");
 
-  // Filter categories to match the selected type
   const filteredCategories = categories.filter(
     (cat) => cat.type === currentType
   );
+
+  function handleTypeChange(type: "expense" | "income") {
+    form.setValue("type", type);
+    form.setValue("category_id", "");
+  }
 
   async function onSubmit(values: TransactionFormValues) {
     setIsSubmitting(true);
 
     try {
-      const result = await createTransaction({
-        ...values,
-        source: "web",
-        ai_generated: false,
-      });
+      const result = await updateTransaction(transaction.id, values);
 
       if (!result.success) {
-        toast.error(result.error ?? "Failed to add transaction");
+        toast.error(result.error ?? "Failed to update transaction");
         return;
       }
 
-      toast.success(
-        `${values.type === "expense" ? "Expense" : "Income"} added`
-      );
-
-      // Reset form but keep type and date
-      form.reset({
-        type: currentType,
-        amount: undefined,
-        category_id: "",
-        description: "",
-        date: values.date,
-      });
+      toast.success("Transaction updated");
+      onOpenChange(false);
     } catch {
       toast.error("Something went wrong");
     } finally {
@@ -97,33 +98,27 @@ export function TransactionForm({ categories }: TransactionFormProps) {
     }
   }
 
-  // Reset category when type changes (categories are type-specific)
-  function handleTypeChange(type: "expense" | "income") {
-    form.setValue("type", type);
-    form.setValue("category_id", "");
-  }
-
   return (
-    <motion.div
-      initial={prefersReducedMotion ? false : { opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
-    >
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="rounded-xl border bg-card p-4 shadow-sm sm:p-6"
-        >
-          {/* Type toggle */}
-          <div className="mb-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Transaction</DialogTitle>
+          <DialogDescription>
+            Update the details of this transaction.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-4"
+          >
+            {/* Type toggle */}
             <TransactionTypeToggle
               currentType={currentType}
               onChange={handleTypeChange}
             />
-          </div>
 
-          {/* Form fields */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Amount */}
             <FormField
               control={form.control}
@@ -203,21 +198,28 @@ export function TransactionForm({ categories }: TransactionFormProps) {
                 </FormItem>
               )}
             />
-          </div>
 
-          {/* Submit */}
-          <div className="mt-4 flex justify-end">
-            <Button type="submit" disabled={isSubmitting} size="sm">
-              {isSubmitting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Add {currentType === "expense" ? "Expense" : "Income"}
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </motion.div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting} size="sm">
+                {isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

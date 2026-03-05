@@ -3,21 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-// Mock framer-motion
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      ...rest
-    }: React.ComponentProps<"div">) => (
-      <div className={className} {...rest}>
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => true,
-}));
+// Shared mock
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 // Mock CategoryCombobox — renders categories as simple buttons
 vi.mock("../category-combobox", () => ({

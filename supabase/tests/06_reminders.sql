@@ -3,18 +3,18 @@
 -- ===========================================================================
 -- Tests specific to the reminders table beyond the general RLS and
 -- constraint tests in 01/03. Covers:
---   1. Default values (is_paid=false, auto_create_transaction=true)
+--   1. Default values (auto_create_transaction=true)
 --   2. Reminder CRUD as owner (full lifecycle)
 --   3. Cross-user isolation (RLS)
 --   4. Composite FK enforcement (category must belong to same user)
---   5. One-time / recurring mark-as-paid simulation
+--   5. Recurring lifecycle (date advancement, last_notified_at reset)
 --   6. ON DELETE RESTRICT for category (can't delete category with reminders)
 --   7. Constraints (amount, frequency)
 --   8. reminder_payments: CRUD, isolation, constraints, cascades
 -- ===========================================================================
 
 begin;
-select plan(26);
+select plan(23);
 
 -- ---------------------------------------------------------------------------
 -- Setup
@@ -48,12 +48,6 @@ select reset_role();
 
 insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
 values (:'alice_id'::uuid, 'Default Test', 100, current_date + 30, 'monthly', :'alice_cat'::uuid);
-
-select is(
-  (select is_paid from public.reminders where title = 'Default Test'),
-  false,
-  'defaults: is_paid defaults to false'
-);
 
 select is(
   (select auto_create_transaction from public.reminders where title = 'Default Test'),
@@ -143,25 +137,7 @@ select throws_ok(
 );
 
 -- ===========================================================================
--- 5. One-time reminder mark-as-paid simulation
--- ===========================================================================
-
-select reset_role();
-
-insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
-values (:'alice_id'::uuid, 'One-time Payment', 500, current_date, 'one_time', :'alice_cat'::uuid);
-
--- Simulate marking as paid
-update public.reminders set is_paid = true where title = 'One-time Payment';
-
-select is(
-  (select is_paid from public.reminders where title = 'One-time Payment'),
-  true,
-  'one_time: can mark as paid (is_paid = true)'
-);
-
--- ===========================================================================
--- 6. Recurring reminder mark-as-paid simulation
+-- 5. Recurring reminder lifecycle (date advancement)
 -- ===========================================================================
 
 select reset_role();
@@ -169,18 +145,11 @@ select reset_role();
 insert into public.reminders (user_id, title, amount, due_date, frequency, category_id, auto_create_transaction)
 values (:'alice_id'::uuid, 'Monthly Rent Cycle', 800, current_date - 5, 'monthly', :'alice_cat'::uuid, true);
 
--- Simulate the recurring lifecycle: advance date, reset is_paid, clear last_notified_at
+-- Simulate the recurring lifecycle: advance date, clear last_notified_at
 update public.reminders
 set due_date = current_date + interval '1 month',
-    is_paid = false,
     last_notified_at = null
 where title = 'Monthly Rent Cycle';
-
-select is(
-  (select is_paid from public.reminders where title = 'Monthly Rent Cycle'),
-  false,
-  'recurring: is_paid reset to false after cycle advancement'
-);
 
 select is(
   (select last_notified_at from public.reminders where title = 'Monthly Rent Cycle'),

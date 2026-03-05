@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Pencil,
   Receipt,
   Trash2,
 } from "lucide-react";
@@ -17,7 +18,9 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDate } from "@/lib/utils/date";
 import { deleteTransaction } from "@/app/dashboard/transactions/actions";
+import { EditTransactionDialog } from "./edit-transaction-dialog";
 import type {
+  CategoryOption,
   TransactionData,
   TransactionTypeFilter,
 } from "@/lib/types/transactions";
@@ -28,6 +31,7 @@ import type {
 
 interface TransactionListProps {
   transactions: TransactionData[];
+  categories: CategoryOption[];
   currency: string;
 }
 
@@ -56,15 +60,18 @@ function groupByDate(
 
 function TransactionRow({
   transaction,
+  categories,
   currency,
   index,
 }: {
   transaction: TransactionData;
+  categories: CategoryOption[];
   currency: string;
   index: number;
 }) {
   const prefersReducedMotion = useReducedMotion();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const isExpense = transaction.type === "expense";
 
   async function handleDelete() {
@@ -131,17 +138,33 @@ function TransactionRow({
         </p>
       </div>
 
-      {/* Delete button */}
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100"
-        onClick={handleDelete}
-        disabled={isDeleting}
-        aria-label="Delete transaction"
-      >
-        <Trash2 className="size-3.5 text-muted-foreground" />
-      </Button>
+      {/* Edit & Delete buttons */}
+      <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => setEditOpen(true)}
+          aria-label="Edit transaction"
+        >
+          <Pencil className="size-3.5 text-muted-foreground" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          aria-label="Delete transaction"
+        >
+          <Trash2 className="size-3.5 text-muted-foreground" />
+        </Button>
+      </div>
+
+      <EditTransactionDialog
+        transaction={transaction}
+        categories={categories}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
     </motion.div>
   );
 }
@@ -152,6 +175,7 @@ function TransactionRow({
 
 export function TransactionList({
   transactions,
+  categories,
   currency,
 }: TransactionListProps) {
   const [filter, setFilter] = useState<TransactionTypeFilter>("all");
@@ -213,6 +237,7 @@ export function TransactionList({
                   <TransactionRow
                     key={tx.id}
                     transaction={tx}
+                    categories={categories}
                     currency={currency}
                     index={index}
                   />

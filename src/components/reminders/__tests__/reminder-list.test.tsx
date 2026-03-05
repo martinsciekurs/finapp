@@ -16,12 +16,8 @@ vi.mock("@/app/dashboard/reminders/actions", () => ({
   markOccurrenceUnpaid: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-// Mock CategoryIcon
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({ name, "aria-label": label }: { name: string; "aria-label"?: string }) => (
-    <span data-testid="category-icon" aria-label={label}>{name}</span>
-  ),
-}));
+// Shared mock
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -62,7 +58,6 @@ function makeTemplate(overrides: Partial<ReminderData> = {}): ReminderData {
     amount: 100,
     due_date: "2026-04-01",
     frequency: "monthly",
-    is_paid: false,
     auto_create_transaction: true,
     category_id: "cat-1",
     category_name: "Bills",
@@ -184,7 +179,7 @@ const sampleReminders: ReminderData[] = [
     amount: 1200,
     due_date: "2026-01-15",
     frequency: "one_time",
-    is_paid: true,
+
   }),
 ];
 

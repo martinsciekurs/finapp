@@ -62,10 +62,10 @@ export function ReminderFormDialog({
   const isEditing = !!reminder;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function getFormDefaults(r?: ReminderData): ReminderFormValues {
+  function getFormDefaults(r?: ReminderData) {
     return {
       title: r?.title ?? "",
-      amount: r?.amount ?? (undefined as unknown as number),
+      amount: r?.amount, // undefined when creating — Zod validates on submit
       due_date: r?.due_date ?? formatDateForInput(new Date()),
       frequency: r?.frequency ?? "monthly",
       category_id: r?.category_id ?? "",

@@ -4,12 +4,11 @@
 create table public.reminders (
   id                       uuid        primary key default gen_random_uuid(),
   user_id                  uuid        not null references public.profiles (id) on delete cascade,
-  title                    text        not null,
-  amount                   numeric     not null check (amount > 0),
+  title                    text        not null check (length(title) <= 100),
+  amount                   numeric(12,2) not null check (amount > 0),
   due_date                 date        not null,
   frequency                text        not null
                                        check (frequency in ('monthly', 'weekly', 'yearly', 'one_time')),
-  is_paid                  boolean     not null default false,
   auto_create_transaction  boolean     not null default true,
   category_id              uuid        not null,
   last_notified_at         timestamptz,
@@ -47,7 +46,7 @@ create index idx_reminders_user_id
   on public.reminders (user_id);
 
 create index idx_reminders_user_due
-  on public.reminders (user_id, is_paid, due_date);
+  on public.reminders (user_id, due_date);
 
 -- Supporting index for the composite FK (avoids sequential scans on parent deletes/updates)
 create index idx_reminders_category_user
@@ -58,3 +57,7 @@ alter table public.reminders
   add constraint fk_reminders_category
   foreign key (category_id, user_id) references public.categories (id, user_id)
   on delete restrict;
+
+-- Target for composite FK from reminder_payments
+alter table public.reminders
+  add constraint uq_reminders_id_user unique (id, user_id);

@@ -12,7 +12,7 @@
 -- ===========================================================================
 
 begin;
-select plan(37);
+select plan(38);
 
 select reset_role();
 
@@ -570,6 +570,20 @@ select throws_ok(
   '23514'::char(5),
   null,
   'check: reminders.frequency rejects invalid enum value'
+);
+
+-- ===========================================================================
+-- 13b. CHECK: reminders.title length
+-- ===========================================================================
+
+select throws_ok(
+  format(
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, %L, 50, current_date, ''monthly'', %L)',
+    u1(), repeat('A', 101), c1_exp()
+  ),
+  '23514'::char(5),
+  null,
+  'check: reminders.title rejects >100 chars'
 );
 
 -- ===========================================================================

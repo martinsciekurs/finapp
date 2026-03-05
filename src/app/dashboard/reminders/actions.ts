@@ -19,7 +19,7 @@ import {
   type MarkOccurrenceUnpaidValues,
 } from "@/lib/validations/reminder";
 import type { ActionResult } from "@/lib/types/actions";
-import type { TablesInsert, TablesUpdate } from "@/lib/supabase/database.types";
+import type { Database, TablesInsert, TablesUpdate } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ────────────────────────────────────────────
@@ -33,6 +33,19 @@ function revalidate(): void {
 
 const uuidSchema = z.string().uuid("Invalid ID");
 
+/** Shared auth guard — returns authenticated Supabase client + user ID, or null. */
+async function requireAuth(): Promise<{
+  supabase: SupabaseClient<Database>;
+  userId: string;
+} | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  return { supabase, userId: user.id };
+}
+
 /**
  * Verify a category belongs to the given user and is an expense category.
  * Returns `{ valid: true }` if the category exists and belongs to the user,
@@ -40,7 +53,7 @@ const uuidSchema = z.string().uuid("Invalid ID");
  * query failure so callers can distinguish "not found" from a real DB error.
  */
 async function verifyCategoryOwnership(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   categoryId: string,
   userId: string
 ): Promise<{ valid: boolean; error?: string }> {
@@ -66,32 +79,21 @@ async function verifyCategoryOwnership(
 export async function createReminder(
   values: CreateReminderValues
 ): Promise<ActionResult<{ id: string }>> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+  const auth = await requireAuth();
+  if (!auth) return { success: false, error: "Not authenticated" };
+  const { supabase, userId } = auth;
 
   const parsed = createReminderSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, userId);
   if (!catCheck.valid) return { success: false, error: catCheck.error ?? "Category not found" };
 
   const insertPayload: TablesInsert<"reminders"> = {
-    user_id: user.id,
-    title: parsed.data.title,
-    amount: parsed.data.amount,
-    due_date: parsed.data.due_date,
-    frequency: parsed.data.frequency,
-    category_id: parsed.data.category_id,
-    auto_create_transaction: parsed.data.auto_create_transaction,
+    user_id: userId,
+    ...parsed.data,
   };
 
   const { data, error } = await supabase
@@ -120,45 +122,32 @@ export async function updateReminder(
     return { success: false, error: "Invalid reminder ID" };
   }
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+  const auth = await requireAuth();
+  if (!auth) return { success: false, error: "Not authenticated" };
+  const { supabase, userId } = auth;
 
   const parsed = updateReminderSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: formatParseError(parsed.error, "Invalid reminder data") };
   }
 
-  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, user.id);
+  const catCheck = await verifyCategoryOwnership(supabase, parsed.data.category_id, userId);
   if (!catCheck.valid) return { success: false, error: catCheck.error ?? "Category not found" };
 
-  const updatePayload: TablesUpdate<"reminders"> = {
-    title: parsed.data.title,
-    amount: parsed.data.amount,
-    due_date: parsed.data.due_date,
-    frequency: parsed.data.frequency,
-    category_id: parsed.data.category_id,
-    auto_create_transaction: parsed.data.auto_create_transaction,
-  };
+  const updatePayload: TablesUpdate<"reminders"> = { ...parsed.data };
 
   const { data: updated, error } = await supabase
     .from("reminders")
     .update(updatePayload)
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .select("id");
 
   if (error) {
     return { success: false, error: "Failed to update reminder" };
   }
 
-  if (!updated || updated.length === 0) {
+  if (updated.length === 0) {
     return { success: false, error: "Reminder not found" };
   }
 
@@ -173,15 +162,9 @@ export async function updateReminder(
 export async function deleteReminder(
   values: DeleteReminderValues
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+  const auth = await requireAuth();
+  if (!auth) return { success: false, error: "Not authenticated" };
+  const { supabase, userId } = auth;
 
   const parsed = deleteReminderSchema.safeParse(values);
   if (!parsed.success) {
@@ -192,14 +175,14 @@ export async function deleteReminder(
     .from("reminders")
     .delete()
     .eq("id", parsed.data.id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .select("id");
 
   if (error) {
     return { success: false, error: "Failed to delete reminder" };
   }
 
-  if (!deleted || deleted.length === 0) {
+  if (deleted.length === 0) {
     return { success: false, error: "Reminder not found" };
   }
 
@@ -218,15 +201,9 @@ export async function deleteReminder(
 export async function markOccurrencePaid(
   values: MarkOccurrencePaidValues
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+  const auth = await requireAuth();
+  if (!auth) return { success: false, error: "Not authenticated" };
+  const { supabase, userId } = auth;
 
   const parsed = markOccurrencePaidSchema.safeParse(values);
   if (!parsed.success) {
@@ -240,7 +217,7 @@ export async function markOccurrencePaid(
       "id, title, amount, due_date, frequency, category_id, auto_create_transaction"
     )
     .eq("id", parsed.data.reminder_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (fetchError) {
@@ -268,7 +245,7 @@ export async function markOccurrencePaid(
     .from("reminder_payments")
     .insert({
       reminder_id: parsed.data.reminder_id,
-      user_id: user.id,
+      user_id: userId,
       due_date: parsed.data.due_date,
       transaction_id: null,
     })
@@ -288,7 +265,7 @@ export async function markOccurrencePaid(
     const { data: tx, error: txError } = await supabase
       .from("transactions")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         category_id: reminder.category_id,
         amount: reminder.amount,
         type: "expense",
@@ -304,7 +281,8 @@ export async function markOccurrencePaid(
       const { error: rbError } = await supabase
         .from("reminder_payments")
         .delete()
-        .eq("id", reserved.id);
+        .eq("id", reserved.id)
+        .eq("user_id", userId);
       if (rbError) {
         console.error("Rollback failed: could not delete reserved payment", {
           paymentId: reserved.id,
@@ -333,7 +311,8 @@ export async function markOccurrencePaid(
       const { error: rbTxErr } = await supabase
         .from("transactions")
         .delete()
-        .eq("id", tx.id);
+        .eq("id", tx.id)
+        .eq("user_id", userId);
       if (rbTxErr) {
         console.error("Rollback failed: could not delete transaction", {
           transactionId: tx.id,
@@ -347,7 +326,8 @@ export async function markOccurrencePaid(
       const { error: rbPayErr } = await supabase
         .from("reminder_payments")
         .delete()
-        .eq("id", reserved.id);
+        .eq("id", reserved.id)
+        .eq("user_id", userId);
       if (rbPayErr) {
         console.error("Rollback failed: could not delete reserved payment", {
           paymentId: reserved.id,
@@ -384,15 +364,9 @@ export async function markOccurrencePaid(
 export async function markOccurrenceUnpaid(
   values: MarkOccurrenceUnpaidValues
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+  const auth = await requireAuth();
+  if (!auth) return { success: false, error: "Not authenticated" };
+  const { supabase, userId } = auth;
 
   const parsed = markOccurrenceUnpaidSchema.safeParse(values);
   if (!parsed.success) {
@@ -404,14 +378,14 @@ export async function markOccurrenceUnpaid(
     .delete()
     .eq("reminder_id", parsed.data.reminder_id)
     .eq("due_date", parsed.data.due_date)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .select("id");
 
   if (error) {
     return { success: false, error: "Failed to remove payment" };
   }
 
-  if (!deleted || deleted.length === 0) {
+  if (deleted.length === 0) {
     return { success: false, error: "Payment record not found" };
   }
 

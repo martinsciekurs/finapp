@@ -9,16 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
 }));
 
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({ children, className, ...rest }: React.ComponentProps<"div">) => (
-      <div className={className} {...rest}>
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => false,
-}));
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 // Mock tooltip to render children directly
 vi.mock("@/components/ui/tooltip", () => ({

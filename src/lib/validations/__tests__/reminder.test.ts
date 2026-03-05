@@ -216,7 +216,8 @@ describe("updateReminderSchema", () => {
   });
 
   it("rejects missing category_id", () => {
-    const { category_id: _, ...noCategory } = validData;
+    const noCategory: Partial<typeof validData> = { ...validData };
+    delete noCategory.category_id;
     expect(updateReminderSchema.safeParse(noCategory).success).toBe(false);
   });
 
@@ -383,7 +384,8 @@ describe("reminderFormSchema", () => {
   });
 
   it("rejects missing category_id", () => {
-    const { category_id: _, ...noCategory } = validData;
+    const noCategory: Partial<typeof validData> = { ...validData };
+    delete noCategory.category_id;
     expect(reminderFormSchema.safeParse(noCategory).success).toBe(false);
   });
 });

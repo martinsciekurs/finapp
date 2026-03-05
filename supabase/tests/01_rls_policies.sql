@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(93);
+select plan(96);
 
 -- ===========================
 -- Setup: create two test users
@@ -90,6 +90,24 @@ create or replace function cat2() returns uuid language sql stable as $$
   select current_setting('test.cat2_id')::uuid;
 $$;
 
+-- Bob also needs an expense category for reminders (cat2 is income)
+do $$
+declare
+  _g2_exp uuid;
+  _c2_exp uuid;
+begin
+  _g2_exp := create_test_category_group(u2(), 'Expenses', 'expense');
+  insert into public.categories (user_id, group_id, name, type)
+  values (u2(), _g2_exp, 'Gym Membership', 'expense')
+  returning id into _c2_exp;
+  perform set_config('test.cat2_exp_id', _c2_exp::text, true);
+end;
+$$;
+
+create or replace function cat2_exp() returns uuid language sql stable as $$
+  select current_setting('test.cat2_exp_id')::uuid;
+$$;
+
 -- Transactions
 insert into public.transactions (user_id, category_id, amount, type)
 values (u1(), cat1(), 25, 'expense');
@@ -100,7 +118,7 @@ values (u2(), cat2(), 3000, 'income');
 insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
 values (u1(), 'Rent',     800, current_date + 30, 'monthly', cat1());
 insert into public.reminders (user_id, title, amount, due_date, frequency, category_id)
-values (u2(), 'Gym',      40,  current_date + 7,  'monthly', cat2());
+values (u2(), 'Gym',      40,  current_date + 7,  'monthly', cat2_exp());
 
 -- Debts
 insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type)
@@ -306,7 +324,7 @@ delete from public.category_groups where user_id = u2();
 select reset_role();
 select is(
   (select count(*)::int from public.category_groups where user_id = u2()),
-  1,
+  2,
   'category_groups: cross-user DELETE silently blocked'
 );
 
@@ -924,11 +942,21 @@ begin
   select id into _rem1 from public.reminders where user_id = u1() limit 1;
   select id into _rem2 from public.reminders where user_id = u2() limit 1;
 
+  perform set_config('test.rem1_id', _rem1::text, true);
+  perform set_config('test.rem2_id', _rem2::text, true);
+
   insert into public.reminder_payments (user_id, reminder_id, due_date)
   values (u1(), _rem1, current_date + 30);
   insert into public.reminder_payments (user_id, reminder_id, due_date)
   values (u2(), _rem2, current_date + 7);
 end;
+$$;
+
+create or replace function rem1() returns uuid language sql stable as $$
+  select current_setting('test.rem1_id')::uuid;
+$$;
+create or replace function rem2() returns uuid language sql stable as $$
+  select current_setting('test.rem2_id')::uuid;
 $$;
 
 -- Owner can read own reminder payments
@@ -946,7 +974,35 @@ select is(
   'reminder_payments: user cannot read another user''s payments'
 );
 
+-- Cross-user INSERT: user cannot insert payment for another user's reminder
+-- The INSERT policy requires auth.uid() = user_id AND the reminder belongs to the user
+select throws_ok(
+  format(
+    'insert into public.reminder_payments (user_id, reminder_id, due_date) values (%L, %L, current_date + 60)',
+    u1(), rem2()
+  ),
+  'new row violates row-level security policy for table "reminder_payments"',
+  'reminder_payments: user cannot insert payment for another user''s reminder'
+);
+
+-- Cross-user UPDATE: silently 0 rows (USING clause checks auth.uid() = user_id)
+update public.reminder_payments set paid_at = now() where user_id = u2();
 select reset_role();
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u2()),
+  1,
+  'reminder_payments: cross-user UPDATE silently blocked'
+);
+
+-- Cross-user DELETE: silently 0 rows
+select authenticate_as(u1());
+delete from public.reminder_payments where user_id = u2();
+select reset_role();
+select is(
+  (select count(*)::int from public.reminder_payments where user_id = u2()),
+  1,
+  'reminder_payments: cross-user DELETE silently blocked'
+);
 
 -- ===========================================================================
 -- 15. ANON ACCESS — verify anon is locked out of all user-scoped tables
