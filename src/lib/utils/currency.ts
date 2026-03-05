@@ -45,6 +45,16 @@ export function formatCurrency(amount: number, currency = "USD"): string {
 }
 
 /**
+ * Round a numeric string to 2 decimal places.
+ * Used by budget inputs to match DB `numeric(12,2)`.
+ */
+export function roundAmount(value: string): number {
+  const n = parseFloat(value);
+  if (isNaN(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+/**
  * Format a number as a compact currency (no decimals for whole numbers).
  * Useful for summary cards where precision is less important.
  *
