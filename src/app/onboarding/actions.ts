@@ -2,8 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { CategoryPreset } from "@/lib/config/categories";
-import { BANNER_VALUE_RE, type BannerData } from "@/lib/config/banners";
+import {
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  type CategoryPreset,
+} from "@/lib/config/categories";
+import {
+  BANNER_VALUE_RE,
+  DEFAULT_BANNER,
+  type BannerData,
+} from "@/lib/config/banners";
 
 const VALID_STEPS = ["welcome", "categories", "banner"] as const;
 type OnboardingStep = (typeof VALID_STEPS)[number];
@@ -83,6 +91,7 @@ export async function completeOnboarding(data: OnboardingData) {
     "Lifestyle",
     "Health & Growth",
     "Financial",
+    "Savings & Investments",
     "Other",
   ];
   const groupsToInsert = [
@@ -176,6 +185,18 @@ export async function completeOnboarding(data: OnboardingData) {
   }
 
   redirect("/dashboard");
+}
+
+export async function skipOnboarding() {
+  const defaultCategories = [
+    ...EXPENSE_CATEGORIES.filter((category) => category.defaultSelected),
+    ...INCOME_CATEGORIES.filter((category) => category.defaultSelected),
+  ];
+
+  return completeOnboarding({
+    categories: defaultCategories,
+    banner: DEFAULT_BANNER,
+  });
 }
 
 export async function updateOnboardingStep(step: OnboardingStep) {

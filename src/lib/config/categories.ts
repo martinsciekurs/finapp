@@ -39,6 +39,10 @@ export const EXPENSE_CATEGORIES: CategoryPreset[] = [
   { name: "Debt Payment", icon: "banknote", color: "#8b3a3a", type: "expense", group: "Financial", defaultSelected: true },
   { name: "Taxes", icon: "landmark", color: "#6b6b6b", type: "expense", group: "Financial", defaultSelected: true },
 
+  // Savings & Investments
+  { name: "Savings", icon: "shield", color: "#4f8a7a", type: "expense", group: "Savings & Investments", defaultSelected: true },
+  { name: "Investments", icon: "trending-up", color: "#c9a84c", type: "expense", group: "Savings & Investments", defaultSelected: true },
+
   // Other
   { name: "Travel", icon: "plane", color: "#5a8cc9", type: "expense", group: "Other", defaultSelected: true },
   { name: "Gifts & Donations", icon: "gift", color: "#c97ba0", type: "expense", group: "Other", defaultSelected: true },

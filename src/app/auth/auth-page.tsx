@@ -127,6 +127,10 @@ export function AuthPage({ defaultTab = "sign-in" }: AuthPageProps) {
 function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [confirmationNotice, setConfirmationNotice] = useState<string | null>(null);
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -135,6 +139,8 @@ function LoginForm() {
 
   async function onSubmit(values: LoginValues) {
     setIsLoading(true);
+    setConfirmationNotice(null);
+    setConfirmationError(null);
 
     try {
       const supabase = createClient();
@@ -145,6 +151,18 @@ function LoginForm() {
       });
 
       if (error) {
+        const isUnconfirmed = /email not confirmed/i.test(error.message);
+
+        if (isUnconfirmed) {
+          setUnconfirmedEmail(values.email);
+          setConfirmationError(
+            "Your email is not confirmed yet. Please check your inbox or resend the confirmation email."
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        setUnconfirmedEmail(null);
         toast.error(error.message);
         setIsLoading(false);
         return;
@@ -154,8 +172,38 @@ function LoginForm() {
       router.push("/dashboard");
       router.refresh();
     } catch {
+      setUnconfirmedEmail(null);
       toast.error("Something went wrong");
       setIsLoading(false);
+    }
+  }
+
+  async function onResendConfirmation() {
+    if (!unconfirmedEmail) {
+      return;
+    }
+
+    setIsResending(true);
+    setConfirmationNotice(null);
+    setConfirmationError(null);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: unconfirmedEmail,
+      });
+
+      if (error) {
+        setConfirmationError(error.message);
+        return;
+      }
+
+      setConfirmationNotice(`Confirmation email sent to ${unconfirmedEmail}.`);
+    } catch {
+      setConfirmationError("Failed to resend confirmation email. Try again.");
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -212,6 +260,31 @@ function LoginForm() {
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Welcome Back
         </Button>
+
+        {unconfirmedEmail && (
+          <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+            <p className="font-medium text-foreground">Email not activated yet</p>
+
+            {confirmationError && (
+              <p className="mt-1 text-muted-foreground">{confirmationError}</p>
+            )}
+
+            {confirmationNotice && (
+              <p className="mt-1 text-foreground">{confirmationNotice}</p>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3"
+              onClick={onResendConfirmation}
+              disabled={isResending}
+            >
+              {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Resend confirmation email
+            </Button>
+          </div>
+        )}
       </form>
 
       <p className="mt-5 text-center text-xs text-muted-foreground">

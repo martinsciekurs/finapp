@@ -148,3 +148,7 @@ export async function completeOnboardingViaUI(page: Page): Promise<void> {
   await page.getByText("Choose your cover").waitFor();
   await page.getByRole("button", { name: "Complete" }).click();
 }
+
+export async function skipOnboardingViaUI(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Skip for now" }).click();
+}

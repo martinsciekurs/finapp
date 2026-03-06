@@ -12,7 +12,7 @@ import {
   type CategoryPreset,
 } from "@/lib/config/categories";
 import { ONBOARDING_BANNER_PRESETS } from "@/lib/config/banners";
-import { completeOnboarding, updateOnboardingStep } from "./actions";
+import { completeOnboarding, skipOnboarding, updateOnboardingStep } from "./actions";
 import { WelcomeStep } from "./steps/welcome-step";
 import { CategoriesStep } from "./steps/categories-step";
 import { BannerStep } from "./steps/banner-step";
@@ -118,6 +118,23 @@ export function OnboardingWizard({
     }
   };
 
+  const handleSkip = async () => {
+    setIsSubmitting(true);
+
+    try {
+      const result = await skipOnboarding();
+
+      if (result && !result.success) {
+        toast.error(result.error || "Something went wrong");
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      if (error instanceof Error && "digest" in error) throw error;
+      toast.error("Something went wrong");
+      setIsSubmitting(false);
+    }
+  };
+
   const slideVariants = {
     enter: (dir: number) => ({
       opacity: 0,
@@ -215,7 +232,7 @@ export function OnboardingWizard({
             variant="ghost"
             size="lg"
             onClick={handleBack}
-            disabled={currentStep === 0}
+            disabled={currentStep === 0 || isSubmitting}
             className={cn(
               "rounded-xl transition-all active:scale-[0.98]",
               currentStep === 0 && "invisible"
@@ -225,10 +242,21 @@ export function OnboardingWizard({
             Back
           </Button>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSkip}
+            disabled={isSubmitting}
+            className="rounded-xl text-muted-foreground hover:text-foreground"
+          >
+            Skip for now
+          </Button>
+
           {currentStep < STEPS.length - 1 ? (
             <Button
               size="lg"
               onClick={handleNext}
+              disabled={isSubmitting}
               className="rounded-xl px-8 font-semibold active:scale-[0.98] transition-all"
             >
               Next

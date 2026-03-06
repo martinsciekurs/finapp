@@ -57,7 +57,12 @@ describe("getExpenseCategoryGroups", () => {
   it("produces known groups", () => {
     const groups = getExpenseCategoryGroups();
     expect(Object.keys(groups)).toEqual(
-      expect.arrayContaining(["Essentials", "Lifestyle", "Health & Growth"])
+      expect.arrayContaining([
+        "Essentials",
+        "Lifestyle",
+        "Health & Growth",
+        "Savings & Investments",
+      ])
     );
   });
 

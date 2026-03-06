@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { createTestUser, loginViaUI, completeOnboardingViaUI, dismissDevOverlay } from "./helpers";
+import {
+  createTestUser,
+  loginViaUI,
+  completeOnboardingViaUI,
+  dismissDevOverlay,
+  skipOnboardingViaUI,
+} from "./helpers";
 
 test.describe("Onboarding", () => {
   test("onboarding page requires authentication", async ({ page }) => {
@@ -77,6 +83,19 @@ test.describe("Onboarding wizard", () => {
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
 
     await completeOnboardingViaUI(page);
+
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
+  });
+
+  test("skips onboarding with defaults and redirects to dashboard", async ({
+    page,
+    request,
+  }) => {
+    const user = await createTestUser(request);
+    await loginViaUI(page, user);
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15000 });
+
+    await skipOnboardingViaUI(page);
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
   });
