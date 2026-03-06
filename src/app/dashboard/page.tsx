@@ -28,7 +28,7 @@ export default async function DashboardPage() {
       fetchRecentTransactions(),
       fetchTourState(),
       fetchHasDebts(),
-      fetchBudgetHistoricalSpending(),
+      fetchBudgetHistoricalSpending().catch(() => undefined),
     ]);
 
   const budgetOverviewData = await fetchBudgetOverviewData(spentByCategory);

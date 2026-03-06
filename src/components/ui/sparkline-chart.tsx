@@ -80,7 +80,7 @@ export function SparklineChart({
         transition={
           prefersReducedMotion
             ? { duration: 0 }
-            : { duration: 0.4, delay: 0.15 }
+            : { duration: 0.25, delay: 0.05 }
         }
       />
       <motion.path
@@ -97,7 +97,7 @@ export function SparklineChart({
         transition={
           prefersReducedMotion
             ? { duration: 0 }
-            : { duration: 0.5, ease: "easeOut" }
+            : { duration: 0.25, ease: "easeOut" }
         }
       />
     </svg>

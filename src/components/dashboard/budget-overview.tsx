@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { PieChart } from "lucide-react";
@@ -77,7 +78,7 @@ function BudgetProgressRow({
   currency: string;
   index: number;
   sparklineData?: number[];
-  pacePercent: number;
+  pacePercent?: number;
 }) {
   const prefersReducedMotion = useReducedMotion();
   const percent = getProgressPercent(category.spent, category.budgetLimit);
@@ -146,18 +147,20 @@ function BudgetProgressRow({
               }
             />
           </div>
-          <motion.div
-            className="absolute top-1/2 h-2.5 w-[2px] rounded-full bg-foreground/30"
-            style={{ left: `${pacePercent}%`, transform: "translateX(-50%) translateY(-50%)" }}
-            title={`${Math.round(pacePercent)}% through the month`}
-            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={
-              prefersReducedMotion
-                ? { duration: 0 }
-                : { duration: 0.3, delay: 0.3 + index * 0.05 }
-            }
-          />
+          {pacePercent != null && (
+            <motion.div
+              className="absolute top-1/2 h-2.5 w-[2px] rounded-full bg-foreground/30"
+              style={{ left: `${pacePercent}%`, transform: "translateX(-50%) translateY(-50%)" }}
+              title={`${Math.round(pacePercent)}% through the month`}
+              initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.25, delay: 0.2 + index * 0.05 }
+              }
+            />
+          )}
         </div>
       </div>
     </motion.div>
@@ -257,7 +260,10 @@ export function BudgetOverview({ data, currency, historicalData }: BudgetOvervie
     unbudgetedCategories,
   } = data;
 
-  const pacePercent = getPacePercent();
+  const [pacePercent, setPacePercent] = useState<number | null>(null);
+  useEffect(() => {
+    setPacePercent(getPacePercent());
+  }, []);
 
   const hasContent =
     budgetedCategories.length > 0 || unbudgetedCategories.length > 0;
@@ -320,7 +326,7 @@ export function BudgetOverview({ data, currency, historicalData }: BudgetOvervie
             currency={currency}
             index={index}
             sparklineData={historicalData?.spendingByCategory[category.id]}
-            pacePercent={pacePercent}
+            pacePercent={pacePercent ?? undefined}
           />
         ))}
 
