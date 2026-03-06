@@ -31,7 +31,7 @@ describe("EmailForm", () => {
 
     const emailInput = screen.getByLabelText("Email");
     await user.clear(emailInput);
-    await user.type(emailInput, "invalid-email");
+    await user.type(emailInput, "test@invalid");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
