@@ -82,7 +82,10 @@ export function TransactionCategoryFilter({
           <Filter className="size-4" />
           {selected ? (
             <span className="flex items-center gap-2 truncate">
-              <span style={{ color: selected.color }}>
+              <span
+                style={{ "--cat-color": selected.color } as React.CSSProperties}
+                className="text-[color:var(--cat-color)]"
+              >
                 <CategoryIcon name={selected.icon} className="size-4" />
               </span>
               {selected.name}
@@ -123,7 +126,10 @@ export function TransactionCategoryFilter({
                       setOpen(false);
                     }}
                   >
-                    <span style={{ color: cat.color }}>
+                    <span
+                      style={{ "--cat-color": cat.color } as React.CSSProperties}
+                      className="text-[color:var(--cat-color)]"
+                    >
                       <CategoryIcon name={cat.icon} className="size-4" />
                     </span>
                     {cat.name}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -71,12 +71,25 @@ export function TransactionSearchBar({
 }: TransactionSearchBarProps) {
   const [localValue, setLocalValue] = useState(value);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [externalUpdate, setExternalUpdate] = useState(0);
 
   const [prevValue, setPrevValue] = useState(value);
   if (value !== prevValue) {
     setPrevValue(value);
     setLocalValue(value);
+    setExternalUpdate((n) => n + 1);
   }
+
+  useEffect(() => {
+    if (externalUpdate > 0) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = undefined;
+    }
+  }, [externalUpdate]);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
 
   const debouncedOnChange = useCallback(
     (val: string) => {
