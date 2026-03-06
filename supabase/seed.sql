@@ -3,7 +3,7 @@
 -- 1. Banner presets (global)
 -- 2. Test user with categories, transactions, reminders, budgets, and debts
 --
--- Credentials: test@finapp.dev / password123
+-- Credentials: admin@finapp-test.com / sin-dreamt-roles-cooped
 -- =============================================================================
 
 -- =============================================================================
@@ -33,7 +33,7 @@ insert into public.banner_presets (type, value, label, sort_order) values
 on conflict do nothing;
 
 -- =============================================================================
--- 2. Test user: test@finapp.dev / password123
+-- 2. Test user: admin@finapp-test.com / sin-dreamt-roles-cooped
 -- =============================================================================
 
 do $$
@@ -65,11 +65,19 @@ declare
   -- income categories
   _c_salary   uuid;
   _c_freelance uuid;
+  _c_debt_repayment uuid;
 
   -- reminder IDs (for seeding paid occurrences)
   _r_monthly_rent      uuid;
   _r_student_loan      uuid;
   _r_laptop_insurance  uuid;
+
+  -- debt + linked payment seed IDs
+  _d_student_finance   uuid;
+  _d_credit_card       uuid;
+  _d_marcus_loan       uuid;
+  _tx_credit_card      uuid;
+  _tx_marcus_loan      uuid;
 
   -- today and current month helpers
   _today  date := current_date;
@@ -87,8 +95,8 @@ begin
   ) values (
     '00000000-0000-0000-0000-000000000000',
     gen_random_uuid(), 'authenticated', 'authenticated',
-    'test@finapp.dev',
-    extensions.crypt('password123', extensions.gen_salt('bf')),
+    'admin@finapp-test.com',
+    extensions.crypt('sin-dreamt-roles-cooped', extensions.gen_salt('bf')),
     now(),
     '{"display_name": "Demo User"}'::jsonb,
     now(), now(),
@@ -183,6 +191,10 @@ begin
   insert into public.categories (user_id, name, icon, color, type, group_id, sort_order)
   values (_uid, 'Freelance','laptop',    '#5b9a82', 'income', _g_income, 2)
   returning id into _c_freelance;
+
+  insert into public.categories (user_id, name, icon, color, type, group_id, sort_order)
+  values (_uid, 'Debt Repayment','banknote', '#8b6a3a', 'income', _g_income, 3)
+  returning id into _c_debt_repayment;
 
   -- -------------------------------------------------------
   -- Transactions — past 2 months + current month
@@ -307,18 +319,40 @@ begin
   where user_id = _uid and title = 'Laptop Insurance Top-up'
   limit 1;
 
+  -- -------------------------------------------------------
+  -- Debts (unpaid, partial, fully paid)
+  -- -------------------------------------------------------
+  insert into public.debts (user_id, counterparty, type, category_id, debt_date, original_amount, remaining_amount, description)
+  values (_uid, 'Student Finance', 'i_owe', _c_debt, (_today - interval '90 days')::date, 12000, 12000, 'Undergraduate student loan')
+  returning id into _d_student_finance;
+
+  insert into public.debts (user_id, counterparty, type, category_id, debt_date, original_amount, remaining_amount, description)
+  values (_uid, 'Credit Card', 'i_owe', _c_debt, (_today - interval '45 days')::date, 900, 900, 'Rolling card balance from travel and bills')
+  returning id into _d_credit_card;
+
+  insert into public.debts (user_id, counterparty, type, category_id, debt_date, original_amount, remaining_amount, description)
+  values (_uid, 'Marcus', 'they_owe', _c_debt_repayment, (_today - interval '30 days')::date, 150, 150, 'Dinner + concert tickets from last month')
+  returning id into _d_marcus_loan;
+
+  insert into public.transactions (user_id, category_id, amount, type, description, date, source, ai_generated)
+  values (_uid, _c_debt, 300, 'expense', 'Payment to Credit Card', (_today - interval '7 days')::date, 'web', false)
+  returning id into _tx_credit_card;
+
+  insert into public.debt_payments (debt_id, user_id, amount, note, transaction_id)
+  values (_d_credit_card, _uid, 300, 'Scheduled monthly payment', _tx_credit_card);
+
+  insert into public.transactions (user_id, category_id, amount, type, description, date, source, ai_generated)
+  values (_uid, _c_debt_repayment, 150, 'income', 'Repayment from Marcus — Paid back in full', (_today - interval '5 days')::date, 'web', false)
+  returning id into _tx_marcus_loan;
+
+  insert into public.debt_payments (debt_id, user_id, amount, note, transaction_id)
+  values (_d_marcus_loan, _uid, 150, 'Paid back in full', _tx_marcus_loan);
+
   -- Mark some occurrences paid
   insert into public.reminder_payments (reminder_id, user_id, due_date, paid_at) values
-    (_r_monthly_rent,     _uid, (_today - 2)::date, now() - interval '1 day'),
-    (_r_student_loan,     _uid, (_today - 1)::date, now() - interval '12 hours'),
+    (_r_monthly_rent, _uid, (_today - 2)::date, now() - interval '1 day'),
+    (_r_student_loan, _uid, (_today - 1)::date, now() - interval '12 hours'),
     (_r_laptop_insurance, _uid, (_today - 5)::date, now() - interval '4 days');
-
-  -- -------------------------------------------------------
-  -- Debts
-  -- -------------------------------------------------------
-  insert into public.debts (user_id, counterparty, type, original_amount, remaining_amount, description) values
-    (_uid, 'Student Finance',  'i_owe',   12000, 11400, 'Undergraduate student loan'),
-    (_uid, 'Marcus',           'they_owe',   150,   150, 'Dinner + concert tickets from last month');
 
 end;
 $$;

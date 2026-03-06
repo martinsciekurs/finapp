@@ -260,7 +260,6 @@ export async function markOccurrencePaid(
     return { success: false, error: "Failed to record payment" };
   }
 
-  // Create expense transaction if auto_create_transaction is enabled
   if (reminder.auto_create_transaction) {
     const { data: tx, error: txError } = await supabase
       .from("transactions")

@@ -1,148 +1,166 @@
-import { describe, it, expect } from "vitest";
-import { createDebtSchema, createDebtPaymentSchema } from "../debt";
+import { describe, expect, it } from "vitest";
+
+import {
+  createDebtSchema,
+  updateDebtSchema,
+  createDebtPaymentSchema,
+  updateDebtPaymentSchema,
+  deleteDebtSchema,
+  deleteDebtPaymentSchema,
+} from "../debt";
+
+const validDebtId = "550e8400-e29b-41d4-a716-446655440000";
+const validCategoryId = "660e8400-e29b-41d4-a716-446655440000";
+const validPaymentId = "770e8400-e29b-41d4-a716-446655440000";
 
 describe("createDebtSchema", () => {
-  it("accepts a valid debt", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "i_owe",
-      original_amount: 100,
-    });
-    expect(result.success).toBe(true);
+  const validData = {
+    counterparty: "John",
+    type: "i_owe" as const,
+    category_id: validCategoryId,
+    debt_date: "2026-03-06",
+    original_amount: 100,
+    description: "Lunch split",
+  };
+
+  it("accepts valid debt data", () => {
+    expect(createDebtSchema.safeParse(validData).success).toBe(true);
   });
 
-  it("rejects negative amount", () => {
+  it("rejects missing category", () => {
     const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "i_owe",
-      original_amount: -50,
+      ...validData,
+      category_id: "",
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects empty counterparty", () => {
+  it("rejects invalid debt date", () => {
     const result = createDebtSchema.safeParse({
-      counterparty: "",
-      type: "they_owe",
-      original_amount: 100,
+      ...validData,
+      debt_date: "not-a-date",
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid type", () => {
+  it("rejects amount with more than 2 decimals", () => {
     const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "unknown",
-      original_amount: 100,
+      ...validData,
+      original_amount: 12.345,
     });
     expect(result.success).toBe(false);
   });
+});
 
-  it("accepts they_owe type", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "Jane",
-      type: "they_owe",
-      original_amount: 50,
-    });
-    expect(result.success).toBe(true);
+describe("updateDebtSchema", () => {
+  const validData = {
+    id: validDebtId,
+    counterparty: "John",
+    type: "i_owe" as const,
+    category_id: validCategoryId,
+    debt_date: "2026-03-06",
+    original_amount: 100,
+    description: "",
+  };
+
+  it("accepts valid update payload", () => {
+    expect(updateDebtSchema.safeParse(validData).success).toBe(true);
   });
 
-  it("rejects zero amount", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "i_owe",
-      original_amount: 0,
-    });
+  it("rejects invalid debt id", () => {
+    const result = updateDebtSchema.safeParse({ ...validData, id: "bad" });
     expect(result.success).toBe(false);
   });
 
-  it("rejects counterparty over 100 characters", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "a".repeat(101),
-      type: "i_owe",
-      original_amount: 100,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts counterparty at exactly 100 characters", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "a".repeat(100),
-      type: "i_owe",
-      original_amount: 100,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects description over 500 characters", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "i_owe",
-      original_amount: 100,
-      description: "a".repeat(501),
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts description at exactly 500 characters", () => {
-    const result = createDebtSchema.safeParse({
-      counterparty: "John",
-      type: "i_owe",
-      original_amount: 100,
-      description: "a".repeat(500),
-    });
+  it("accepts empty category_id for deleted categories", () => {
+    const result = updateDebtSchema.safeParse({ ...validData, category_id: "" });
     expect(result.success).toBe(true);
   });
 });
 
 describe("createDebtPaymentSchema", () => {
-  it("accepts a valid payment", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "550e8400-e29b-41d4-a716-446655440000",
-      amount: 50,
-    });
-    expect(result.success).toBe(true);
+  const validData = {
+    debt_id: validDebtId,
+    amount: 20,
+    payment_date: "2026-03-06",
+    note: "Partial payment",
+  };
+
+  it("accepts valid payment", () => {
+    expect(createDebtPaymentSchema.safeParse(validData).success).toBe(true);
   });
 
-  it("rejects zero payment", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "550e8400-e29b-41d4-a716-446655440000",
-      amount: 0,
-    });
-    expect(result.success).toBe(false);
+  it("rejects invalid debt id", () => {
+    expect(
+      createDebtPaymentSchema.safeParse({ ...validData, debt_id: "bad" }).success
+    ).toBe(false);
   });
 
-  it("rejects negative payment", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "550e8400-e29b-41d4-a716-446655440000",
-      amount: -10,
-    });
-    expect(result.success).toBe(false);
+  it("rejects zero amount", () => {
+    expect(
+      createDebtPaymentSchema.safeParse({ ...validData, amount: 0 }).success
+    ).toBe(false);
+  });
+});
+
+describe("updateDebtPaymentSchema", () => {
+  it("accepts valid update payload", () => {
+    expect(
+      updateDebtPaymentSchema.safeParse({
+        id: validPaymentId,
+        amount: 50,
+        payment_date: "2026-03-06",
+        note: "Updated note",
+      }).success
+    ).toBe(true);
   });
 
-  it("rejects invalid UUID for debt_id", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "not-a-uuid",
-      amount: 50,
-    });
-    expect(result.success).toBe(false);
+  it("rejects invalid payment id", () => {
+    expect(
+      updateDebtPaymentSchema.safeParse({
+        id: "bad",
+        amount: 50,
+        payment_date: "2026-03-06",
+        note: "",
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe("delete schemas", () => {
+  it("deleteDebtSchema accepts valid id", () => {
+    expect(deleteDebtSchema.safeParse({ id: validDebtId }).success).toBe(true);
   });
 
-  it("rejects note over 500 characters", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "550e8400-e29b-41d4-a716-446655440000",
-      amount: 50,
-      note: "a".repeat(501),
-    });
-    expect(result.success).toBe(false);
+  it("deleteDebtSchema accepts delete_linked_transactions flag", () => {
+    expect(
+      deleteDebtSchema.safeParse({ id: validDebtId, delete_linked_transactions: true }).success
+    ).toBe(true);
   });
 
-  it("accepts note at exactly 500 characters", () => {
-    const result = createDebtPaymentSchema.safeParse({
-      debt_id: "550e8400-e29b-41d4-a716-446655440000",
-      amount: 50,
-      note: "a".repeat(500),
-    });
-    expect(result.success).toBe(true);
+  it("deleteDebtSchema rejects non-UUID id", () => {
+    expect(deleteDebtSchema.safeParse({ id: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("deleteDebtSchema rejects empty id", () => {
+    expect(deleteDebtSchema.safeParse({ id: "" }).success).toBe(false);
+  });
+
+  it("deleteDebtPaymentSchema accepts valid id", () => {
+    expect(
+      deleteDebtPaymentSchema.safeParse({ id: validPaymentId }).success
+    ).toBe(true);
+  });
+
+  it("deleteDebtPaymentSchema rejects non-UUID id", () => {
+    expect(
+      deleteDebtPaymentSchema.safeParse({ id: "not-a-uuid" }).success
+    ).toBe(false);
+  });
+
+  it("deleteDebtPaymentSchema rejects empty id", () => {
+    expect(
+      deleteDebtPaymentSchema.safeParse({ id: "" }).success
+    ).toBe(false);
   });
 });

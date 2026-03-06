@@ -12,7 +12,7 @@
 -- ===========================================================================
 
 begin;
-select plan(43);
+select plan(46);
 
 select reset_role();
 
@@ -152,6 +152,49 @@ select throws_ok(
   '23503'::char(5),
   null,
   'fk_reminders_category: ON DELETE RESTRICT blocks category deletion'
+);
+
+select lives_ok(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Debt with category'', 120, 120, ''i_owe'', %L)',
+    u1(), c1_exp()
+  ),
+  'fk_debts_category: valid insert with same-user category'
+);
+
+select throws_matching(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Cross-user debt category'', 120, 120, ''i_owe'', %L)',
+    u1(), c2_exp()
+  ),
+  'Category .* not found for user .*',
+  'fk_debts_category: rejects cross-user category'
+);
+
+do $$
+declare
+  _cat uuid;
+  _debt uuid;
+begin
+  _cat := create_test_category(u1(), 'Debt Delete Set Null Cat', 'expense');
+
+  insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+  values (u1(), 'Debt category set null', 90, 90, 'i_owe', _cat)
+  returning id into _debt;
+
+  perform set_config('test.debt_cat_setnull_cat', _cat::text, true);
+  perform set_config('test.debt_cat_setnull_debt', _debt::text, true);
+end;
+$$;
+
+delete from public.categories where id = current_setting('test.debt_cat_setnull_cat')::uuid;
+
+select is(
+  (select category_id from public.debts where id = current_setting('test.debt_cat_setnull_debt')::uuid),
+  null::uuid,
+  'fk_debts_category: ON DELETE SET NULL nullifies debt category_id'
 );
 
 -- ===========================================================================

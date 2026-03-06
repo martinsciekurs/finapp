@@ -1,5 +1,5 @@
 ---
-description: Reviews for security holes, SQL integrity, auth bypass, and DB test coverage
+description: Reviews for security holes, SQL integrity, and auth bypass
 mode: subagent
 temperature: 0.1
 color: error
@@ -41,13 +41,11 @@ INPUT VALIDATION
 - All Server Action inputs validated with Zod before DB access
 - File uploads checked for type and size
 
-DB TEST COVERAGE (CRITICAL if missing)
-- Migration changes MUST have pgTAP tests:
-  - New tables → RLS tests in `01_rls_policies.sql`
-  - New triggers → tests in `02_triggers.sql`
-  - New constraints → tests in `03_constraints.sql`
+BOUNDARY
+- Do not own broad unit/e2e/db test-coverage review — that belongs to `review-tests`
+- Only flag a missing test when it blocks confidence in an auth, RLS, or isolation guarantee, and frame it as a security risk rather than general coverage feedback
 
 Format each finding as:
 [CRITICAL|WARNING|SUGGESTION] file:line — description
 
-Security issues default to CRITICAL. Missing DB tests are CRITICAL.
+Security issues default to CRITICAL.

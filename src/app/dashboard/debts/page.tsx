@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
+import { fetchUserCurrency } from "@/lib/queries/dashboard";
+import { fetchDebtsPageData } from "@/lib/queries/debts";
+import { fetchUserCategories } from "@/lib/queries/transactions";
+import { DebtsView } from "@/components/debts/debts-view";
 
 export const metadata: Metadata = {
   title: "Debts",
 };
 
-export default function DebtsPage() {
-  return (
-    <div>
-      <h2 className="font-serif text-xl font-bold sm:text-2xl">Debts</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Debt tracking and payment logging coming in Phase 2F.
-      </p>
-    </div>
-  );
+export default async function DebtsPage() {
+  const [currency, data, categories] = await Promise.all([
+    fetchUserCurrency(),
+    fetchDebtsPageData(),
+    fetchUserCategories(),
+  ]);
+
+  return <DebtsView data={data} categories={categories} currency={currency} />;
 }

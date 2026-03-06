@@ -37,7 +37,6 @@
 - [x] `src/app/dashboard/transactions/page.tsx` — Server Component with parallel data fetching
 
 ## Deferred
-- [ ] Transaction edit UI (the `updateTransaction` action exists but no edit form/mode in the list)
 - [ ] Pagination / infinite scroll on the transaction list
 - [ ] Search / date-range filtering (only type filter tabs exist)
 
