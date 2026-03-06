@@ -132,6 +132,12 @@ describe("delete schemas", () => {
     expect(deleteDebtSchema.safeParse({ id: validDebtId }).success).toBe(true);
   });
 
+  it("deleteDebtSchema accepts delete_linked_transactions flag", () => {
+    expect(
+      deleteDebtSchema.safeParse({ id: validDebtId, delete_linked_transactions: true }).success
+    ).toBe(true);
+  });
+
   it("deleteDebtSchema rejects non-UUID id", () => {
     expect(deleteDebtSchema.safeParse({ id: "not-a-uuid" }).success).toBe(false);
   });

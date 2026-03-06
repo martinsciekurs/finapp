@@ -57,6 +57,7 @@ export const updateDebtPaymentSchema = z.object({
 
 export const deleteDebtSchema = z.object({
   id: z.string().uuid("Invalid debt ID"),
+  delete_linked_transactions: z.boolean().optional(),
 });
 
 export const deleteDebtPaymentSchema = z.object({
