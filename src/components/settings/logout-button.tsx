@@ -10,9 +10,9 @@ export function LogoutButton() {
 
   async function handleLogout() {
     setIsLoading(true);
-    try {
-      await logout();
-    } catch {
+    const result = await logout();
+
+    if (!result.success) {
       setIsLoading(false);
     }
   }

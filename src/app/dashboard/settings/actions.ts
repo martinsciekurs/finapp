@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/types/actions";
@@ -12,9 +11,14 @@ import {
   type EmailValues,
 } from "@/lib/validations/profile";
 
-export async function logout(): Promise<void> {
+export async function logout(): Promise<ActionResult> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
   redirect("/auth/login");
 }
 
@@ -56,37 +60,40 @@ export async function updateProfile(
 }
 
 export async function updateEmail(data: EmailValues): Promise<ActionResult> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
 
-  const parsed = emailSchema.safeParse(data);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Invalid email address",
-    };
-  }
+    const parsed = emailSchema.safeParse(data);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid email address",
+      };
+    }
 
-  if (parsed.data.email === user.email) {
-    return { success: false, error: "New email is the same as current" };
-  }
+    if (parsed.data.email === user.email) {
+      return { success: false, error: "New email is the same as current" };
+    }
 
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(user.id, {
-    email: parsed.data.email,
-  });
+    const { error } = await supabase.auth.updateUser({
+      email: parsed.data.email,
+    });
 
-  if (error) {
+    if (error) {
+      return { success: false, error: "Failed to update email" };
+    }
+
+    revalidatePath("/dashboard/settings/profile");
+    return { success: true };
+  } catch {
     return { success: false, error: "Failed to update email" };
   }
-
-  revalidatePath("/dashboard/settings/profile");
-  return { success: true };
 }

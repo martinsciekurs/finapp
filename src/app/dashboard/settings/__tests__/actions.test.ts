@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
 const mockSignOut = vi.fn();
-const mockUpdateUserById = vi.fn();
+const mockAuthUpdateUser = vi.fn();
 const mockRedirect = vi.fn();
 const mockRevalidatePath = vi.fn();
 
@@ -12,23 +12,17 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       getUser: () => mockGetUser(),
       signOut: () => mockSignOut(),
+      updateUser: (...args: unknown[]) => mockAuthUpdateUser(...args),
     },
     from: (...args: unknown[]) => mockFrom(...args),
   }),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({
-    auth: {
-      admin: {
-        updateUserById: (...args: unknown[]) => mockUpdateUserById(...args),
-      },
-    },
-  })),
-}));
-
 vi.mock("next/navigation", () => ({
-  redirect: (...args: unknown[]) => mockRedirect(...args),
+  redirect: (...args: unknown[]) => {
+    mockRedirect(...args);
+    throw new Error(`NEXT_REDIRECT:${String(args[0])}`);
+  },
 }));
 
 vi.mock("next/cache", () => ({
@@ -66,10 +60,21 @@ describe("settings actions", () => {
     it("signs out and redirects to login", async () => {
       mockSignOut.mockResolvedValue({ error: null });
 
-      await logout();
+      await expect(logout()).rejects.toThrow("NEXT_REDIRECT:/auth/login");
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
       expect(mockRedirect).toHaveBeenCalledWith("/auth/login");
+    });
+
+    it("returns failure and does not redirect when sign out fails", async () => {
+      mockSignOut.mockResolvedValue({
+        error: { message: "sign out failed" },
+      });
+
+      const result = await logout();
+
+      expect(result).toEqual({ success: false, error: "sign out failed" });
+      expect(mockRedirect).not.toHaveBeenCalled();
     });
   });
 
@@ -172,9 +177,20 @@ describe("settings actions", () => {
       });
     });
 
-    it("returns generic error when admin email update fails", async () => {
+    it("returns generic error when email update fails", async () => {
       mockAuthenticated();
-      mockUpdateUserById.mockResolvedValue({ error: { message: "sensitive detail" } });
+      mockAuthUpdateUser.mockResolvedValue({
+        error: { message: "sensitive detail" },
+      });
+
+      const result = await updateEmail({ email: "next@example.com" });
+
+      expect(result).toEqual({ success: false, error: "Failed to update email" });
+    });
+
+    it("returns generic error when email update throws", async () => {
+      mockAuthenticated();
+      mockAuthUpdateUser.mockRejectedValue(new Error("boom"));
 
       const result = await updateEmail({ email: "next@example.com" });
 
@@ -183,11 +199,11 @@ describe("settings actions", () => {
 
     it("returns success and revalidates settings profile page", async () => {
       mockAuthenticated();
-      mockUpdateUserById.mockResolvedValue({ error: null });
+      mockAuthUpdateUser.mockResolvedValue({ error: null });
 
       const result = await updateEmail({ email: "next@example.com" });
 
-      expect(mockUpdateUserById).toHaveBeenCalledWith(fakeUser.id, {
+      expect(mockAuthUpdateUser).toHaveBeenCalledWith({
         email: "next@example.com",
       });
       expect(result).toEqual({ success: true });

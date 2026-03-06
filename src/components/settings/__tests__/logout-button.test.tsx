@@ -17,7 +17,7 @@ describe("LogoutButton", () => {
 
   it("calls logout action when clicked", async () => {
     const user = userEvent.setup();
-    mockLogout.mockResolvedValue(undefined);
+    mockLogout.mockResolvedValue({ success: false, error: "sign out failed" });
 
     render(<LogoutButton />);
 
@@ -44,7 +44,7 @@ describe("LogoutButton", () => {
 
   it("recovers from logout failure by re-enabling button", async () => {
     const user = userEvent.setup();
-    mockLogout.mockRejectedValue(new Error("logout failed"));
+    mockLogout.mockResolvedValue({ success: false, error: "logout failed" });
 
     render(<LogoutButton />);
 
