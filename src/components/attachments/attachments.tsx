@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { deleteAttachment, uploadAttachment } from "@/app/dashboard/attachments/actions";
 import { Button } from "@/components/ui/button";
+import { ALLOWED_ATTACHMENT_MIME_TYPES_LIST } from "@/lib/config/limits";
 import type { AttachmentData, AttachmentRecordType } from "@/lib/types/attachments";
 
 interface AttachmentsProps {
@@ -86,6 +87,7 @@ export function Attachments({
         ref={fileInputRef}
         id={inputId}
         type="file"
+        accept={ALLOWED_ATTACHMENT_MIME_TYPES_LIST.join(",")}
         className="sr-only"
         onChange={(event) => {
           const nextFile = event.target.files?.[0];

@@ -76,7 +76,7 @@ describe("Attachments", () => {
       },
     });
 
-    render(
+    const { container } = render(
       <Attachments
         recordType="debt"
         recordId="550e8400-e29b-41d4-a716-446655440000"
@@ -84,7 +84,7 @@ describe("Attachments", () => {
       />
     );
 
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement | null;
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement | null;
     expect(input).not.toBeNull();
     if (!input) {
       return;
