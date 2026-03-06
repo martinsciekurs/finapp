@@ -17,7 +17,7 @@ export function BottomNav() {
       aria-label="Mobile navigation"
     >
       <div className="mx-auto max-w-lg px-4 pb-[env(safe-area-inset-bottom)]">
-        <div className="mb-3 flex items-center justify-around rounded-2xl border border-border/50 bg-background/80 px-2 py-2 shadow-lg backdrop-blur-lg">
+        <div className="mb-1 flex items-center justify-around rounded-2xl border border-border/50 bg-background/80 px-1.5 py-1.5 shadow-lg backdrop-blur-lg">
           {NAV_ITEMS.map((item) => {
             const isActive = isNavItemActive(item.href, pathname);
 
@@ -26,7 +26,7 @@ export function BottomNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center rounded-xl px-2 py-1.5 text-xs transition-colors",
+                  "relative flex min-h-[40px] min-w-[40px] flex-col items-center justify-center rounded-xl px-1.5 py-1 text-[10px] transition-colors",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -44,7 +44,7 @@ export function BottomNav() {
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   ))}
-                <item.icon className="relative size-5" />
+                <item.icon className="relative size-4" />
                 {isActive &&
                   (reduceMotion ? (
                     <span className="relative mt-0.5 font-medium">

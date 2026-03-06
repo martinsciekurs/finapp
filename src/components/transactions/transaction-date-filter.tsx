@@ -167,9 +167,9 @@ export function TransactionDateFilter({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button variant="outline" size="sm" className="max-w-full min-w-0 gap-1.5">
           <CalendarDays className="size-3.5" />
-          {getTriggerLabel(value)}
+          <span className="truncate">{getTriggerLabel(value)}</span>
         </Button>
       </PopoverTrigger>
 

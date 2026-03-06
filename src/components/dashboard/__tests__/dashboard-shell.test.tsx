@@ -7,7 +7,14 @@ const tourLauncherMock = vi.fn((props: { showTour: boolean }) => {
   return null;
 });
 
-// Mock child components to isolate shell behavior
+vi.mock("../profile-menu", () => ({
+  ProfileMenu: ({ displayName }: { displayName: string }) => (
+    <button data-testid="profile-menu" aria-label="Open profile menu">
+      {displayName}
+    </button>
+  ),
+}));
+
 vi.mock("../hero-banner", () => ({
   HeroBanner: ({
     displayName,
@@ -23,8 +30,8 @@ vi.mock("../hero-banner", () => ({
 }));
 
 vi.mock("../sidebar-nav", () => ({
-  SidebarNav: () => (
-    <nav data-testid="sidebar-nav" aria-label="Main navigation">
+  SidebarNav: ({ displayName }: { displayName: string }) => (
+    <nav data-testid="sidebar-nav" aria-label="Main navigation" data-display-name={displayName}>
       SidebarNav
     </nav>
   ),
@@ -50,6 +57,22 @@ vi.mock("@/components/ui/tooltip", () => ({
   ),
 }));
 
+vi.mock("../ai-panel-provider", () => ({
+  AiPanelProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+vi.mock("../ai-panel-trigger", () => ({
+  AiPanelTrigger: () => (
+    <button data-testid="ai-panel-trigger">AiPanelTrigger</button>
+  ),
+}));
+
+vi.mock("../ai-panel", () => ({
+  AiPanel: () => <aside data-testid="ai-panel">AiPanel</aside>,
+}));
+
 vi.mock("@/components/tour/tour-launcher", () => ({
   TourLauncher: (props: { showTour: boolean }) => tourLauncherMock(props),
 }));
@@ -70,6 +93,11 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("sidebar-nav")).toBeInTheDocument();
     expect(screen.getByTestId("bottom-nav")).toBeInTheDocument();
     expect(screen.getByTestId("notification-bell")).toBeInTheDocument();
+    expect(screen.getByText("Alex")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-nav")).toHaveAttribute(
+      "data-display-name",
+      "Alex"
+    );
   });
 
   it("renders children in main content area", () => {
