@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAttachmentsByRecordIds } from "@/lib/queries/attachments";
 import { formatDateForInput } from "@/lib/utils/date";
 import { clampDayToMonth } from "@/lib/utils/recurrence";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/config/categories";
@@ -223,6 +224,11 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
     throw new Error(`Failed to fetch payments: ${paymentsResult.error.message}`);
   }
 
+  const attachmentsByRecord = await fetchAttachmentsByRecordIds(
+    "reminder",
+    (remindersResult.data ?? []).map((row) => row.id)
+  );
+
   // Build payment lookup: "reminder_id:due_date" -> payment record
   const paymentMap = new Map<string, { id: string; paid_at: string }>();
   for (const p of paymentsResult.data ?? []) {
@@ -272,6 +278,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
           payment_id: payment?.id ?? null,
           paid_at: payment?.paid_at ?? null,
           days_diff: diff,
+          attachments: attachmentsByRecord.get(row.id) ?? [],
         };
 
         grouped[status].push(occurrence);
@@ -305,6 +312,11 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
     throw new Error(`Failed to fetch reminders: ${error.message}`);
   }
 
+  const attachmentsByRecord = await fetchAttachmentsByRecordIds(
+    "reminder",
+    (data ?? []).map((row) => row.id)
+  );
+
   return (data ?? []).map((row) => {
     const cat = parseCategoryJoin(row.categories);
 
@@ -319,6 +331,7 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
       category_name: cat?.name ?? "Uncategorized",
       category_icon: cat?.icon ?? "circle",
       category_color: cat?.color ?? DEFAULT_CATEGORY_COLOR,
+      attachments: attachmentsByRecord.get(row.id) ?? [],
     };
   });
 }

@@ -5,6 +5,10 @@ import userEvent from "@testing-library/user-event";
 import type { DebtsPageData } from "@/lib/types/debt";
 import type { CategoryOption } from "@/lib/types/transactions";
 
+vi.mock("@/components/attachments/attachments", () => ({
+  Attachments: () => <div data-testid="attachments" />,
+}));
+
 vi.mock("@/app/dashboard/debts/actions", () => ({
   createDebt: vi.fn().mockResolvedValue({ success: true }),
   updateDebt: vi.fn().mockResolvedValue({ success: true }),
@@ -46,6 +50,7 @@ const sampleData: DebtsPageData = {
       description: "Dinner split",
       debtDate: "2026-03-01",
       createdAt: "2026-03-01",
+      attachments: [],
       payments: [
         {
           id: "p1",
@@ -73,6 +78,7 @@ const sampleData: DebtsPageData = {
       description: null,
       debtDate: "2026-02-15",
       createdAt: "2026-02-15",
+      attachments: [],
       payments: [],
     },
   ],
@@ -90,6 +96,7 @@ const sampleData: DebtsPageData = {
       description: null,
       debtDate: "2026-01-20",
       createdAt: "2026-01-20",
+      attachments: [],
       payments: [
         {
           id: "p2",

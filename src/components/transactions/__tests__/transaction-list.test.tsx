@@ -6,6 +6,9 @@ import React from "react";
 // Shared mocks
 vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
+vi.mock("@/components/attachments/attachments", () => ({
+  Attachments: () => <div data-testid="attachments" />,
+}));
 
 // Mock edit dialog
 const mockEditDialog = vi.fn();
@@ -79,6 +82,7 @@ const sampleTransactions: TransactionData[] = [
     categoryName: "Groceries",
     categoryIcon: "shopping-cart",
     categoryColor: "#4CAF50",
+    attachments: [],
   },
   {
     id: "tx-2",
@@ -90,6 +94,7 @@ const sampleTransactions: TransactionData[] = [
     categoryName: "Salary",
     categoryIcon: "briefcase",
     categoryColor: "#2196F3",
+    attachments: [],
   },
   {
     id: "tx-3",
@@ -101,6 +106,7 @@ const sampleTransactions: TransactionData[] = [
     categoryName: "Entertainment",
     categoryIcon: "film",
     categoryColor: "#FF5722",
+    attachments: [],
   },
 ];
 
@@ -238,6 +244,7 @@ describe("TransactionList", () => {
         categoryName: "Groceries",
         categoryIcon: "shopping-cart",
         categoryColor: "#4CAF50",
+        attachments: [],
       },
     ];
 
@@ -348,6 +355,7 @@ describe("TransactionList", () => {
         categoryName: "Groceries",
         categoryIcon: "shopping-cart",
         categoryColor: "#4CAF50",
+        attachments: [],
       },
     ];
 
