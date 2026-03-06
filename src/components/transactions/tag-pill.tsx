@@ -25,7 +25,7 @@ export function TagPill({ tag, onRemove }: TagPillProps) {
             e.stopPropagation();
             onRemove();
           }}
-          className="ml-0.5 rounded-full p-0.5 hover:bg-black/10"
+          className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10"
           aria-label={`Remove ${tag.name} tag`}
         >
           <X className="size-2.5" />

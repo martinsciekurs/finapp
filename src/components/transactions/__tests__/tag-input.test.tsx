@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { PropsWithChildren } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TagInput } from "../tag-input";
@@ -8,20 +9,20 @@ import { MAX_TAGS_PER_TRANSACTION } from "@/lib/config/tags";
 vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 vi.mock("@/components/ui/popover", () => ({
-  Popover: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  Popover: ({ children }: PropsWithChildren) => <div>{children}</div>,
   PopoverTrigger: ({
     children,
     asChild,
     ...props
-  }: React.PropsWithChildren<{ asChild?: boolean }>) =>
+  }: PropsWithChildren<{ asChild?: boolean }>) =>
     asChild ? <>{children}</> : <div {...props}>{children}</div>,
-  PopoverContent: ({ children }: React.PropsWithChildren) => (
+  PopoverContent: ({ children }: PropsWithChildren) => (
     <div data-testid="popover-content">{children}</div>
   ),
 }));
 
 vi.mock("@/components/ui/command", () => ({
-  Command: ({ children, ...props }: React.PropsWithChildren) => (
+  Command: ({ children, ...props }: PropsWithChildren) => (
     <div data-testid="command" {...props}>
       {children}
     </div>
@@ -42,16 +43,16 @@ vi.mock("@/components/ui/command", () => ({
       onChange={(e) => onValueChange?.(e.target.value)}
     />
   ),
-  CommandList: ({ children }: React.PropsWithChildren) => (
+  CommandList: ({ children }: PropsWithChildren) => (
     <div data-testid="command-list">{children}</div>
   ),
-  CommandEmpty: ({ children }: React.PropsWithChildren) => (
+  CommandEmpty: ({ children }: PropsWithChildren) => (
     <div data-testid="command-empty">{children}</div>
   ),
   CommandGroup: ({
     children,
     heading,
-  }: React.PropsWithChildren<{ heading?: string }>) => (
+  }: PropsWithChildren<{ heading?: string }>) => (
     <div data-testid="command-group" data-heading={heading}>
       {heading && <div data-testid="group-heading">{heading}</div>}
       {children}
@@ -62,7 +63,7 @@ vi.mock("@/components/ui/command", () => ({
     onSelect,
     value,
     disabled,
-  }: React.PropsWithChildren<{
+  }: PropsWithChildren<{
     onSelect?: () => void;
     value?: string;
     disabled?: boolean;
@@ -213,7 +214,7 @@ describe("TagInput", () => {
 
     const options = screen.getAllByRole("option");
     const optionTexts = options.map((o) => o.textContent);
-    expect(optionTexts).not.toContain(expect.stringContaining("Food"));
+    expect(optionTexts).not.toEqual(expect.arrayContaining([expect.stringContaining("Food")]));
   });
 
   it("calls onCreateTag with name and color when completing new tag flow", async () => {

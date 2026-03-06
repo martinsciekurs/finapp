@@ -1,5 +1,3 @@
-import type { Database } from "@/lib/supabase/database.types";
-
 export type AttachmentRecordType = "transaction" | "debt" | "reminder";
 
 export interface AttachmentData {

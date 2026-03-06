@@ -42,6 +42,7 @@ export function TagInput({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [creatingName, setCreatingName] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const atLimit = selectedTags.length >= MAX_TAGS_PER_TRANSACTION;
   const selectedIds = useMemo(
@@ -73,14 +74,19 @@ export function TagInput({
   }
 
   async function handleColorPick(color: string) {
-    if (!creatingName) return;
-    const newTag = await onCreateTag(creatingName, color);
-    if (newTag) {
-      onTagAdd(newTag);
+    if (!creatingName || isCreating) return;
+    setIsCreating(true);
+    try {
+      const newTag = await onCreateTag(creatingName, color);
+      if (newTag) {
+        onTagAdd(newTag);
+      }
+      setCreatingName(null);
+      setSearch("");
+      setOpen(false);
+    } finally {
+      setIsCreating(false);
     }
-    setCreatingName(null);
-    setSearch("");
-    setOpen(false);
   }
 
   return (
@@ -128,9 +134,10 @@ export function TagInput({
                     <button
                       key={color}
                       type="button"
-                      className="flex size-6 items-center justify-center rounded-full border transition-transform hover:scale-110"
+                      className="flex size-6 items-center justify-center rounded-full border transition-transform hover:scale-110 disabled:opacity-50 disabled:hover:scale-100"
                       style={{ backgroundColor: color }}
                       onClick={() => handleColorPick(color)}
+                      disabled={isCreating}
                       aria-label={color}
                     />
                   ))}

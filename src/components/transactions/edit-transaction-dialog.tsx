@@ -75,6 +75,9 @@ export function EditTransactionDialog({
 }: EditTransactionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTags, setLocalTags] = useState<TagData[]>(transaction.tags);
+  const [pendingAddIds, setPendingAddIds] = useState<Set<string>>(new Set());
+  const [pendingRemoveIds, setPendingRemoveIds] = useState<Set<string>>(new Set());
+  const [pendingNewTags, setPendingNewTags] = useState<TagData[]>([]);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -87,6 +90,9 @@ export function EditTransactionDialog({
 
   useEffect(() => {
     setLocalTags(transaction.tags);
+    setPendingAddIds(new Set());
+    setPendingRemoveIds(new Set());
+    setPendingNewTags([]);
   }, [transaction]);
 
   const currentType = form.watch("type");
@@ -98,31 +104,39 @@ export function EditTransactionDialog({
     form.setValue("category_id", "");
   }
 
-  async function handleTagAdd(tag: TagData) {
-    const result = await assignTagToTransaction(transaction.id, tag.id);
-    if (result.success) {
-      setLocalTags((prev) => [...prev, tag]);
-    } else {
-      toast.error(result.error ?? "Failed to add tag");
+  function handleTagAdd(tag: TagData) {
+    setLocalTags((prev) => [...prev, tag]);
+    setPendingRemoveIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tag.id);
+      return next;
+    });
+    if (!transaction.tags.some((t) => t.id === tag.id)) {
+      setPendingAddIds((prev) => new Set(prev).add(tag.id));
     }
   }
 
-  async function handleTagRemove(tagId: string) {
-    const result = await removeTagFromTransaction(transaction.id, tagId);
-    if (result.success) {
-      setLocalTags((prev) => prev.filter((t) => t.id !== tagId));
-    } else {
-      toast.error(result.error ?? "Failed to remove tag");
+  function handleTagRemove(tagId: string) {
+    setLocalTags((prev) => prev.filter((t) => t.id !== tagId));
+    setPendingAddIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tagId);
+      return next;
+    });
+    const isNewTag = pendingNewTags.some((t) => t.id === tagId);
+    if (isNewTag) {
+      setPendingNewTags((prev) => prev.filter((t) => t.id !== tagId));
+    } else if (transaction.tags.some((t) => t.id === tagId)) {
+      setPendingRemoveIds((prev) => new Set(prev).add(tagId));
     }
   }
 
-  async function handleCreateTag(name: string, color: string): Promise<TagData | null> {
-    const result = await createTag({ name, color });
-    if (!result.success || !result.data) {
-      toast.error(result.error ?? "Failed to create tag");
-      return null;
-    }
-    return { id: result.data.id, name, color };
+  function handleCreateTag(name: string, color: string): Promise<TagData | null> {
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const tempTag: TagData = { id: tempId, name, color };
+    setLocalTags((prev) => [...prev, tempTag]);
+    setPendingNewTags((prev) => [...prev, tempTag]);
+    return Promise.resolve(tempTag);
   }
 
   async function onSubmit(values: TransactionFormValues) {
@@ -133,6 +147,47 @@ export function EditTransactionDialog({
 
       if (!result.success) {
         toast.error(result.error ?? "Failed to update transaction");
+        return;
+      }
+
+      const errors: string[] = [];
+
+      // Create new tags and replace temp IDs with real IDs
+      const createdTagIdMap = new Map<string, string>();
+      for (const newTag of pendingNewTags) {
+        const createResult = await createTag({ name: newTag.name, color: newTag.color });
+        if (!createResult.success || !createResult.data) {
+          errors.push(createResult.error ?? `Failed to create tag "${newTag.name}"`);
+        } else {
+          createdTagIdMap.set(newTag.id, createResult.data.id);
+        }
+      }
+
+      // Assign tags (both existing and newly created)
+      const idsToAssign = new Set<string>();
+      for (const id of pendingAddIds) idsToAssign.add(id);
+      for (const newTag of pendingNewTags) {
+        const realId = createdTagIdMap.get(newTag.id);
+        if (realId) idsToAssign.add(realId);
+      }
+
+      const assignResults = await Promise.all(
+        [...idsToAssign].map((tagId) => assignTagToTransaction(transaction.id, tagId))
+      );
+      for (const r of assignResults) {
+        if (!r.success) errors.push(r.error ?? "Failed to assign tag");
+      }
+
+      // Remove tags
+      const removeResults = await Promise.all(
+        [...pendingRemoveIds].map((tagId) => removeTagFromTransaction(transaction.id, tagId))
+      );
+      for (const r of removeResults) {
+        if (!r.success) errors.push(r.error ?? "Failed to remove tag");
+      }
+
+      if (errors.length > 0) {
+        toast.error(errors[0]);
         return;
       }
 

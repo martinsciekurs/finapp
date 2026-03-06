@@ -134,8 +134,16 @@ export function TransactionDateFilter({
   const [showCustom, setShowCustom] = useState(
     () => detectActivePreset(value) === "custom"
   );
+  const [prevActivePreset, setPrevActivePreset] = useState(
+    () => detectActivePreset(value)
+  );
 
   const activePreset = detectActivePreset(value);
+
+  if (activePreset !== prevActivePreset) {
+    setPrevActivePreset(activePreset);
+    setShowCustom(activePreset === "custom");
+  }
 
   function handlePresetSelect(preset: DatePreset) {
     if (preset === "custom") {

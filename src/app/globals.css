@@ -253,7 +253,7 @@
   opacity: 0.9;
 }
 
-.driver-popover-skip-btn {
+.tour-skip-btn {
   background-color: transparent !important;
   color: var(--muted-foreground) !important;
   border: none !important;
@@ -265,7 +265,7 @@
   margin-right: auto !important;
 }
 
-.driver-popover-skip-btn:hover {
+.tour-skip-btn:hover {
   color: var(--foreground) !important;
   text-decoration: underline;
 }

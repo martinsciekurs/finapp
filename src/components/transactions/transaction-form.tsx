@@ -104,11 +104,22 @@ export function TransactionForm({ categories, userTags }: TransactionFormProps) 
 
       if (result.data?.id && pendingTags.length > 0) {
         const transactionId = result.data.id;
-        await Promise.all(
+        const tagResults = await Promise.all(
           pendingTags.map((tag) => assignTagToTransaction(transactionId, tag.id))
         );
+        const failedIndices = tagResults
+          .map((r, i) => (r.success ? -1 : i))
+          .filter((i) => i >= 0);
+
+        if (failedIndices.length > 0) {
+          setPendingTags(failedIndices.map((i) => pendingTags[i]));
+          toast.error(`Failed to assign ${failedIndices.length} tag(s)`);
+        } else {
+          setPendingTags([]);
+        }
+      } else {
+        setPendingTags([]);
       }
-      setPendingTags([]);
 
       toast.success(
         `${values.type === "expense" ? "Expense" : "Income"} added`

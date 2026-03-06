@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DashboardShellSkeleton,
   SidebarSkeleton,
   BottomNavSkeleton,
 } from "@/components/dashboard/shell-skeleton";

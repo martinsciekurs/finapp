@@ -168,9 +168,8 @@ describe("TransactionCategoryFilter", () => {
 
     await user.click(screen.getByRole("button", { name: /all categories/i }));
 
-    // "All Categories" should be visible in the dropdown
-    const allCategoriesOption = screen.getAllByText("All Categories");
-    expect(allCategoriesOption.length).toBeGreaterThan(0);
+    const options = screen.getAllByRole("option");
+    expect(options[0]).toHaveTextContent("All Categories");
   });
 
   it("selecting a category calls onChange with categoryId", async () => {

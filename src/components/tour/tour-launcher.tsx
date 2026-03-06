@@ -50,7 +50,7 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
           if (state.activeIndex === steps.length - 1) return;
           const skipBtn = document.createElement("button");
           skipBtn.innerText = "Skip";
-          skipBtn.className = "driver-popover-skip-btn";
+          skipBtn.className = "tour-skip-btn";
           skipBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -68,9 +68,7 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
           driverInstance.moveNext();
         },
         onCloseClick: () => dismissTour(),
-        onDestroyStarted: () => {
-          const d = driverRef.current;
-          if (!d) return;
+        onDestroyStarted: (_el, _step, { driver: d }) => {
           driverRef.current = null;
           d.destroy();
         },

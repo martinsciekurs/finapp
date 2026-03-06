@@ -55,16 +55,23 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
 
   const transactionIds = (rows ?? []).map((row) => row.id);
 
+  if (transactionIds.length === 0) {
+    return [];
+  }
+
   const attachmentsByRecord = await fetchAttachmentsByRecordIds(
     "transaction",
     transactionIds
   );
 
-  // Batch-load tags for all transactions
-  const { data: tagRows } = await supabase
+  const { data: tagRows, error: tagError } = await supabase
     .from("transaction_tags")
     .select("transaction_id, tags(id, name, color)")
     .in("transaction_id", transactionIds);
+
+  if (tagError) {
+    throw new Error(`Failed to fetch transaction tags: ${tagError.message}`);
+  }
 
   const tagsByTransaction = new Map<string, TagData[]>();
   for (const row of tagRows ?? []) {

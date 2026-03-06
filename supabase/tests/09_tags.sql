@@ -4,16 +4,16 @@
 -- Tests RLS policies, constraints, FK cascades, and index existence for the
 -- tags and transaction_tags tables.
 --
--- Plan (20 assertions):
+-- Plan (21 assertions):
 --   1-6:   RLS on tags (INSERT/SELECT/UPDATE/DELETE/cross-user/anon)
 --   7-10:  RLS on transaction_tags (INSERT/SELECT/DELETE/cross-user)
 --   11-15: Constraint checks on tags (name, color, uniqueness)
 --   16-17: FK CASCADE behavior (tag deleted → txn_tag gone; txn deleted → txn_tag gone)
---   18-20: Index existence
+--   18-21: Index existence
 -- ===========================================================================
 
 begin;
-select plan(20);
+select plan(21);
 
 -- ===========================
 -- Setup
@@ -330,11 +330,12 @@ select is(
 );
 
 -- ===========================================================================
--- 18-20. Index existence
+-- 18-21. Index existence
 -- ===========================================================================
-select has_index('public', 'tags',             'idx_tags_user_id',             'index idx_tags_user_id exists');
-select has_index('public', 'tags',             'idx_tags_user_name',           'index idx_tags_user_name exists');
-select has_index('public', 'transaction_tags', 'idx_transaction_tags_tag_id',  'index idx_transaction_tags_tag_id exists');
+select has_index('public', 'tags',             'idx_tags_user_id',              'index idx_tags_user_id exists');
+select has_index('public', 'tags',             'idx_tags_user_name',            'index idx_tags_user_name exists');
+select has_index('public', 'transaction_tags', 'idx_transaction_tags_tag_id',   'index idx_transaction_tags_tag_id exists');
+select has_index('public', 'transaction_tags', 'idx_transaction_tags_user_id',  'index idx_transaction_tags_user_id exists');
 
 -- ===========================================================================
 select * from finish();
