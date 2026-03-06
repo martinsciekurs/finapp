@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import type { DebtsPageData } from "@/lib/types/debt";
 import type { CategoryOption } from "@/lib/types/transactions";
@@ -14,6 +15,9 @@ vi.mock("@/app/dashboard/debts/actions", () => ({
 }));
 
 import { DebtsView } from "../debts-view";
+import { deleteDebt } from "@/app/dashboard/debts/actions";
+
+const deleteDebtMock = vi.mocked(deleteDebt);
 
 const emptyData: DebtsPageData = {
   summary: { totalOwed: 0, totalLent: 0, net: 0 },
@@ -123,6 +127,8 @@ const categories: CategoryOption[] = [
 ];
 
 describe("DebtsView", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("shows empty state when there are no debts", () => {
     render(<DebtsView data={emptyData} categories={categories} currency="USD" />);
 
@@ -158,5 +164,23 @@ describe("DebtsView", () => {
     render(<DebtsView data={sampleData} categories={categories} currency="USD" />);
 
     expect(screen.getAllByRole("button", { name: "Log payment" })).toHaveLength(2);
+  });
+
+  it("asks whether to delete linked transactions when deleting a debt with payments", async () => {
+    const user = userEvent.setup();
+
+    render(<DebtsView data={sampleData} categories={categories} currency="USD" />);
+
+    await user.click(screen.getAllByRole("button", { name: "Delete debt" })[0]);
+
+    expect(screen.getByText(/This debt has/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete debt only" }));
+
+    await waitFor(() => {
+      expect(deleteDebtMock).toHaveBeenCalledWith({
+        id: "d1",
+        delete_linked_transactions: false,
+      });
+    });
   });
 });

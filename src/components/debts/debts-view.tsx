@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   CheckCircle2,
   HandCoins,
   Landmark,
@@ -609,10 +610,16 @@ function DeleteDebtDialog({
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  async function handleDelete() {
+  const linkedTransactionCount = debt.payments.filter((payment) => payment.transactionId).length;
+  const hasLinkedTransactions = linkedTransactionCount > 0;
+
+  async function handleDelete(deleteLinkedTransactions = false) {
     setIsDeleting(true);
     try {
-      const result = await deleteDebt({ id: debt.id });
+      const result = await deleteDebt({
+        id: debt.id,
+        delete_linked_transactions: deleteLinkedTransactions,
+      });
       if (!result.success) {
         toast.error(result.error ?? "Failed to delete debt");
         return;
@@ -633,10 +640,21 @@ function DeleteDebtDialog({
         <DialogHeader>
           <DialogTitle>Delete Debt</DialogTitle>
           <DialogDescription>
-            Delete debt with {debt.counterparty}? All related debt payments and linked transactions
-            will also be removed.
+            Delete debt with {debt.counterparty}? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        {hasLinkedTransactions ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/50">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                This debt has <span className="font-semibold">{linkedTransactionCount}</span>{" "}
+                linked transaction{linkedTransactionCount !== 1 ? "s" : ""}. Choose whether
+                to keep them in Transactions or delete them too.
+              </p>
+            </div>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             variant="outline"
@@ -645,10 +663,23 @@ function DeleteDebtDialog({
           >
             Cancel
           </Button>
-          <Button variant="destructive" disabled={isDeleting} onClick={handleDelete}>
-            {isDeleting && <Loader2 className="size-4 animate-spin" />}
-            Delete
-          </Button>
+          {hasLinkedTransactions ? (
+            <>
+              <Button variant="outline" disabled={isDeleting} onClick={() => handleDelete(false)}>
+                {isDeleting && <Loader2 className="size-4 animate-spin" />}
+                Delete debt only
+              </Button>
+              <Button variant="destructive" disabled={isDeleting} onClick={() => handleDelete(true)}>
+                {isDeleting && <Loader2 className="size-4 animate-spin" />}
+                Delete debt and transactions
+              </Button>
+            </>
+          ) : (
+            <Button variant="destructive" disabled={isDeleting} onClick={() => handleDelete(false)}>
+              {isDeleting && <Loader2 className="size-4 animate-spin" />}
+              Delete
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
