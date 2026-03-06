@@ -62,6 +62,7 @@ import {
 } from "@/app/dashboard/debts/actions";
 import { cn } from "@/lib/utils";
 import { formatDateForInput } from "@/lib/utils/date";
+import { Attachments } from "@/components/attachments/attachments";
 
 interface DebtsViewProps {
   data: DebtsPageData;
@@ -455,6 +456,7 @@ function LogPaymentDialog({
             {debt.type === "i_owe"
               ? `Record a payment you made to ${debt.counterparty}.`
               : `Record a payment received from ${debt.counterparty}.`}
+            {isEditing ? " Updating the payment amount will also update the related transaction amount." : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -779,6 +781,12 @@ function DebtCard({
             ))}
           </div>
         ) : null}
+
+        <Attachments
+          recordType="debt"
+          recordId={debt.id}
+          initialAttachments={debt.attachments}
+        />
       </CardContent>
     </Card>
   );
