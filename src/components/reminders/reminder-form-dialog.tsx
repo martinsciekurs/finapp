@@ -44,6 +44,7 @@ import type { ReminderData } from "@/lib/types/reminder";
 import type { CategoryOption } from "@/lib/types/transactions";
 import { formatDateForInput } from "@/lib/utils/date";
 import { FREQUENCY_OPTIONS } from "@/lib/config/reminders";
+import { parseAmountInput } from "@/lib/utils/transactions";
 
 interface ReminderFormDialogProps {
   open: boolean;
@@ -62,10 +63,10 @@ export function ReminderFormDialog({
   const isEditing = !!reminder;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function getFormDefaults(r?: ReminderData): ReminderFormValues {
+  function getFormDefaults(r?: ReminderData) {
     return {
       title: r?.title ?? "",
-      amount: r?.amount ?? (undefined as unknown as number),
+      amount: r?.amount, // undefined when creating — Zod validates on submit
       due_date: r?.due_date ?? formatDateForInput(new Date()),
       frequency: r?.frequency ?? "monthly",
       category_id: r?.category_id ?? "",
@@ -89,21 +90,24 @@ export function ReminderFormDialog({
     setIsSubmitting(true);
 
     try {
-      if (isEditing) {
-        const result = await updateReminder(reminder.id, values);
-        if (!result.success) {
-          toast.error(result.error ?? "Failed to update reminder");
-          return;
-        }
-        toast.success("Reminder updated");
-      } else {
-        const result = await createReminder(values);
-        if (!result.success) {
-          toast.error(result.error ?? "Failed to create reminder");
-          return;
-        }
-        toast.success("Reminder created");
+      const submission = isEditing && reminder
+        ? {
+            run: () => updateReminder(reminder.id, values),
+            successMessage: "Reminder updated",
+            failureMessage: "Failed to update reminder",
+          }
+        : {
+            run: () => createReminder(values),
+            successMessage: "Reminder created",
+            failureMessage: "Failed to create reminder",
+          };
+
+      const result = await submission.run();
+      if (!result.success) {
+        toast.error(result.error ?? submission.failureMessage);
+        return;
       }
+      toast.success(submission.successMessage);
 
       onOpenChange(false);
     } catch {
@@ -159,10 +163,7 @@ export function ReminderFormDialog({
                         placeholder="0.00"
                         value={field.value ?? ""}
                         onChange={(e) => {
-                          const val = e.target.value;
-                          field.onChange(
-                            val === "" ? undefined : parseFloat(val)
-                          );
+                          field.onChange(parseAmountInput(e.target.value));
                         }}
                       />
                     </FormControl>

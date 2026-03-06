@@ -9,7 +9,9 @@
 // Core enums
 // ────────────────────────────────────────────
 
-export type ReminderFrequency = "monthly" | "weekly" | "yearly" | "one_time";
+/** Re-exported from validations — single source of truth is the Zod enum. */
+import type { ReminderFrequency } from "@/lib/validations/reminder";
+export type { ReminderFrequency };
 
 export type OccurrenceStatus = "overdue" | "upcoming" | "paid";
 
@@ -23,7 +25,6 @@ export interface ReminderData {
   amount: number;
   due_date: string;
   frequency: ReminderFrequency;
-  is_paid: boolean;
   auto_create_transaction: boolean;
   category_id: string;
   category_name: string;

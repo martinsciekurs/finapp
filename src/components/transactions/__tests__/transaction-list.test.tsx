@@ -3,35 +3,17 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-// Mock framer-motion
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      ...rest
-    }: React.ComponentProps<"div">) => (
-      <div className={className} {...rest}>
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => true,
-}));
+// Shared mocks
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
-// Mock CategoryIcon
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({
-    name,
-    "aria-label": label,
-  }: {
-    name: string;
-    "aria-label"?: string;
-  }) => (
-    <span data-testid="category-icon" aria-label={label}>
-      {name}
-    </span>
-  ),
+// Mock edit dialog
+const mockEditDialog = vi.fn();
+vi.mock("../edit-transaction-dialog", () => ({
+  EditTransactionDialog: (props: Record<string, unknown>) => {
+    mockEditDialog(props);
+    return props.open ? <div data-testid="edit-dialog">Edit Dialog</div> : null;
+  },
 }));
 
 // Mock server action
@@ -51,7 +33,40 @@ vi.mock("sonner", () => ({
 }));
 
 import { TransactionList } from "../transaction-list";
-import type { TransactionData } from "@/lib/types/transactions";
+import type {
+  CategoryOption,
+  TransactionData,
+} from "@/lib/types/transactions";
+
+const sampleCategories: CategoryOption[] = [
+  {
+    id: "cat-1",
+    name: "Groceries",
+    icon: "shopping-cart",
+    color: "#4CAF50",
+    type: "expense",
+    group_id: null,
+    group_name: null,
+  },
+  {
+    id: "cat-2",
+    name: "Salary",
+    icon: "briefcase",
+    color: "#2196F3",
+    type: "income",
+    group_id: null,
+    group_name: null,
+  },
+  {
+    id: "cat-3",
+    name: "Entertainment",
+    icon: "film",
+    color: "#FF5722",
+    type: "expense",
+    group_id: null,
+    group_name: null,
+  },
+];
 
 const sampleTransactions: TransactionData[] = [
   {
@@ -96,7 +111,7 @@ describe("TransactionList", () => {
 
   it("renders all transaction descriptions", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     expect(screen.getByText("Grocery shopping")).toBeInTheDocument();
@@ -106,7 +121,7 @@ describe("TransactionList", () => {
 
   it("renders category names", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     expect(screen.getByText("Groceries")).toBeInTheDocument();
@@ -116,7 +131,7 @@ describe("TransactionList", () => {
 
   it("renders formatted amounts with correct signs", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     // Expense amounts have a minus sign
@@ -138,7 +153,7 @@ describe("TransactionList", () => {
 
   it("groups transactions by date", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     // Should have 2 date groups: Mar 4 and Mar 2
@@ -148,7 +163,7 @@ describe("TransactionList", () => {
 
   it("shows filter tabs (all, expense, income)", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     expect(screen.getByText("all")).toBeInTheDocument();
@@ -159,7 +174,7 @@ describe("TransactionList", () => {
   it("filters by expense type", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     await user.click(screen.getByText("expense"));
@@ -172,7 +187,7 @@ describe("TransactionList", () => {
   it("filters by income type", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     await user.click(screen.getByText("income"));
@@ -187,7 +202,7 @@ describe("TransactionList", () => {
   it("shows all transactions when all filter is selected", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     // First filter to expense, then back to all
@@ -200,7 +215,7 @@ describe("TransactionList", () => {
   });
 
   it("shows empty state when no transactions exist", () => {
-    render(<TransactionList transactions={[]} currency="USD" />);
+    render(<TransactionList transactions={[]} categories={sampleCategories} currency="USD" />);
 
     expect(screen.getByText("No transactions yet")).toBeInTheDocument();
     expect(
@@ -226,7 +241,7 @@ describe("TransactionList", () => {
       },
     ];
 
-    render(<TransactionList transactions={expenseOnly} currency="USD" />);
+    render(<TransactionList transactions={expenseOnly} categories={sampleCategories} currency="USD" />);
 
     await user.click(screen.getByText("income"));
 
@@ -242,7 +257,7 @@ describe("TransactionList", () => {
 
   it("renders delete buttons for each transaction", () => {
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -256,7 +271,7 @@ describe("TransactionList", () => {
     mockDeleteTransaction.mockResolvedValue({ success: true });
 
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -272,7 +287,7 @@ describe("TransactionList", () => {
     mockDeleteTransaction.mockResolvedValue({ success: true });
 
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -291,7 +306,7 @@ describe("TransactionList", () => {
     });
 
     render(
-      <TransactionList transactions={sampleTransactions} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -308,6 +323,7 @@ describe("TransactionList", () => {
     render(
       <TransactionList
         transactions={[sampleTransactions[0]]}
+        categories={sampleCategories}
         currency="EUR"
       />
     );
@@ -335,7 +351,36 @@ describe("TransactionList", () => {
       },
     ];
 
-    render(<TransactionList transactions={noDescTx} currency="USD" />);
+    render(<TransactionList transactions={noDescTx} categories={sampleCategories} currency="USD" />);
     expect(screen.getByText("No description")).toBeInTheDocument();
+  });
+
+  it("renders edit buttons for each transaction", () => {
+    render(
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+    );
+
+    const editButtons = screen.getAllByRole("button", {
+      name: /edit transaction/i,
+    });
+    expect(editButtons).toHaveLength(3);
+  });
+
+  it("opens edit dialog when edit button is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+    );
+
+    // No dialog initially
+    expect(screen.queryByTestId("edit-dialog")).not.toBeInTheDocument();
+
+    const editButtons = screen.getAllByRole("button", {
+      name: /edit transaction/i,
+    });
+    await user.click(editButtons[0]);
+
+    // Dialog should now be rendered
+    expect(screen.getByTestId("edit-dialog")).toBeInTheDocument();
   });
 });

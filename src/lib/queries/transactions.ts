@@ -1,8 +1,32 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { parseCategoryJoin } from "@/lib/types/dashboard";
+import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
+
+interface CategoryGroupJoin {
+  name: string;
+  sort_order: number;
+}
+
+function parseCategoryGroupJoin(raw: unknown): CategoryGroupJoin | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.name === "string" &&
+    typeof candidate.sort_order === "number"
+  ) {
+    return {
+      name: candidate.name,
+      sort_order: candidate.sort_order,
+    };
+  }
+
+  return null;
+}
 
 // ────────────────────────────────────────────
 // Fetch all transactions for the current user
@@ -28,7 +52,7 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
   }
 
   return (rows ?? []).map((tx) => {
-    const cat = parseCategoryJoin(tx.categories);
+    const categoryDisplay = getTransactionCategoryDisplay(tx.categories);
     return {
       id: tx.id,
       amount: tx.amount,
@@ -36,9 +60,7 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
       description: tx.description,
       date: tx.date,
       categoryId: tx.category_id,
-      categoryName: cat?.name ?? "Uncategorized",
-      categoryIcon: cat?.icon ?? "circle",
-      categoryColor: cat?.color ?? null,
+      ...categoryDisplay,
     };
   });
 }
@@ -65,58 +87,27 @@ export async function fetchUserCategories(): Promise<CategoryOption[]> {
     throw new Error(`Failed to fetch categories: ${error.message}`);
   }
 
-  // Parse the joined group data and sort by group.sort_order, then category.sort_order
   const parsed = (categories ?? []).map((cat) => {
-    const group = cat.category_groups as
-      | { name: string; sort_order: number }
-      | null;
+    const group = parseCategoryGroupJoin(cat.category_groups);
     return {
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon,
-      color: cat.color,
-      type: cat.type,
-      group_id: cat.group_id,
-      group_name: group?.name ?? null,
-      _group_sort: group?.sort_order ?? Infinity,
-      _cat_sort: cat.sort_order,
+      category: {
+        id: cat.id,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        type: cat.type,
+        group_id: cat.group_id,
+        group_name: group?.name ?? null,
+      },
+      groupSort: group?.sort_order ?? Infinity,
+      categorySort: cat.sort_order,
     };
   });
 
-  // Sort by group sort_order first, then category sort_order within each group
   parsed.sort((a, b) => {
-    if (a._group_sort !== b._group_sort) return a._group_sort - b._group_sort;
-    return a._cat_sort - b._cat_sort;
+    if (a.groupSort !== b.groupSort) return a.groupSort - b.groupSort;
+    return a.categorySort - b.categorySort;
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  return parsed.map(({ _group_sort, _cat_sort, ...cat }) => cat);
-}
-
-// ────────────────────────────────────────────
-// Fetch user currency
-// ────────────────────────────────────────────
-
-/**
- * Fetch the authenticated user's currency from their profile.
- */
-export async function fetchTransactionPageCurrency(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return "EUR";
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("currency")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to fetch user currency: ${error.message}`);
-  }
-
-  return profile?.currency ?? "EUR";
+  return parsed.map((item) => item.category);
 }

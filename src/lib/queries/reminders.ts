@@ -2,9 +2,11 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatDateForInput } from "@/lib/utils/date";
+import { clampDayToMonth } from "@/lib/utils/recurrence";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/config/categories";
 import type {
   ReminderData,
+  ReminderFrequency,
   ReminderOccurrence,
   OccurrenceStatus,
   GroupedOccurrences,
@@ -47,8 +49,7 @@ function advanceMonths(year: number, month: number, originalDay: number, addMont
   const targetMonth = month + addMonths;
   const targetYear = year + Math.floor(targetMonth / 12);
   const targetMon = ((targetMonth % 12) + 12) % 12; // handle negatives
-  const lastDay = new Date(targetYear, targetMon + 1, 0).getDate();
-  return new Date(targetYear, targetMon, Math.min(originalDay, lastDay));
+  return new Date(targetYear, targetMon, clampDayToMonth(targetYear, targetMon + 1, originalDay));
 }
 
 /**
@@ -57,7 +58,7 @@ function advanceMonths(year: number, month: number, originalDay: number, addMont
  */
 function generateOccurrences(
   startDate: string,
-  frequency: string,
+  frequency: ReminderFrequency,
   rangeStart: string,
   rangeEnd: string
 ): string[] {
@@ -146,6 +147,40 @@ function generateOccurrences(
   return dates;
 }
 
+/**
+ * Walk occurrence dates with shared status semantics:
+ * - paid occurrences always included
+ * - overdue unpaid occurrences always included
+ * - only the nearest unpaid upcoming occurrence is included
+ */
+function walkOccurrenceStatuses(
+  occurrenceDates: string[],
+  today: string,
+  isPaid: (dueDate: string) => boolean,
+  onStatus: (dueDate: string, status: OccurrenceStatus) => void
+): void {
+  let foundNextUpcoming = false;
+
+  for (const dueDate of occurrenceDates) {
+    if (isPaid(dueDate)) {
+      onStatus(dueDate, "paid");
+      continue;
+    }
+
+    if (dueDate < today) {
+      onStatus(dueDate, "overdue");
+      continue;
+    }
+
+    if (foundNextUpcoming) {
+      continue;
+    }
+
+    foundNextUpcoming = true;
+    onStatus(dueDate, "upcoming");
+  }
+}
+
 // ────────────────────────────────────────────
 // Fetch all reminders with occurrences
 // ────────────────────────────────────────────
@@ -171,7 +206,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
     supabase
       .from("reminders")
       .select(
-        "id, title, amount, due_date, frequency, is_paid, auto_create_transaction, category_id, categories(name, icon, color)"
+        "id, title, amount, due_date, frequency, auto_create_transaction, category_id, categories(name, icon, color)"
       )
       .order("due_date", { ascending: true }),
     supabase
@@ -214,49 +249,34 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
       rangeEnd
     );
 
-    // Track whether we've already found the next upcoming for this reminder.
-    // We only show ONE upcoming occurrence per reminder (the nearest).
-    let foundNextUpcoming = false;
+    walkOccurrenceStatuses(
+      occurrenceDates,
+      today,
+      (dueDate) => paymentMap.has(`${row.id}:${dueDate}`),
+      (dueDate, status) => {
+        const payment = paymentMap.get(`${row.id}:${dueDate}`);
+        const diff = daysDiff(dueDate, today);
 
-    for (const dueDate of occurrenceDates) {
-      const key = `${row.id}:${dueDate}`;
-      const payment = paymentMap.get(key);
-      const diff = daysDiff(dueDate, today);
+        const occurrence: ReminderOccurrence = {
+          reminder_id: row.id,
+          title: row.title,
+          amount: row.amount,
+          due_date: dueDate,
+          frequency: row.frequency,
+          auto_create_transaction: row.auto_create_transaction,
+          category_id: row.category_id,
+          category_name: cat?.name ?? "Uncategorized",
+          category_icon: cat?.icon ?? "circle",
+          category_color: cat?.color ?? DEFAULT_CATEGORY_COLOR,
+          status,
+          payment_id: payment?.id ?? null,
+          paid_at: payment?.paid_at ?? null,
+          days_diff: diff,
+        };
 
-      let status: OccurrenceStatus;
-      if (payment) {
-        status = "paid";
-      } else if (dueDate < today) {
-        status = "overdue";
-      } else {
-        status = "upcoming";
+        grouped[status].push(occurrence);
       }
-
-      // For upcoming: only keep the first (nearest) unpaid future occurrence
-      if (status === "upcoming") {
-        if (foundNextUpcoming) continue;
-        foundNextUpcoming = true;
-      }
-
-      const occurrence: ReminderOccurrence = {
-        reminder_id: row.id,
-        title: row.title,
-        amount: row.amount,
-        due_date: dueDate,
-        frequency: row.frequency,
-        auto_create_transaction: row.auto_create_transaction,
-        category_id: row.category_id,
-        category_name: cat?.name ?? "Uncategorized",
-        category_icon: cat?.icon ?? "circle",
-        category_color: cat?.color ?? DEFAULT_CATEGORY_COLOR,
-        status,
-        payment_id: payment?.id ?? null,
-        paid_at: payment?.paid_at ?? null,
-        days_diff: diff,
-      };
-
-      grouped[status].push(occurrence);
-    }
+    );
   }
 
   // Sort: overdue ascending (most overdue first), upcoming ascending, paid descending
@@ -277,7 +297,7 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
   const { data, error } = await supabase
     .from("reminders")
     .select(
-      "id, title, amount, due_date, frequency, is_paid, auto_create_transaction, category_id, categories(name, icon, color)"
+      "id, title, amount, due_date, frequency, auto_create_transaction, category_id, categories(name, icon, color)"
     )
     .order("title", { ascending: true });
 
@@ -294,7 +314,6 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
       amount: row.amount,
       due_date: row.due_date,
       frequency: row.frequency,
-      is_paid: row.is_paid,
       auto_create_transaction: row.auto_create_transaction,
       category_id: row.category_id,
       category_name: cat?.name ?? "Uncategorized",
@@ -318,7 +337,6 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
   const today = formatDateForInput(new Date());
 
   // Compute all period ends
-  const periods: ReminderPeriod[] = ["7d", "end_of_month"];
   const periodEnds: Record<ReminderPeriod, string> = {
     "7d": getPeriodEnd("7d"),
     end_of_month: getPeriodEnd("end_of_month"),
@@ -329,7 +347,10 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
   const overdueStart = formatDateForInput(
     new Date(now.getFullYear(), now.getMonth() - 3, 1)
   );
-  const furthestEnd = Object.values(periodEnds).sort().pop()!;
+  const periodEndValues = Object.values(periodEnds);
+  const furthestEnd = periodEndValues.reduce((maxEnd, periodEnd) =>
+    periodEnd > maxEnd ? periodEnd : maxEnd
+  );
 
   // Parallel fetches
   const [remindersResult, paymentsResult] = await Promise.all([
@@ -371,29 +392,27 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
       furthestEnd
     );
 
-    // Only count the next upcoming per reminder (not all future)
-    let foundNextUpcoming = false;
+    walkOccurrenceStatuses(
+      occurrences,
+      today,
+      (dueDate) => paidSet.has(`${rem.id}:${dueDate}`),
+      (dueDate, status) => {
+        if (status === "paid") {
+          return;
+        }
 
-    for (const dueDate of occurrences) {
-      const key = `${rem.id}:${dueDate}`;
-      if (paidSet.has(key)) continue;
+        if (status === "overdue") {
+          overdueCount++;
+          return;
+        }
 
-      if (dueDate < today) {
-        // Overdue
-        overdueCount++;
-      } else {
-        // Upcoming — only count the first per reminder
-        if (foundNextUpcoming) continue;
-        foundNextUpcoming = true;
-
-        // Add to each period this occurrence falls within
-        for (const p of periods) {
+        for (const p of (Object.keys(periodEnds) as ReminderPeriod[])) {
           if (dueDate <= periodEnds[p]) {
             byPeriod[p].count++;
           }
         }
       }
-    }
+    );
   }
 
   return { byPeriod, overdueCount };
@@ -423,11 +442,9 @@ export async function fetchReminderCategories(): Promise<CategoryOption[]> {
       name: cat.name,
       icon: cat.icon,
       color: cat.color,
-      type: cat.type as "expense" | "income",
+      type: "expense" as const,
       group_id: cat.group_id,
       group_name: group?.name ?? null,
     };
   });
 }
-
-

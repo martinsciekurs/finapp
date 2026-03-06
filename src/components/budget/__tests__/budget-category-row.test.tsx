@@ -8,11 +8,7 @@ vi.mock("@/app/dashboard/budget/actions", () => ({
   upsertCategoryBudget: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({ name, "aria-label": label }: { name: string; "aria-label"?: string }) => (
-    <span data-testid="category-icon" aria-label={label}>{name}</span>
-  ),
-}));
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
 import { BudgetedCategoryRow, UnbudgetedCategoryRow } from "../budget-category-row";
 

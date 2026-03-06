@@ -11,6 +11,9 @@ export const reminderFrequencyEnum = z.enum([
   "one_time",
 ]);
 
+/** Frequency type derived from the Zod enum — single source of truth. */
+export type ReminderFrequency = z.infer<typeof reminderFrequencyEnum>;
+
 /** Reusable amount schema matching DB numeric(12,2). */
 const amountSchema = z
   .number({ message: "Amount is required" })
@@ -22,11 +25,8 @@ const amountSchema = z
     "Amount must have at most 2 decimal places"
   );
 
-// ────────────────────────────────────────────
-// Create reminder
-// ────────────────────────────────────────────
-
-export const createReminderSchema = z.object({
+/** Base fields shared by create, update, and form schemas. */
+const baseReminderFields = {
   title: z
     .string({ message: "Title is required" })
     .min(1, "Title is required")
@@ -35,6 +35,14 @@ export const createReminderSchema = z.object({
   due_date: z.string().date("Invalid date"),
   frequency: reminderFrequencyEnum,
   category_id: z.string().uuid("Invalid category"),
+};
+
+// ────────────────────────────────────────────
+// Create reminder
+// ────────────────────────────────────────────
+
+export const createReminderSchema = z.object({
+  ...baseReminderFields,
   auto_create_transaction: z.boolean().default(true),
 });
 
@@ -43,14 +51,7 @@ export const createReminderSchema = z.object({
 // ────────────────────────────────────────────
 
 export const updateReminderSchema = z.object({
-  title: z
-    .string({ message: "Title is required" })
-    .min(1, "Title is required")
-    .max(100, "Title must be 100 characters or less"),
-  amount: amountSchema,
-  due_date: z.string().date("Invalid date"),
-  frequency: reminderFrequencyEnum,
-  category_id: z.string().uuid("Invalid category"),
+  ...baseReminderFields,
   auto_create_transaction: z.boolean(),
 });
 
@@ -63,39 +64,25 @@ export const deleteReminderSchema = z.object({
 });
 
 // ────────────────────────────────────────────
-// Mark occurrence as paid (per-period)
+// Mark occurrence paid / unpaid (per-period)
 // ────────────────────────────────────────────
 
-export const markOccurrencePaidSchema = z.object({
+/** Identifies a specific occurrence of a reminder by ID + due date. */
+export const occurrenceIdentifierSchema = z.object({
   reminder_id: z.string().uuid("Invalid reminder ID"),
   due_date: z.string().date("Invalid date"),
 });
 
-// ────────────────────────────────────────────
-// Mark occurrence as unpaid (per-period)
-// ────────────────────────────────────────────
-
-export const markOccurrenceUnpaidSchema = z.object({
-  reminder_id: z.string().uuid("Invalid reminder ID"),
-  due_date: z.string().date("Invalid date"),
-});
+export const markOccurrencePaidSchema = occurrenceIdentifierSchema;
+export const markOccurrenceUnpaidSchema = occurrenceIdentifierSchema;
 
 // ────────────────────────────────────────────
-// Form-only schema (excludes auto_create_transaction default
-// to avoid react-hook-form input/output type mismatch)
+// Form-only schema (structurally identical to updateReminderSchema —
+// aliased to avoid react-hook-form input/output type mismatch
+// from createReminderSchema's `.default(true)`)
 // ────────────────────────────────────────────
 
-export const reminderFormSchema = z.object({
-  title: z
-    .string({ message: "Title is required" })
-    .min(1, "Title is required")
-    .max(100, "Title must be 100 characters or less"),
-  amount: amountSchema,
-  due_date: z.string().date("Invalid date"),
-  frequency: reminderFrequencyEnum,
-  category_id: z.string().uuid("Invalid category"),
-  auto_create_transaction: z.boolean(),
-});
+export const reminderFormSchema = updateReminderSchema;
 
 // ────────────────────────────────────────────
 // Inferred types

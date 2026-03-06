@@ -63,12 +63,8 @@ vi.mock("@/components/ui/command", () => ({
   ),
 }));
 
-// ── Mock CategoryIcon ──
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({ name }: { name: string }) => (
-    <span data-testid="category-icon">{name}</span>
-  ),
-}));
+// Shared mock
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
 // ---------------------------------------------------------------------------
 // Test data

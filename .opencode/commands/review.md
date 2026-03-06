@@ -2,21 +2,30 @@
 description: PR review + auto-fix — parallel agents for quality, security, and cleanup
 ---
 
-Review the current branch's changes. Base defaults to origin/main. Override: `/review <branch>`
+Review the current branch's changes. Base defaults to `origin/main`. Override: `/review <branch>` or `/review <remote>/<branch>`
 
-!`B=$ARGUMENTS; REF="${B:-origin/main}"; REMOTE="${REF%%/*}"; BRANCH="${REF#*/}"; git fetch "$REMOTE" "$BRANCH"`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then if [ "$R" = "$P" ]; then git fetch "$P"; else git fetch "$P" "${R#*/}"; fi; else git fetch origin "$R"; fi`
 
-**Changed files:**
-!`B=$ARGUMENTS; git diff "${B:-origin/main}"...HEAD --stat`
+**Changed files (committed + staged + unstaged + untracked):**
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u`
+
+**Untracked files (subset of changed files):**
+!`git ls-files --others --exclude-standard | sort -u`
 
 **Commits:**
-!`B=$ARGUMENTS; git log "${B:-origin/main}"...HEAD --oneline`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; git log "$BASE"..HEAD --oneline`
+
+**Diff summary (committed vs base):**
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; git diff --stat "$BASE"...HEAD`
+
+**Diff summary (staged + unstaged):**
+!`{ git diff --stat --cached; git diff --stat; }`
 
 **Migrations changed:**
-!`B=$ARGUMENTS; git diff "${B:-origin/main}"...HEAD --name-only -- 'supabase/migrations/'`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD -- 'supabase/migrations/' 2>/dev/null; git diff --name-only --cached -- 'supabase/migrations/'; git diff --name-only -- 'supabase/migrations/'; git ls-files --others --exclude-standard -- 'supabase/migrations/'; } | sort -u`
 
 **Tests changed:**
-!`B=$ARGUMENTS; git diff "${B:-origin/main}"...HEAD --name-only -- 'supabase/tests/' '**/*.test.ts' '**/*.test.tsx' '**/*.spec.ts' '**/*.spec.tsx' 'e2e/'`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u | grep -E -e '^supabase/tests/' -e '^e2e/' -e '\.test\.ts$' -e '\.test\.tsx$' -e '\.spec\.ts$' -e '\.spec\.tsx$' || true`
 
 ---
 
@@ -28,7 +37,7 @@ IMPORTANT: You MUST use the Task tool to launch exactly 3 subagents IN PARALLEL 
 2. Task(subagent_type="review-security") — pass it the changed file list AND specifically which migrations and test files changed (or didn't). It reviews security, SQL integrity, and DB test coverage.
 3. Task(subagent_type="review-cleanup") — pass it the changed file list. It reviews redundancy and simplification opportunities only (not unused/dead code — that belongs to review-quality). Avoid duplicate findings.
 
-Include the full changed file list in each Task prompt so the subagent knows what to read.
+Include the full changed file list from the "Changed files" section in each Task prompt so the subagent knows what to read (this includes untracked files).
 
 Wait for all 3 to complete, then compile their findings:
 

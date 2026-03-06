@@ -13,15 +13,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils/currency";
 import { AnimatedCounter } from "./animated-counter";
 import type { UpcomingRemindersData, ReminderPeriod } from "@/lib/types/reminder";
+import type { SummaryPeriod } from "@/lib/types/dashboard";
 
 // ────────────────────────────────────────────
 // Types
 // ────────────────────────────────────────────
 
 export interface SummaryCardsProps {
-  totalSpent: number;
-  totalIncome: number;
-  weeklySpending: number;
+  income: Record<SummaryPeriod, number>;
+  spending: Record<SummaryPeriod, number>;
   upcomingReminders: UpcomingRemindersData;
   currency: string;
 }
@@ -81,26 +81,65 @@ function SummaryCardItem({
 }
 
 // ────────────────────────────────────────────
-// Period filter
+// Period selectors
 // ────────────────────────────────────────────
 
-const PERIOD_OPTIONS: { value: ReminderPeriod; label: string }[] = [
+const SUMMARY_PERIOD_OPTIONS: { value: SummaryPeriod; label: string }[] = [
+  { value: "month", label: "This month" },
+  { value: "7d", label: "Last 7 days" },
+];
+
+const REMINDER_PERIOD_OPTIONS: { value: ReminderPeriod; label: string }[] = [
   { value: "7d", label: "Next 7 days" },
   { value: "end_of_month", label: "Until end of month" },
 ];
+
+function PeriodSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+  ariaLabel: string;
+}) {
+  return (
+    <div className="relative inline-flex items-center group">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        aria-label={ariaLabel}
+        className="appearance-none bg-transparent pr-4 cursor-pointer text-xs text-muted-foreground focus:outline-none"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-0 size-3 opacity-70 group-hover:opacity-100 transition-opacity"
+        strokeWidth={2.5}
+      />
+    </div>
+  );
+}
 
 // ────────────────────────────────────────────
 // SummaryCards (exported)
 // ────────────────────────────────────────────
 
 export function SummaryCards({
-  totalSpent,
-  totalIncome,
-  weeklySpending,
+  income,
+  spending,
   upcomingReminders,
   currency,
 }: SummaryCardsProps) {
-  const [period, setPeriod] = useState<ReminderPeriod>("7d");
+  const [incomePeriod, setIncomePeriod] = useState<SummaryPeriod>("month");
+  const [spendingPeriod, setSpendingPeriod] = useState<SummaryPeriod>("month");
+  const [reminderPeriod, setReminderPeriod] = useState<ReminderPeriod>("7d");
 
   const currencyFormatter = useCallback(
     (n: number) => formatCurrency(n, currency),
@@ -111,7 +150,7 @@ export function SummaryCards({
     []
   );
 
-  const periodStats = upcomingReminders.byPeriod[period];
+  const periodStats = upcomingReminders.byPeriod[reminderPeriod];
   const totalCount = periodStats.count + upcomingReminders.overdueCount;
 
   return (
@@ -120,55 +159,59 @@ export function SummaryCards({
       role="region"
       aria-label="Financial summary"
     >
+      {/* Income card */}
       <SummaryCardItem
-        label="Total Spent This Month"
-        icon={DollarSign}
-        subtitle={`Income: ${formatCurrency(totalIncome, currency)}`}
+        label="Income"
+        icon={TrendingUp}
+        subtitle={
+          <PeriodSelect
+            value={incomePeriod}
+            onChange={setIncomePeriod}
+            options={SUMMARY_PERIOD_OPTIONS}
+            ariaLabel="Income period"
+          />
+        }
         index={0}
       >
         <AnimatedCounter
-          value={totalSpent}
+          value={income[incomePeriod]}
           formatValue={currencyFormatter}
         />
       </SummaryCardItem>
 
+      {/* Spending card */}
       <SummaryCardItem
-        label="Weekly Spending"
-        icon={TrendingUp}
-        subtitle="Last 7 days"
+        label="Spending"
+        icon={DollarSign}
+        subtitle={
+          <PeriodSelect
+            value={spendingPeriod}
+            onChange={setSpendingPeriod}
+            options={SUMMARY_PERIOD_OPTIONS}
+            ariaLabel="Spending period"
+          />
+        }
         index={1}
       >
         <AnimatedCounter
-          value={weeklySpending}
+          value={spending[spendingPeriod]}
           formatValue={currencyFormatter}
         />
       </SummaryCardItem>
 
       {/* Scheduled Payments card */}
       <SummaryCardItem
-          label="Scheduled Payments"
-          icon={CalendarClock}
-          subtitle={
-            <div className="relative inline-flex items-center group">
-              <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value as ReminderPeriod)}
-                  aria-label="Filter period"
-                  className="appearance-none bg-transparent pr-4 cursor-pointer text-xs  text-muted-foreground focus:outline-none"
-              >
-                {PERIOD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                ))}
-              </select>
-              <ChevronDown
-                  className="pointer-events-none absolute right-0 size-3 opacity-70 group-hover:opacity-100 transition-opacity"
-                  strokeWidth={2.5}
-              />
-            </div>
-          }
-          index={2}
+        label="Scheduled Payments"
+        icon={CalendarClock}
+        subtitle={
+          <PeriodSelect
+            value={reminderPeriod}
+            onChange={setReminderPeriod}
+            options={REMINDER_PERIOD_OPTIONS}
+            ariaLabel="Filter period"
+          />
+        }
+        index={2}
       >
         <AnimatedCounter value={totalCount} formatValue={countFormatter} />
       </SummaryCardItem>

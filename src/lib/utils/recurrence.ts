@@ -1,3 +1,18 @@
+import type { ReminderFrequency } from "@/lib/types/reminder";
+
+/**
+ * Clamp a day number to the last day of a given month.
+ * Handles end-of-month drift (e.g., day 31 in February → 28/29).
+ */
+export function clampDayToMonth(
+  year: number,
+  month: number,
+  day: number
+): number {
+  const lastDay = new Date(year, month, 0).getDate();
+  return Math.min(day, lastDay);
+}
+
 /**
  * Check whether a target date is a valid occurrence of a recurrence
  * starting at `startDate` with the given `frequency`.
@@ -7,7 +22,7 @@
  */
 export function isValidOccurrence(
   startDate: string, // YYYY-MM-DD (reminder's due_date / anchor)
-  frequency: string, // "one_time" | "weekly" | "monthly" | "yearly"
+  frequency: ReminderFrequency,
   targetDate: string // YYYY-MM-DD (the date being validated)
 ): boolean {
   // Target cannot be before the reminder's start
@@ -31,16 +46,12 @@ export function isValidOccurrence(
   }
 
   if (frequency === "monthly") {
-    const lastDay = new Date(targetY, targetM, 0).getDate();
-    const expectedDay = Math.min(startD, lastDay);
-    return targetD === expectedDay;
+    return targetD === clampDayToMonth(targetY, targetM, startD);
   }
 
   if (frequency === "yearly") {
     if (targetM !== startM) return false;
-    const lastDay = new Date(targetY, targetM, 0).getDate();
-    const expectedDay = Math.min(startD, lastDay);
-    return targetD === expectedDay;
+    return targetD === clampDayToMonth(targetY, targetM, startD);
   }
 
   return false;

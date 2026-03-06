@@ -9,21 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
 }));
 
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({ children, className, ...rest }: React.ComponentProps<"div">) => (
-      <div className={className} data-testid="motion-div" {...rest}>
-        {children}
-      </div>
-    ),
-    span: ({ children, className, ...rest }: React.ComponentProps<"span">) => (
-      <span className={className} data-testid="motion-span" {...rest}>
-        {children}
-      </span>
-    ),
-  },
-  useReducedMotion: () => false,
-}));
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 describe("BottomNav", () => {
   beforeEach(() => {

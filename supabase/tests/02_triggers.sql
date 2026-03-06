@@ -18,7 +18,7 @@
 -- ===========================================================================
 
 begin;
-select plan(53);
+select plan(54);
 
 select reset_role();
 
@@ -164,6 +164,34 @@ select ok(
    from public.ai_memories
    where id = current_setting('test.upd_mem')::uuid),
   'set_updated_at: works on ai_memories'
+);
+
+-- set_updated_at on reminders
+do $$
+declare
+  _uid uuid := current_setting('test.upd_uid')::uuid;
+  _cat uuid;
+  _rid uuid;
+begin
+  _cat := create_test_category(_uid, 'Rem Trigger Cat', 'expense');
+  _rid := create_test_reminder(_uid, 'Rem Trigger Test', 50, _cat);
+  perform set_config('test.upd_rem', _rid::text, true);
+end;
+$$;
+
+update public.reminders
+set updated_at = '2020-01-01 00:00:00+00'
+where id = current_setting('test.upd_rem')::uuid;
+
+update public.reminders
+set title = 'Rem Trigger Changed'
+where id = current_setting('test.upd_rem')::uuid;
+
+select ok(
+  (select updated_at > '2020-01-01 00:00:00+00'::timestamptz
+   from public.reminders
+   where id = current_setting('test.upd_rem')::uuid),
+  'set_updated_at: works on reminders'
 );
 
 -- set_updated_at on reminder_payments

@@ -6,11 +6,11 @@
 
 create table public.reminder_payments (
   id              uuid        primary key default gen_random_uuid(),
-  reminder_id     uuid        not null references public.reminders (id) on delete cascade,
+  reminder_id     uuid        not null,
   user_id         uuid        not null references public.profiles (id) on delete cascade,
   due_date        date        not null,
   paid_at         timestamptz not null default now(),
-  transaction_id  uuid        references public.transactions (id) on delete set null,
+  transaction_id  uuid,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
 
@@ -39,6 +39,13 @@ create policy "Users can insert own reminder payments"
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
     )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
+    )
   );
 
 create policy "Users can update own reminder payments"
@@ -49,12 +56,26 @@ create policy "Users can update own reminder payments"
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
     )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
+    )
   )
   with check (
     auth.uid() = user_id
     and exists (
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
+    )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
     )
   );
 
@@ -63,8 +84,22 @@ create policy "Users can delete own reminder payments"
   using (auth.uid() = user_id);
 
 -- Indexes
-create index idx_reminder_payments_reminder_id
-  on public.reminder_payments (reminder_id);
-
 create index idx_reminder_payments_user_due
   on public.reminder_payments (user_id, due_date);
+
+-- Supporting index for the composite FK
+create index idx_reminder_payments_reminder_user
+  on public.reminder_payments (reminder_id, user_id);
+
+-- Composite FK: enforce payment belongs to same user as the reminder
+alter table public.reminder_payments
+  add constraint fk_reminder_payments_reminder_user
+  foreign key (reminder_id, user_id) references public.reminders (id, user_id)
+  on delete cascade;
+
+-- Simple FK: linked transaction is nullified when transaction is deleted.
+-- Cross-user linkage is already prevented by RLS INSERT/UPDATE policies.
+alter table public.reminder_payments
+  add constraint fk_reminder_payments_transaction
+  foreign key (transaction_id) references public.transactions (id)
+  on delete set null;

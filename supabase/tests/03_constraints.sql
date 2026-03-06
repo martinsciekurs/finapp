@@ -12,7 +12,7 @@
 -- ===========================================================================
 
 begin;
-select plan(37);
+select plan(43);
 
 select reset_role();
 
@@ -573,6 +573,20 @@ select throws_ok(
 );
 
 -- ===========================================================================
+-- 13b. CHECK: reminders.title length
+-- ===========================================================================
+
+select throws_ok(
+  format(
+    'insert into public.reminders (user_id, title, amount, due_date, frequency, category_id) values (%L, %L, 50, current_date, ''monthly'', %L)',
+    u1(), repeat('A', 101), c1_exp()
+  ),
+  '23514'::char(5),
+  null,
+  'check: reminders.title rejects >100 chars'
+);
+
+-- ===========================================================================
 -- 14. UNIQUE: daily_usage (user_id, date)
 -- ===========================================================================
 
@@ -603,6 +617,127 @@ select throws_ok(
   '23505'::char(5),
   null,
   'unique: telegram_sessions rejects duplicate chat_id'
+);
+
+-- ===========================================================================
+-- 16. CONSTRAINTS: reminder_payments FKs + uniqueness
+-- ===========================================================================
+
+do $$
+declare
+  _rid uuid;
+begin
+  _rid := create_test_reminder(u1(), 'UQ reminder payment', 40, c1_exp());
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u1(), _rid, date '2099-08-01');
+
+  perform set_config('test.rp_unique_reminder', _rid::text, true);
+end;
+$$;
+
+select throws_ok(
+  format(
+    'insert into public.reminder_payments (user_id, reminder_id, due_date) values (%L, %L, date ''2099-08-01'')',
+    u1(), current_setting('test.rp_unique_reminder')::uuid
+  ),
+  '23505'::char(5),
+  null,
+  'unique: reminder_payments rejects duplicate (reminder_id, due_date)'
+);
+
+do $$
+declare
+  _rid_u2 uuid;
+begin
+  _rid_u2 := create_test_reminder(u2(), 'Cross-user reminder', 30, c2_exp());
+  perform set_config('test.rp_cross_reminder', _rid_u2::text, true);
+end;
+$$;
+
+select throws_ok(
+  format(
+    'insert into public.reminder_payments (user_id, reminder_id, due_date) values (%L, %L, date ''2099-08-02'')',
+    u1(), current_setting('test.rp_cross_reminder')::uuid
+  ),
+  '23503'::char(5),
+  null,
+  'fk_reminder_payments_reminder_user: rejects cross-user reminder linkage'
+);
+
+do $$
+declare
+  _rid uuid;
+  _pid uuid;
+begin
+  _rid := create_test_reminder(u1(), 'Cascade reminder payment', 80, c1_exp());
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date)
+  values (u1(), _rid, date '2099-08-03')
+  returning id into _pid;
+
+  perform set_config('test.rp_cascade_reminder', _rid::text, true);
+  perform set_config('test.rp_cascade_payment', _pid::text, true);
+end;
+$$;
+
+delete from public.reminders where id = current_setting('test.rp_cascade_reminder')::uuid;
+
+select is(
+  (select count(*)::int from public.reminder_payments where id = current_setting('test.rp_cascade_payment')::uuid),
+  0,
+  'fk_reminder_payments_reminder_user: ON DELETE CASCADE removes reminder payments'
+);
+
+do $$
+declare
+  _rid uuid;
+  _u2_txn uuid;
+begin
+  _rid := create_test_reminder(u1(), 'Cross-user transaction payment', 90, c1_exp());
+  _u2_txn := create_test_transaction(u2(), c2_exp(), 90, 'expense');
+
+  perform set_config('test.rp_tx_cross_reminder', _rid::text, true);
+  perform set_config('test.rp_tx_cross_transaction', _u2_txn::text, true);
+end;
+$$;
+
+select throws_ok(
+  format(
+    'insert into public.reminder_payments (user_id, reminder_id, due_date, transaction_id) values (%L, %L, date ''2099-08-04'', %L)',
+    u1(),
+    current_setting('test.rp_tx_cross_reminder')::uuid,
+    current_setting('test.rp_tx_cross_transaction')::uuid
+  ),
+  '23503'::char(5),
+  null,
+  'fk_reminder_payments_transaction: rejects cross-user transaction linkage'
+);
+
+do $$
+declare
+  _rid uuid;
+  _tid uuid;
+  _pid uuid;
+begin
+  _rid := create_test_reminder(u1(), 'Set-null transaction payment', 100, c1_exp());
+  _tid := create_test_transaction(u1(), c1_exp(), 100, 'expense');
+
+  insert into public.reminder_payments (user_id, reminder_id, due_date, transaction_id)
+  values (u1(), _rid, date '2099-08-05', _tid)
+  returning id into _pid;
+
+  perform set_config('test.rp_setnull_txn', _tid::text, true);
+  perform set_config('test.rp_setnull_payment', _pid::text, true);
+end;
+$$;
+
+delete from public.transactions where id = current_setting('test.rp_setnull_txn')::uuid;
+
+select is(
+  (select transaction_id from public.reminder_payments where id = current_setting('test.rp_setnull_payment')::uuid),
+  null::uuid,
+  'fk_reminder_payments_transaction: ON DELETE SET NULL nullifies transaction_id'
 );
 
 -- ===========================================================================

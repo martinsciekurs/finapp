@@ -9,12 +9,8 @@ vi.mock("@/app/dashboard/budget/actions", () => ({
   upsertIncomeTarget: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-// Mock CategoryIcon
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({ name, "aria-label": label }: { name: string; "aria-label"?: string }) => (
-    <span data-testid="category-icon" aria-label={label}>{name}</span>
-  ),
-}));
+// Shared mock
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
 // Mock next/navigation for period selector / plan view
 vi.mock("next/navigation", () => ({

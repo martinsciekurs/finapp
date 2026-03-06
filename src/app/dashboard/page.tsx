@@ -3,7 +3,7 @@ import { getCurrentMonthLabel } from "@/lib/utils/date";
 import {
   fetchUserCurrency,
   fetchMonthlySummary,
-  fetchBudgetCategories,
+  fetchBudgetOverviewData,
   fetchRecentTransactions,
 } from "@/lib/queries/dashboard";
 import { fetchUpcomingRemindersData } from "@/lib/queries/reminders";
@@ -24,7 +24,7 @@ export default async function DashboardPage() {
       fetchRecentTransactions(),
     ]);
 
-  const budgetCategories = await fetchBudgetCategories(spentByCategory);
+  const budgetOverviewData = await fetchBudgetOverviewData(spentByCategory);
 
   return (
     <div className="space-y-6">
@@ -36,14 +36,13 @@ export default async function DashboardPage() {
       </div>
 
       <SummaryCards
-        totalSpent={summary.totalSpent}
-        totalIncome={summary.totalIncome}
-        weeklySpending={summary.weeklySpending}
+        income={{ month: summary.totalIncome, "7d": summary.weeklyIncome }}
+        spending={{ month: summary.totalSpent, "7d": summary.weeklySpending }}
         upcomingReminders={upcomingRemindersData}
         currency={currency}
       />
 
-      <BudgetOverview categories={budgetCategories} currency={currency} />
+      <BudgetOverview data={budgetOverviewData} currency={currency} />
 
       <RecentTransactions
         transactions={recentTransactions}

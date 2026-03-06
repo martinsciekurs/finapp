@@ -2,44 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { HeroBanner } from "../hero-banner";
 
-// Mock framer-motion to avoid animation issues in tests
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      style,
-      onMouseEnter,
-      onMouseLeave,
-      ...rest
-    }: React.ComponentProps<"div">) => (
-      <div
-        className={className}
-        style={style}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        {...rest}
-      >
-        {children}
-      </div>
-    ),
-    h1: ({ children, className, ...rest }: React.ComponentProps<"h1">) => (
-      <h1 className={className} {...rest}>
-        {children}
-      </h1>
-    ),
-    button: ({
-      children,
-      className,
-      ...rest
-    }: React.ComponentProps<"button">) => (
-      <button className={className} {...rest}>
-        {children}
-      </button>
-    ),
-  },
-  useReducedMotion: () => false,
-}));
+// Shared mock — Proxy handles motion.div, motion.h1, motion.button, etc.
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 describe("HeroBanner", () => {
   beforeEach(() => {

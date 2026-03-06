@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { CategoryIcon } from "@/components/ui/category-icon";
+import { cn } from "@/lib/utils";
 import { formatCurrencyCompact, roundAmount } from "@/lib/utils/currency";
 import {
   upsertIncomeTarget,
@@ -90,7 +91,7 @@ function EditableCell({
 
   function handleSave() {
     const amount = roundAmount(inputValue);
-    if (amount > 0) {
+    if (amount >= 0) {
       onSave(amount);
     }
     setEditing(false);
@@ -114,7 +115,7 @@ function EditableCell({
           inputMode="decimal"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="h-6 w-full border-none bg-transparent text-right text-xs shadow-none focus-visible:ring-0"
+          className="h-7 w-full border-none bg-transparent text-right text-sm shadow-none focus-visible:ring-0"
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSave();
             if (e.key === "Escape") setEditing(false);
@@ -216,6 +217,80 @@ function IncomeRow({
         );
       })}
     </tr>
+  );
+}
+
+// ────────────────────────────────────────────
+// Summary rows (Total Budgeted + Left to Allocate)
+// ────────────────────────────────────────────
+
+function getAllocationColor(hasData: boolean, leftToAllocate: number): string {
+  if (!hasData) return "text-muted-foreground";
+  if (leftToAllocate < 0) return "text-destructive";
+  if (leftToAllocate > 0) return "text-primary";
+  return "text-muted-foreground";
+}
+
+function SummaryRows({
+  data,
+  currency,
+}: {
+  data: PlannerData;
+  currency: string;
+}) {
+  // Compute per-month totals from category cells and income cells
+  const monthlyTotals = data.income.cells.map((incomeCell, i) => {
+    const totalBudgeted = data.categories.reduce(
+      (sum, cat) => sum + (cat.cells[i]?.budgeted ?? 0),
+      0
+    );
+    return {
+      totalBudgeted,
+      leftToAllocate: incomeCell.amount - totalBudgeted,
+      hasData: incomeCell.amount > 0 || totalBudgeted > 0,
+    };
+  });
+
+  return (
+    <>
+      <tr className="border-b bg-muted/30">
+        <td className="sticky left-0 bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+          Total Budgeted
+        </td>
+        {monthlyTotals.map((t, i) => (
+          <td
+            key={i}
+            className={cn(
+              "px-1 py-1.5 text-right text-xs tabular-nums text-muted-foreground",
+              i === 11 && "pr-3"
+            )}
+          >
+            {t.totalBudgeted > 0
+              ? formatCurrencyCompact(t.totalBudgeted, currency)
+              : "-"}
+          </td>
+        ))}
+      </tr>
+      <tr className="border-b bg-muted/30">
+        <td className="sticky left-0 bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+          Left to Allocate
+        </td>
+        {monthlyTotals.map((t, i) => (
+          <td
+            key={i}
+            className={cn(
+              "px-1 py-1.5 text-right text-xs font-medium tabular-nums",
+              i === 11 && "pr-3",
+              getAllocationColor(t.hasData, t.leftToAllocate)
+            )}
+          >
+            {t.hasData
+              ? formatCurrencyCompact(t.leftToAllocate, currency)
+              : "-"}
+          </td>
+        ))}
+      </tr>
+    </>
   );
 }
 
@@ -397,11 +472,11 @@ export function BudgetPlanViewClient({
 
       <Card className="overflow-hidden">
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[840px] table-fixed border-collapse text-sm">
+          <table className="w-full min-w-[1140px] table-fixed border-collapse text-sm">
             <colgroup>
               <col className="w-[180px]" />
               {MONTH_LABELS.map((_, i) => (
-                <col key={i} className="w-[56px]" />
+                <col key={i} className="w-[80px]" />
               ))}
             </colgroup>
             <thead>
@@ -421,6 +496,7 @@ export function BudgetPlanViewClient({
             </thead>
             <tbody>
               <IncomeRow cells={data.income.cells} currency={currency} />
+              <SummaryRows data={data} currency={currency} />
               {Array.from(grouped.entries()).map(([groupName, cats]) => (
                 <GroupRows
                   key={groupName}

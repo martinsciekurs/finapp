@@ -3,21 +3,8 @@ import { render, screen } from "@testing-library/react";
 import React from "react";
 import type { RecentTransactionData } from "../recent-transactions";
 
-// Mock framer-motion
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      ...rest
-    }: React.ComponentProps<"div">) => (
-      <div className={className} {...rest}>
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => true,
-}));
+// Shared mock
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 
 // Mock next/link
 vi.mock("next/link", () => ({
@@ -35,12 +22,8 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-// Mock CategoryIcon to render the name as text for easy assertions
-vi.mock("@/components/ui/category-icon", () => ({
-  CategoryIcon: ({ name, "aria-label": label }: { name: string; "aria-label"?: string }) => (
-    <span data-testid="category-icon" aria-label={label}>{name}</span>
-  ),
-}));
+// Shared mock
+vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
 
 import { RecentTransactions } from "../recent-transactions";
 

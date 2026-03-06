@@ -6,6 +6,12 @@
  */
 
 // ────────────────────────────────────────────
+// Summary period filter
+// ────────────────────────────────────────────
+
+export type SummaryPeriod = "month" | "7d";
+
+// ────────────────────────────────────────────
 // Budget
 // ────────────────────────────────────────────
 
@@ -16,6 +22,21 @@ export interface BudgetCategoryData {
   color: string;
   budgetLimit: number;
   spent: number;
+}
+
+export interface UnbudgetedCategoryData {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  spent: number;
+}
+
+export interface BudgetOverviewData {
+  incomeTarget: number;
+  totalBudgeted: number;
+  budgetedCategories: BudgetCategoryData[];
+  unbudgetedCategories: UnbudgetedCategoryData[];
 }
 
 // ────────────────────────────────────────────
@@ -51,9 +72,23 @@ export interface CategoryJoinRow {
  * so we do a lightweight runtime check instead of an unsafe double-cast.
  */
 export function parseCategoryJoin(raw: unknown): CategoryJoinRow | null {
-  if (raw && typeof raw === "object" && "name" in raw) {
-    return raw as CategoryJoinRow;
+  if (!raw || typeof raw !== "object") {
+    return null;
   }
+
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.name === "string" &&
+    typeof candidate.icon === "string" &&
+    typeof candidate.color === "string"
+  ) {
+    return {
+      name: candidate.name,
+      icon: candidate.icon,
+      color: candidate.color,
+    };
+  }
+
   return null;
 }
 
@@ -66,7 +101,7 @@ export interface GroupJoinRow {
  * Safely parse the category_groups join result from a Supabase query.
  */
 export function parseGroupJoin(raw: unknown): GroupJoinRow | null {
-  if (raw && typeof raw === "object" && "name" in raw) {
+  if (raw && typeof raw === "object" && "name" in raw && typeof (raw as Record<string, unknown>).name === "string") {
     return raw as GroupJoinRow;
   }
   return null;
