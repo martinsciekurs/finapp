@@ -52,6 +52,7 @@ export function HeroBanner({ displayName, banner }: HeroBannerProps) {
 
   return (
     <motion.div
+      data-tour="hero-banner"
       className="relative w-full overflow-hidden rounded-2xl"
       style={bannerStyle}
       onMouseEnter={() => setIsHovered(true)}

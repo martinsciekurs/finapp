@@ -12,6 +12,7 @@ export function BottomNav() {
 
   return (
     <nav
+      data-tour="bottom-nav"
       className="fixed inset-x-0 bottom-0 z-50 block lg:hidden"
       aria-label="Mobile navigation"
     >

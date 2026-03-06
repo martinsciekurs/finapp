@@ -109,16 +109,18 @@ export function RecentTransactions({
 }: RecentTransactionsProps) {
   if (transactions.length === 0) {
     return (
-      <EmptyState
-        icon={Receipt}
-        title="No transactions yet"
-        description="Add your first transaction to start tracking your spending and income."
-      />
+      <div data-tour="recent-transactions">
+        <EmptyState
+          icon={Receipt}
+          title="No transactions yet"
+          description="Add your first transaction to start tracking your spending and income."
+        />
+      </div>
     );
   }
 
   return (
-    <Card>
+    <Card data-tour="recent-transactions">
       <CardHeader>
         <CardTitle className="font-serif text-base font-semibold">
           Recent Transactions

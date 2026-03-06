@@ -155,6 +155,7 @@ export function SummaryCards({
 
   return (
     <div
+      data-tour="summary-cards"
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
       role="region"
       aria-label="Financial summary"

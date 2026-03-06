@@ -21,6 +21,7 @@ export function SidebarNav() {
 
   return (
     <aside
+      data-tour="sidebar-nav"
       className={cn(
         "hidden lg:flex lg:flex-col lg:border-r lg:border-sidebar-border lg:bg-sidebar",
         collapsed ? "lg:w-[68px]" : "lg:w-[240px]"
