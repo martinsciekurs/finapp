@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import {
   fetchTransactions,
   fetchUserCategories,
+  fetchUserTags,
 } from "@/lib/queries/transactions";
 import { fetchUserCurrency } from "@/lib/queries/dashboard";
 import { TransactionForm } from "@/components/transactions/transaction-form";
@@ -12,10 +13,11 @@ export const metadata: Metadata = {
 };
 
 export default async function TransactionsPage() {
-  const [transactions, categories, currency] = await Promise.all([
+  const [transactions, categories, currency, userTags] = await Promise.all([
     fetchTransactions(),
     fetchUserCategories(),
     fetchUserCurrency(),
+    fetchUserTags(),
   ]);
 
   return (
@@ -29,8 +31,8 @@ export default async function TransactionsPage() {
         </p>
       </div>
 
-      <TransactionForm categories={categories} />
-      <TransactionList transactions={transactions} categories={categories} currency={currency} />
+      <TransactionForm categories={categories} userTags={userTags} />
+      <TransactionList transactions={transactions} categories={categories} currency={currency} userTags={userTags} />
     </div>
   );
 }

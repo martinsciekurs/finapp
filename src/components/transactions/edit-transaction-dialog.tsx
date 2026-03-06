@@ -26,12 +26,15 @@ import {
 } from "@/components/ui/form";
 import { CategoryCombobox } from "./category-combobox";
 import { TransactionTypeToggle } from "./transaction-type-toggle";
+import { TagInput } from "./tag-input";
 import {
   transactionFormSchema,
   type TransactionFormValues,
 } from "@/lib/validations/transaction";
 import { updateTransaction } from "@/app/dashboard/transactions/actions";
+import { createTag, assignTagToTransaction, removeTagFromTransaction } from "@/app/dashboard/transactions/tag-actions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
+import type { TagData } from "@/lib/types/tags";
 import {
   filterCategoriesByType,
   parseAmountInput,
@@ -44,6 +47,7 @@ import {
 interface EditTransactionDialogProps {
   transaction: TransactionData;
   categories: CategoryOption[];
+  userTags: TagData[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -65,10 +69,12 @@ function toFormDefaults(transaction: TransactionData): TransactionFormValues {
 export function EditTransactionDialog({
   transaction,
   categories,
+  userTags,
   open,
   onOpenChange,
 }: EditTransactionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localTags, setLocalTags] = useState<TagData[]>(transaction.tags);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -79,6 +85,10 @@ export function EditTransactionDialog({
     form.reset(toFormDefaults(transaction));
   }, [form, transaction]);
 
+  useEffect(() => {
+    setLocalTags(transaction.tags);
+  }, [transaction]);
+
   const currentType = form.watch("type");
 
   const filteredCategories = filterCategoriesByType(categories, currentType);
@@ -86,6 +96,33 @@ export function EditTransactionDialog({
   function handleTypeChange(type: "expense" | "income") {
     form.setValue("type", type);
     form.setValue("category_id", "");
+  }
+
+  async function handleTagAdd(tag: TagData) {
+    const result = await assignTagToTransaction(transaction.id, tag.id);
+    if (result.success) {
+      setLocalTags((prev) => [...prev, tag]);
+    } else {
+      toast.error(result.error ?? "Failed to add tag");
+    }
+  }
+
+  async function handleTagRemove(tagId: string) {
+    const result = await removeTagFromTransaction(transaction.id, tagId);
+    if (result.success) {
+      setLocalTags((prev) => prev.filter((t) => t.id !== tagId));
+    } else {
+      toast.error(result.error ?? "Failed to remove tag");
+    }
+  }
+
+  async function handleCreateTag(name: string, color: string): Promise<TagData | null> {
+    const result = await createTag({ name, color });
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Failed to create tag");
+      return null;
+    }
+    return { id: result.data.id, name, color };
   }
 
   async function onSubmit(values: TransactionFormValues) {
@@ -207,6 +244,17 @@ export function EditTransactionDialog({
                 </FormItem>
               )}
             />
+
+            <div>
+              <label className="text-sm font-medium">Tags</label>
+              <TagInput
+                selectedTags={localTags}
+                availableTags={userTags}
+                onTagAdd={handleTagAdd}
+                onTagRemove={handleTagRemove}
+                onCreateTag={handleCreateTag}
+              />
+            </div>
 
             <DialogFooter>
               <Button

@@ -11,6 +11,7 @@ import {
   Pencil,
   Receipt,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,11 +24,16 @@ import { formatDate } from "@/lib/utils/date";
 import { deleteTransaction } from "@/app/dashboard/transactions/actions";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
 import { Attachments } from "@/components/attachments/attachments";
+import { TransactionSearchBar, filterTransactions } from "./transaction-search-bar";
+import { TransactionDateFilter, type DateRange, filterByDateRange } from "./transaction-date-filter";
+import { TransactionCategoryFilter, filterByCategory } from "./transaction-category-filter";
+import { TagPill } from "./tag-pill";
 import type {
   CategoryOption,
   TransactionData,
   TransactionTypeFilter,
 } from "@/lib/types/transactions";
+import type { TagData } from "@/lib/types/tags";
 
 // ────────────────────────────────────────────
 // Props
@@ -37,6 +43,7 @@ interface TransactionListProps {
   transactions: TransactionData[];
   categories: CategoryOption[];
   currency: string;
+  userTags: TagData[];
 }
 
 // ────────────────────────────────────────────
@@ -133,6 +140,18 @@ function TransactionRow({
           <p className="text-xs text-muted-foreground">
             {transaction.categoryName}
           </p>
+          {transaction.tags.length > 0 && (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {transaction.tags.slice(0, 3).map((tag) => (
+                <TagPill key={tag.id} tag={tag} />
+              ))}
+              {transaction.tags.length > 3 && (
+                <span className="text-[11px] text-muted-foreground">
+                  +{transaction.tags.length - 3} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 text-right">
@@ -218,8 +237,12 @@ export function TransactionList({
   transactions,
   categories,
   currency,
+  userTags,
 }: TransactionListProps) {
   const [filter, setFilter] = useState<TransactionTypeFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] =
     useState<TransactionData | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -236,10 +259,26 @@ export function TransactionList({
     }
   }
 
-  const filtered =
-    filter === "all"
-      ? transactions
-      : transactions.filter((tx) => tx.type === filter);
+  function clearAllFilters() {
+    setSearchQuery("");
+    setDateRange({ from: null, to: null });
+    setSelectedCategoryId(null);
+    setFilter("all");
+  }
+
+  let result = transactions;
+  result = filter === "all" ? result : result.filter((tx) => tx.type === filter);
+  result = filterTransactions(result, searchQuery, currency);
+  result = filterByDateRange(result, dateRange);
+  result = filterByCategory(result, selectedCategoryId);
+  const filtered = result;
+
+  const isFiltersActive =
+    searchQuery !== "" ||
+    dateRange.from !== null ||
+    dateRange.to !== null ||
+    selectedCategoryId !== null ||
+    filter !== "all";
 
   const grouped = groupByDate(filtered);
 
@@ -264,17 +303,46 @@ export function TransactionList({
         ))}
       </div>
 
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex-1">
+          <TransactionSearchBar value={searchQuery} onChange={setSearchQuery} />
+        </div>
+        <TransactionCategoryFilter
+          categories={categories}
+          value={selectedCategoryId}
+          onChange={setSelectedCategoryId}
+        />
+        <TransactionDateFilter value={dateRange} onChange={setDateRange} />
+        {isFiltersActive && (
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-1">
+            <X className="size-3.5" />
+            Clear all
+          </Button>
+        )}
+      </div>
+
+      {isFiltersActive && (
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} of {transactions.length} transactions
+        </p>
+      )}
+
       {/* Results */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={Receipt}
           title={
-            filter === "all"
+            isFiltersActive
+              ? "No matching transactions"
+              : filter === "all"
               ? "No transactions yet"
               : `No ${filter} transactions`
           }
           description={
-            filter === "all"
+            isFiltersActive
+              ? "Try adjusting your search or filters."
+              : filter === "all"
               ? "Add your first transaction using the form above."
               : `No ${filter} transactions found. Try changing the filter.`
           }
@@ -308,6 +376,7 @@ export function TransactionList({
         <EditTransactionDialog
           transaction={selectedTransaction}
           categories={categories}
+          userTags={userTags}
           open={dialogOpen}
           onOpenChange={handleDialogOpenChange}
         />

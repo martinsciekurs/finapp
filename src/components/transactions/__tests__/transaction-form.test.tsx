@@ -135,7 +135,7 @@ describe("TransactionForm", () => {
   });
 
   it("renders the form with all fields", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     expect(screen.getByText("Expense")).toBeInTheDocument();
     expect(screen.getByText("Income")).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe("TransactionForm", () => {
   });
 
   it("defaults to expense type", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const expenseToggle = screen.getByRole("radio", { name: "Expense" });
     expect(expenseToggle).toHaveAttribute("aria-checked", "true");
@@ -159,7 +159,7 @@ describe("TransactionForm", () => {
 
   it("toggles between expense and income type", async () => {
     const user = userEvent.setup();
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const incomeToggle = screen.getByRole("radio", { name: "Income" });
     await user.click(incomeToggle);
@@ -171,7 +171,7 @@ describe("TransactionForm", () => {
   });
 
   it("renders the type toggle as a radiogroup", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const radiogroup = screen.getByRole("radiogroup", {
       name: "Transaction type",
@@ -180,7 +180,7 @@ describe("TransactionForm", () => {
   });
 
   it("sets today's date as default", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const dateInput = screen.getByLabelText("Date");
     expect(dateInput).toHaveValue("2026-03-04");
@@ -188,7 +188,7 @@ describe("TransactionForm", () => {
 
   it("shows validation error for empty amount on submit", async () => {
     const user = userEvent.setup();
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const submitButton = screen.getByRole("button", { name: /add expense/i });
     await user.click(submitButton);
@@ -200,7 +200,7 @@ describe("TransactionForm", () => {
   });
 
   it("renders expense category options", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const options = screen.getAllByRole("option");
     expect(options).toHaveLength(2); // 2 expense categories
@@ -210,7 +210,7 @@ describe("TransactionForm", () => {
 
   it("switches category options when type changes", async () => {
     const user = userEvent.setup();
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     expect(screen.getByText("Groceries")).toBeInTheDocument();
     expect(screen.getByText("Transport")).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe("TransactionForm", () => {
       data: { id: "new-tx-id" },
     });
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     await fillForm(user, { amount: "42.50", description: "Weekly groceries" });
     await user.click(screen.getByRole("button", { name: /add expense/i }));
@@ -255,7 +255,7 @@ describe("TransactionForm", () => {
       data: { id: "new-tx-id" },
     });
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     await fillForm(user, { amount: "25" });
     await user.click(screen.getByRole("button", { name: /add expense/i }));
@@ -272,7 +272,7 @@ describe("TransactionForm", () => {
       error: "Category type mismatch",
     });
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     await fillForm(user, { amount: "25" });
     await user.click(screen.getByRole("button", { name: /add expense/i }));
@@ -289,7 +289,7 @@ describe("TransactionForm", () => {
       data: { id: "new-tx-id" },
     });
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     const amountInput = screen.getByLabelText("Amount");
     const descriptionInput = screen.getByLabelText("Description");
@@ -307,7 +307,7 @@ describe("TransactionForm", () => {
     const user = userEvent.setup();
     mockCreateTransaction.mockReturnValue(new Promise(() => {}));
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     await fillForm(user, { amount: "25.50" });
 
@@ -320,7 +320,7 @@ describe("TransactionForm", () => {
   });
 
   it("renders category combobox component", () => {
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     expect(screen.getByTestId("category-combobox")).toBeInTheDocument();
   });
@@ -332,7 +332,7 @@ describe("TransactionForm", () => {
       data: { id: "new-tx-id" },
     });
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     // Switch to income
     await user.click(screen.getByRole("radio", { name: "Income" }));
@@ -352,7 +352,7 @@ describe("TransactionForm", () => {
   it("resets category_id when switching type", async () => {
     const user = userEvent.setup();
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     // Select an expense category
     await user.click(screen.getByRole("option", { name: /groceries/i }));
@@ -368,7 +368,7 @@ describe("TransactionForm", () => {
     const user = userEvent.setup();
     mockCreateTransaction.mockRejectedValue(new Error("Network error"));
 
-    render(<TransactionForm categories={sampleCategories} />);
+    render(<TransactionForm categories={sampleCategories} userTags={[]} />);
 
     await fillForm(user, { amount: "10" });
     await user.click(screen.getByRole("button", { name: /add expense/i }));

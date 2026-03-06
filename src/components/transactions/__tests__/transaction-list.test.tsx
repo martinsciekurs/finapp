@@ -83,6 +83,7 @@ const sampleTransactions: TransactionData[] = [
     categoryIcon: "shopping-cart",
     categoryColor: "#4CAF50",
     attachments: [],
+    tags: [],
   },
   {
     id: "tx-2",
@@ -95,6 +96,7 @@ const sampleTransactions: TransactionData[] = [
     categoryIcon: "briefcase",
     categoryColor: "#2196F3",
     attachments: [],
+    tags: [],
   },
   {
     id: "tx-3",
@@ -107,6 +109,7 @@ const sampleTransactions: TransactionData[] = [
     categoryIcon: "film",
     categoryColor: "#FF5722",
     attachments: [],
+    tags: [],
   },
 ];
 
@@ -117,7 +120,7 @@ describe("TransactionList", () => {
 
   it("renders all transaction descriptions", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     expect(screen.getByText("Grocery shopping")).toBeInTheDocument();
@@ -127,7 +130,7 @@ describe("TransactionList", () => {
 
   it("renders category names", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     expect(screen.getByText("Groceries")).toBeInTheDocument();
@@ -137,7 +140,7 @@ describe("TransactionList", () => {
 
   it("renders formatted amounts with correct signs", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     // Expense amounts have a minus sign
@@ -159,7 +162,7 @@ describe("TransactionList", () => {
 
   it("groups transactions by date", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     // Should have 2 date groups: Mar 4 and Mar 2
@@ -169,7 +172,7 @@ describe("TransactionList", () => {
 
   it("shows filter tabs (all, expense, income)", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     expect(screen.getByText("all")).toBeInTheDocument();
@@ -180,7 +183,7 @@ describe("TransactionList", () => {
   it("filters by expense type", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     await user.click(screen.getByText("expense"));
@@ -193,7 +196,7 @@ describe("TransactionList", () => {
   it("filters by income type", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     await user.click(screen.getByText("income"));
@@ -208,7 +211,7 @@ describe("TransactionList", () => {
   it("shows all transactions when all filter is selected", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     // First filter to expense, then back to all
@@ -221,7 +224,7 @@ describe("TransactionList", () => {
   });
 
   it("shows empty state when no transactions exist", () => {
-    render(<TransactionList transactions={[]} categories={sampleCategories} currency="USD" />);
+    render(<TransactionList transactions={[]} categories={sampleCategories} currency="USD" userTags={[]} />);
 
     expect(screen.getByText("No transactions yet")).toBeInTheDocument();
     expect(
@@ -245,26 +248,27 @@ describe("TransactionList", () => {
         categoryIcon: "shopping-cart",
         categoryColor: "#4CAF50",
         attachments: [],
+        tags: [],
       },
     ];
 
-    render(<TransactionList transactions={expenseOnly} categories={sampleCategories} currency="USD" />);
+    render(<TransactionList transactions={expenseOnly} categories={sampleCategories} currency="USD" userTags={[]} />);
 
     await user.click(screen.getByText("income"));
 
     expect(
-      screen.getByText("No income transactions")
+      screen.getByText("No matching transactions")
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No income transactions found. Try changing the filter."
+        "Try adjusting your search or filters."
       )
     ).toBeInTheDocument();
   });
 
   it("renders delete buttons for each transaction", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -278,7 +282,7 @@ describe("TransactionList", () => {
     mockDeleteTransaction.mockResolvedValue({ success: true });
 
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -294,7 +298,7 @@ describe("TransactionList", () => {
     mockDeleteTransaction.mockResolvedValue({ success: true });
 
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -313,7 +317,7 @@ describe("TransactionList", () => {
     });
 
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     const deleteButtons = screen.getAllByRole("button", {
@@ -332,6 +336,7 @@ describe("TransactionList", () => {
         transactions={[sampleTransactions[0]]}
         categories={sampleCategories}
         currency="EUR"
+        userTags={[]}
       />
     );
 
@@ -356,16 +361,17 @@ describe("TransactionList", () => {
         categoryIcon: "shopping-cart",
         categoryColor: "#4CAF50",
         attachments: [],
+        tags: [],
       },
     ];
 
-    render(<TransactionList transactions={noDescTx} categories={sampleCategories} currency="USD" />);
+    render(<TransactionList transactions={noDescTx} categories={sampleCategories} currency="USD" userTags={[]} />);
     expect(screen.getByText("No description")).toBeInTheDocument();
   });
 
   it("renders edit buttons for each transaction", () => {
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     const editButtons = screen.getAllByRole("button", {
@@ -377,7 +383,7 @@ describe("TransactionList", () => {
   it("opens edit dialog when edit button is clicked", async () => {
     const user = userEvent.setup();
     render(
-      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" />
+      <TransactionList transactions={sampleTransactions} categories={sampleCategories} currency="USD" userTags={[]} />
     );
 
     // No dialog initially
