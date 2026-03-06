@@ -6,9 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   HandCoins,
   Landmark,
   Loader2,
+  Paperclip,
   Pencil,
   Plus,
   Scale,
@@ -705,9 +708,11 @@ function DebtCard({
   onEditPayment: (debt: DebtData, payment: DebtData["payments"][number]) => void;
   onDeletePayment: (debt: DebtData, payment: DebtData["payments"][number]) => void;
 }) {
+  const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const paidAmount = debt.originalAmount - debt.remainingAmount;
   const progress = debt.originalAmount > 0 ? Math.min((paidAmount / debt.originalAmount) * 100, 100) : 0;
   const isSettled = debt.remainingAmount === 0;
+  const attachmentCount = debt.attachments.length;
 
   return (
     <Card className="gap-0 py-4">
@@ -782,11 +787,26 @@ function DebtCard({
           </div>
         ) : null}
 
-        <Attachments
-          recordType="debt"
-          recordId={debt.id}
-          initialAttachments={debt.attachments}
-        />
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setAttachmentsExpanded((prev) => !prev)}
+        >
+          <Paperclip className="size-3" />
+          <span>Attachments{attachmentCount > 0 ? ` (${attachmentCount})` : ""}</span>
+          {attachmentsExpanded ? (
+            <ChevronUp className="ml-auto size-3" />
+          ) : (
+            <ChevronDown className="ml-auto size-3" />
+          )}
+        </button>
+        {attachmentsExpanded ? (
+          <Attachments
+            recordType="debt"
+            recordId={debt.id}
+            initialAttachments={debt.attachments}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -5,6 +5,8 @@
  * needs richer data (category_id for editing, full description, etc.)
  */
 
+import type { AttachmentData } from "@/lib/types/attachments";
+
 // ────────────────────────────────────────────
 // Transaction display data
 // ────────────────────────────────────────────
@@ -19,6 +21,7 @@ export interface TransactionData {
   categoryName: string;
   categoryIcon: string;
   categoryColor: string | null;
+  attachments: AttachmentData[];
 }
 
 // ────────────────────────────────────────────

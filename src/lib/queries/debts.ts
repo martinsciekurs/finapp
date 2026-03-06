@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAttachmentsByRecordIds } from "@/lib/queries/attachments";
 import type { DebtData, DebtPaymentData, DebtsPageData } from "@/lib/types/debt";
 import { parseCategoryJoin } from "@/lib/types/dashboard";
 
@@ -26,6 +27,11 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
   if (paymentsResult.error) {
     throw new Error(`Failed to fetch debt payments: ${paymentsResult.error.message}`);
   }
+
+  const attachmentsByRecord = await fetchAttachmentsByRecordIds(
+    "debt",
+    (debtsResult.data ?? []).map((debt) => debt.id)
+  );
 
   const paymentsByDebt = new Map<string, DebtPaymentData[]>();
   for (const payment of paymentsResult.data ?? []) {
@@ -68,6 +74,7 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
       debtDate: debt.debt_date,
       createdAt: debt.created_at,
       payments: paymentsByDebt.get(debt.id) ?? [],
+      attachments: attachmentsByRecord.get(debt.id) ?? [],
     };
   });
 

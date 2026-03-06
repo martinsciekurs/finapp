@@ -16,8 +16,12 @@ vi.mock("@/app/dashboard/reminders/actions", () => ({
   markOccurrenceUnpaid: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-// Shared mock
+// Shared mocks
+vi.mock("framer-motion", async () => import("@/test/mocks/framer-motion"));
 vi.mock("@/components/ui/category-icon", async () => import("@/test/mocks/category-icon"));
+vi.mock("@/components/attachments/attachments", () => ({
+  Attachments: () => <div data-testid="attachments" />,
+}));
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -47,6 +51,7 @@ function makeOccurrence(overrides: Partial<ReminderOccurrence> = {}): ReminderOc
     payment_id: null,
     paid_at: null,
     days_diff: 10,
+    attachments: [],
     ...overrides,
   };
 }
@@ -63,6 +68,7 @@ function makeTemplate(overrides: Partial<ReminderData> = {}): ReminderData {
     category_name: "Bills",
     category_icon: "banknote",
     category_color: "#FF5722",
+    attachments: [],
     ...overrides,
   };
 }

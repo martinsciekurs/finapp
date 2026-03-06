@@ -1,3 +1,5 @@
+import type { AttachmentData } from "@/lib/types/attachments";
+
 export type DebtType = "i_owe" | "they_owe";
 
 export interface DebtPaymentData {
@@ -24,6 +26,7 @@ export interface DebtData {
   debtDate: string;
   createdAt: string;
   payments: DebtPaymentData[];
+  attachments: AttachmentData[];
 }
 
 export interface DebtsSummary {

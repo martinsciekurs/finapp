@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Bell,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Paperclip,
   Plus,
   Pencil,
   Trash2,
@@ -33,6 +37,7 @@ import type {
 import type { CategoryOption } from "@/lib/types/transactions";
 
 import { FREQUENCY_LABELS } from "@/lib/config/reminders";
+import { Attachments } from "@/components/attachments/attachments";
 
 // ────────────────────────────────────────────
 // Frequency badge
@@ -97,6 +102,9 @@ function OccurrenceRow({
   onDeleteReminder: (id: string) => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const attachmentCount = occurrence.attachments.length;
 
   async function handleMarkPaid() {
     setIsLoading(true);
@@ -137,93 +145,133 @@ function OccurrenceRow({
   }
 
   return (
-    <div className="group flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:gap-3">
-      {/* Left: icon + info */}
-      <div className="flex flex-1 items-center gap-3">
-        <div
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
-          style={{ color: occurrence.category_color }}
-        >
-          <CategoryIcon name={occurrence.category_icon} className="size-4" />
-        </div>
+    <div className="group rounded-lg border bg-card p-3">
+      <div
+        className="flex cursor-pointer flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
+        onClick={() => setExpanded((prev) => !prev)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((prev) => !prev);
+          }
+        }}
+      >
+        <div className="flex flex-1 items-center gap-3">
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
+            style={{ color: occurrence.category_color }}
+          >
+            <CategoryIcon name={occurrence.category_icon} className="size-4" />
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{occurrence.title}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">
-              {formatDate(occurrence.due_date)}
-            </p>
-            {occurrence.status !== "paid" && (
-              <DaysBadge days={occurrence.days_diff} />
-            )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{occurrence.title}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {formatDate(occurrence.due_date)}
+              </p>
+              {occurrence.status !== "paid" && (
+                <DaysBadge days={occurrence.days_diff} />
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Center: badges + amount */}
-      <div className="flex flex-wrap items-center gap-2">
-        <FrequencyBadge frequency={occurrence.frequency} />
-        <CategoryBadge
-          name={occurrence.category_name}
-          icon={occurrence.category_icon}
-          color={occurrence.category_color}
-        />
-        <span className="text-sm font-semibold">
-          {formatCurrency(occurrence.amount, currency)}
-        </span>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <FrequencyBadge frequency={occurrence.frequency} />
+          <CategoryBadge
+            name={occurrence.category_name}
+            icon={occurrence.category_icon}
+            color={occurrence.category_color}
+          />
+          <span className="text-sm font-semibold">
+            {formatCurrency(occurrence.amount, currency)}
+          </span>
+        </div>
 
-      {/* Right: actions */}
-      <div className="flex items-center gap-1">
-        {occurrence.status === "paid" ? (
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {occurrence.status === "paid" ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleMarkUnpaid}
+              disabled={isLoading}
+              className="text-muted-foreground"
+            >
+              {isLoading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Undo2 className="size-3.5" />
+              )}
+              Undo
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleMarkPaid}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-3.5" />
+              )}
+              Mark Paid
+            </Button>
+          )}
+          {attachmentCount > 0 ? (
+            <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
+              <Paperclip className="size-3" />
+              <span className="text-[11px] tabular-nums">{attachmentCount}</span>
+            </div>
+          ) : null}
           <Button
             size="sm"
             variant="ghost"
-            onClick={handleMarkUnpaid}
-            disabled={isLoading}
-            className="text-muted-foreground"
+            className="opacity-0 transition-opacity group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100"
+            onClick={() => onEditReminder(occurrence.reminder_id)}
           >
-            {isLoading ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Undo2 className="size-3.5" />
-            )}
-            Undo
+            <Pencil className="size-3.5" />
+            <span className="sr-only">Edit</span>
           </Button>
-        ) : (
           <Button
             size="sm"
-            variant="outline"
-            onClick={handleMarkPaid}
-            disabled={isLoading}
+            variant="ghost"
+            className="text-destructive opacity-0 transition-opacity group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100"
+            onClick={() => onDeleteReminder(occurrence.reminder_id)}
           >
-            {isLoading ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="size-3.5" />
-            )}
-            Mark Paid
+            <Trash2 className="size-3.5" />
+            <span className="sr-only">Delete</span>
           </Button>
+        </div>
+
+        {expanded ? (
+          <ChevronUp className="size-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="opacity-0 transition-opacity group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100"
-          onClick={() => onEditReminder(occurrence.reminder_id)}
-        >
-          <Pencil className="size-3.5" />
-          <span className="sr-only">Edit</span>
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-destructive opacity-0 transition-opacity group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100"
-          onClick={() => onDeleteReminder(occurrence.reminder_id)}
-        >
-          <Trash2 className="size-3.5" />
-          <span className="sr-only">Delete</span>
-        </Button>
       </div>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            className="overflow-hidden pt-2 sm:pl-11"
+            initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+          >
+            <Attachments
+              recordType="reminder"
+              recordId={occurrence.reminder_id}
+              initialAttachments={occurrence.attachments}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

@@ -10,6 +10,18 @@ function safeParseInt(value: string | undefined, fallback: number): number {
 /**
  * Centralized plan limits — overridable via environment variables.
  */
+/**
+ * Allowed MIME types for file attachments.
+ * Restricts uploads to safe, non-executable content types.
+ */
+export const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
 export const PLAN_LIMITS = {
   free: {
     transactionsPerMonth: safeParseInt(

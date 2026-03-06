@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAttachmentsByRecordIds } from "@/lib/queries/attachments";
 import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
 
@@ -51,6 +52,11 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
     throw new Error(`Failed to fetch transactions: ${error.message}`);
   }
 
+  const attachmentsByRecord = await fetchAttachmentsByRecordIds(
+    "transaction",
+    (rows ?? []).map((row) => row.id)
+  );
+
   return (rows ?? []).map((tx) => {
     const categoryDisplay = getTransactionCategoryDisplay(tx.categories);
     return {
@@ -61,6 +67,7 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
       date: tx.date,
       categoryId: tx.category_id,
       ...categoryDisplay,
+      attachments: attachmentsByRecord.get(tx.id) ?? [],
     };
   });
 }

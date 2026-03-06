@@ -11,6 +11,7 @@
 
 /** Re-exported from validations — single source of truth is the Zod enum. */
 import type { ReminderFrequency } from "@/lib/validations/reminder";
+import type { AttachmentData } from "@/lib/types/attachments";
 export type { ReminderFrequency };
 
 export type OccurrenceStatus = "overdue" | "upcoming" | "paid";
@@ -30,6 +31,7 @@ export interface ReminderData {
   category_name: string;
   category_icon: string;
   category_color: string;
+  attachments: AttachmentData[];
 }
 
 // ────────────────────────────────────────────
@@ -55,6 +57,7 @@ export interface ReminderOccurrence {
   paid_at: string | null;
   /** Days until/since due (negative = overdue) */
   days_diff: number;
+  attachments: AttachmentData[];
 }
 
 // ────────────────────────────────────────────
