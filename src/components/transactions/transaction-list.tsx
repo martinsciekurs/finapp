@@ -60,18 +60,17 @@ function groupByDate(
 
 function TransactionRow({
   transaction,
-  categories,
   currency,
   index,
+  onEditClick,
 }: {
   transaction: TransactionData;
-  categories: CategoryOption[];
   currency: string;
   index: number;
+  onEditClick: (transaction: TransactionData) => void;
 }) {
   const prefersReducedMotion = useReducedMotion();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const isExpense = transaction.type === "expense";
 
   async function handleDelete() {
@@ -143,7 +142,7 @@ function TransactionRow({
         <Button
           variant="ghost"
           size="icon-xs"
-          onClick={() => setEditOpen(true)}
+          onClick={() => onEditClick(transaction)}
           aria-label="Edit transaction"
         >
           <Pencil className="size-3.5 text-muted-foreground" />
@@ -158,13 +157,6 @@ function TransactionRow({
           <Trash2 className="size-3.5 text-muted-foreground" />
         </Button>
       </div>
-
-      <EditTransactionDialog
-        transaction={transaction}
-        categories={categories}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
     </motion.div>
   );
 }
@@ -179,6 +171,21 @@ export function TransactionList({
   currency,
 }: TransactionListProps) {
   const [filter, setFilter] = useState<TransactionTypeFilter>("all");
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<TransactionData | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  function handleEditClick(transaction: TransactionData) {
+    setSelectedTransaction(transaction);
+    setDialogOpen(true);
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedTransaction(null);
+    }
+  }
 
   const filtered =
     filter === "all"
@@ -237,9 +244,9 @@ export function TransactionList({
                   <TransactionRow
                     key={tx.id}
                     transaction={tx}
-                    categories={categories}
                     currency={currency}
                     index={index}
+                    onEditClick={handleEditClick}
                   />
                 ))}
               </div>
@@ -247,6 +254,15 @@ export function TransactionList({
           ))}
         </div>
       )}
+
+      {selectedTransaction ? (
+        <EditTransactionDialog
+          transaction={selectedTransaction}
+          categories={categories}
+          open={dialogOpen}
+          onOpenChange={handleDialogOpenChange}
+        />
+      ) : null}
     </div>
   );
 }

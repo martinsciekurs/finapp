@@ -26,7 +26,7 @@ export function TransactionTypeToggle({
         role="radio"
         aria-checked={currentType === "expense"}
         className={cn(
-          "rounded-md px-4 py-1.5 text-sm font-medium transition-all",
+          "rounded-md px-4 py-1.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none motion-reduce:duration-0",
           currentType === "expense"
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"
@@ -40,7 +40,7 @@ export function TransactionTypeToggle({
         role="radio"
         aria-checked={currentType === "income"}
         className={cn(
-          "rounded-md px-4 py-1.5 text-sm font-medium transition-all",
+          "rounded-md px-4 py-1.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none motion-reduce:duration-0",
           currentType === "income"
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"

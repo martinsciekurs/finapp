@@ -4,28 +4,28 @@ description: PR review + auto-fix — parallel agents for quality, security, and
 
 Review the current branch's changes. Base defaults to `origin/main`. Override: `/review <branch>` or `/review <remote>/<branch>`
 
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then git fetch origin "$R"; else git fetch "${R%%/*}" "${R#*/}"; fi`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then if [ "$R" = "$P" ]; then git fetch "$P"; else git fetch "$P" "${R#*/}"; fi; else git fetch origin "$R"; fi`
 
 **Changed files (committed + staged + unstaged + untracked):**
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then BASE="origin/$R"; else BASE="$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u`
 
 **Untracked files (subset of changed files):**
 !`git ls-files --others --exclude-standard | sort -u`
 
 **Commits:**
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then BASE="origin/$R"; else BASE="$R"; fi; git log "$BASE"..HEAD --oneline`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; git log "$BASE"..HEAD --oneline`
 
 **Diff summary (committed vs base):**
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then BASE="origin/$R"; else BASE="$R"; fi; git diff --stat "$BASE"...HEAD`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; git diff --stat "$BASE"...HEAD`
 
 **Diff summary (staged + unstaged):**
 !`{ git diff --stat --cached; git diff --stat; }`
 
 **Migrations changed:**
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then BASE="origin/$R"; else BASE="$R"; fi; { git diff --name-only "$BASE"...HEAD -- 'supabase/migrations/' 2>/dev/null; git diff --name-only --cached -- 'supabase/migrations/'; git diff --name-only -- 'supabase/migrations/'; git ls-files --others --exclude-standard -- 'supabase/migrations/'; } | sort -u`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD -- 'supabase/migrations/' 2>/dev/null; git diff --name-only --cached -- 'supabase/migrations/'; git diff --name-only -- 'supabase/migrations/'; git ls-files --others --exclude-standard -- 'supabase/migrations/'; } | sort -u`
 
 **Tests changed:**
-!`R="${ARGUMENTS:-origin/main}"; if [ "${R#*/}" = "$R" ]; then BASE="origin/$R"; else BASE="$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u | grep -E -e '^supabase/tests/' -e '^e2e/' -e '\.test\.ts$' -e '\.test\.tsx$' -e '\.spec\.ts$' -e '\.spec\.tsx$' || true`
+!`R="${ARGUMENTS:-origin/main}"; P="${R%%/*}"; if git remote | grep -Fxq "$P"; then BASE="$R"; else BASE="origin/$R"; fi; { git diff --name-only "$BASE"...HEAD 2>/dev/null; git diff --name-only --cached; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u | grep -E -e '^supabase/tests/' -e '^e2e/' -e '\.test\.ts$' -e '\.test\.tsx$' -e '\.spec\.ts$' -e '\.spec\.tsx$' || true`
 
 ---
 

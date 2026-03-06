@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Save } from "lucide-react";
@@ -44,6 +44,16 @@ interface EditTransactionDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function toFormDefaults(transaction: TransactionData): TransactionFormValues {
+  return {
+    type: transaction.type,
+    amount: transaction.amount,
+    category_id: transaction.categoryId,
+    description: transaction.description,
+    date: transaction.date,
+  };
+}
+
 // ────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────
@@ -58,14 +68,12 @@ export function EditTransactionDialog({
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
-    defaultValues: {
-      type: transaction.type,
-      amount: transaction.amount,
-      category_id: transaction.categoryId,
-      description: transaction.description,
-      date: transaction.date,
-    },
+    defaultValues: toFormDefaults(transaction),
   });
+
+  useEffect(() => {
+    form.reset(toFormDefaults(transaction));
+  }, [form, transaction]);
 
   const currentType = form.watch("type");
 

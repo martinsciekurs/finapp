@@ -13,5 +13,5 @@ export const FREQUENCY_OPTIONS: readonly {
 
 /** Lookup map for frequency display labels — derived from FREQUENCY_OPTIONS. */
 export const FREQUENCY_LABELS = Object.fromEntries(
-  FREQUENCY_OPTIONS.map((o) => [o.value, o.label])
+  FREQUENCY_OPTIONS.map((option) => [option.value, option.label])
 ) as Record<ReminderFrequency, string>;

@@ -14,7 +14,7 @@
 -- ===========================================================================
 
 begin;
-select plan(96);
+select plan(97);
 
 -- ===========================
 -- Setup: create two test users
@@ -938,6 +938,7 @@ do $$
 declare
   _rem1 uuid;
   _rem2 uuid;
+  _rem2_original_paid_at timestamptz;
 begin
   select id into _rem1 from public.reminders where user_id = u1() limit 1;
   select id into _rem2 from public.reminders where user_id = u2() limit 1;
@@ -948,7 +949,10 @@ begin
   insert into public.reminder_payments (user_id, reminder_id, due_date)
   values (u1(), _rem1, current_date + 30);
   insert into public.reminder_payments (user_id, reminder_id, due_date)
-  values (u2(), _rem2, current_date + 7);
+  values (u2(), _rem2, current_date + 7)
+  returning paid_at into _rem2_original_paid_at;
+
+  perform set_config('test.rem2_paid_at', _rem2_original_paid_at::text, true);
 end;
 $$;
 
@@ -957,6 +961,9 @@ create or replace function rem1() returns uuid language sql stable as $$
 $$;
 create or replace function rem2() returns uuid language sql stable as $$
   select current_setting('test.rem2_id')::uuid;
+$$;
+create or replace function rem2_paid_at() returns timestamptz language sql stable as $$
+  select current_setting('test.rem2_paid_at')::timestamptz;
 $$;
 
 -- Owner can read own reminder payments
@@ -992,6 +999,11 @@ select is(
   (select count(*)::int from public.reminder_payments where user_id = u2()),
   1,
   'reminder_payments: cross-user UPDATE silently blocked'
+);
+select is(
+  (select paid_at from public.reminder_payments where user_id = u2() limit 1),
+  rem2_paid_at(),
+  'reminder_payments: cross-user UPDATE does not modify paid_at'
 );
 
 -- Cross-user DELETE: silently 0 rows

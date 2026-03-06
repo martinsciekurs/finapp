@@ -328,10 +328,10 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
   const overdueStart = formatDateForInput(
     new Date(now.getFullYear(), now.getMonth() - 3, 1)
   );
-  const furthestEnd =
-    periodEnds["7d"] > periodEnds.end_of_month
-      ? periodEnds["7d"]
-      : periodEnds.end_of_month;
+  const periodEndValues = Object.values(periodEnds);
+  const furthestEnd = periodEndValues.reduce((maxEnd, periodEnd) =>
+    periodEnd > maxEnd ? periodEnd : maxEnd
+  );
 
   // Parallel fetches
   const [remindersResult, paymentsResult] = await Promise.all([
@@ -431,5 +431,4 @@ export async function fetchReminderCategories(): Promise<CategoryOption[]> {
     };
   });
 }
-
 

@@ -103,7 +103,9 @@ export async function fetchMonthlySummary(): Promise<{
       if (inLastWeek) {
         weeklySpending += tx.amount;
       }
-    } else {
+    }
+
+    if (tx.type === "income") {
       if (inCurrentMonth) {
         totalIncome += tx.amount;
       }
@@ -133,8 +135,8 @@ export async function fetchBudgetOverviewData(
   const { start } = getCurrentMonthRange();
   const yearMonth = start.substring(0, 7); // "YYYY-MM"
 
-  // Fetch income target and budgets in parallel
-  const [incomeResult, budgetResult] = await Promise.all([
+  // Fetch income target, budgets, and categories in parallel
+  const [incomeResult, budgetResult, categoriesResult] = await Promise.all([
     supabase
       .from("monthly_income_targets")
       .select("amount")
@@ -144,6 +146,11 @@ export async function fetchBudgetOverviewData(
       .from("category_budgets")
       .select("category_id, amount, categories(name, icon, color)")
       .eq("year_month", yearMonth),
+    supabase
+      .from("categories")
+      .select("id, name, icon, color")
+      .eq("type", "expense")
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (incomeResult.error) {
@@ -154,6 +161,11 @@ export async function fetchBudgetOverviewData(
   if (budgetResult.error) {
     throw new Error(
       `Failed to fetch budget categories: ${budgetResult.error.message}`
+    );
+  }
+  if (categoriesResult.error) {
+    throw new Error(
+      `Failed to fetch expense categories: ${categoriesResult.error.message}`
     );
   }
 
@@ -179,23 +191,10 @@ export async function fetchBudgetOverviewData(
     });
   }
 
-  // Fetch ALL expense categories to identify unbudgeted ones
-  const { data: allExpenseCategories, error: catError } = await supabase
-    .from("categories")
-    .select("id, name, icon, color")
-    .eq("type", "expense")
-    .order("sort_order", { ascending: true });
-
-  if (catError) {
-    throw new Error(
-      `Failed to fetch expense categories: ${catError.message}`
-    );
-  }
+  const allExpenseCategories = categoriesResult.data ?? [];
 
   // Unbudgeted = expense categories without a budget that have spending this month
-  const unbudgetedCategories: UnbudgetedCategoryData[] = (
-    allExpenseCategories ?? []
-  )
+  const unbudgetedCategories: UnbudgetedCategoryData[] = allExpenseCategories
     .filter((c) => !budgetedCategoryIds.has(c.id) && (spentByCategory.get(c.id) ?? 0) > 0)
     .map((c) => ({
       id: c.id,

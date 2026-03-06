@@ -39,6 +39,13 @@ create policy "Users can insert own reminder payments"
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
     )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
+    )
   );
 
 create policy "Users can update own reminder payments"
@@ -49,12 +56,26 @@ create policy "Users can update own reminder payments"
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
     )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
+    )
   )
   with check (
     auth.uid() = user_id
     and exists (
       select 1 from public.reminders
       where id = reminder_id and user_id = auth.uid()
+    )
+    and (
+      transaction_id is null
+      or exists (
+        select 1 from public.transactions
+        where id = transaction_id and user_id = auth.uid()
+      )
     )
   );
 
@@ -63,9 +84,6 @@ create policy "Users can delete own reminder payments"
   using (auth.uid() = user_id);
 
 -- Indexes
-create index idx_reminder_payments_reminder_id
-  on public.reminder_payments (reminder_id);
-
 create index idx_reminder_payments_user_due
   on public.reminder_payments (user_id, due_date);
 

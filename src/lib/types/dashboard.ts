@@ -72,15 +72,23 @@ export interface CategoryJoinRow {
  * so we do a lightweight runtime check instead of an unsafe double-cast.
  */
 export function parseCategoryJoin(raw: unknown): CategoryJoinRow | null {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    "name" in raw &&
-    "icon" in raw &&
-    "color" in raw
-  ) {
-    return raw as CategoryJoinRow;
+  if (!raw || typeof raw !== "object") {
+    return null;
   }
+
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.name === "string" &&
+    typeof candidate.icon === "string" &&
+    typeof candidate.color === "string"
+  ) {
+    return {
+      name: candidate.name,
+      icon: candidate.icon,
+      color: candidate.color,
+    };
+  }
+
   return null;
 }
 
