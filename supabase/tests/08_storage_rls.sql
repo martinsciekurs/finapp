@@ -6,7 +6,7 @@
 -- ===========================================================================
 
 begin;
-select plan(4);
+select plan(10);
 
 -- ===========================
 -- Setup: create two test users
@@ -85,9 +85,84 @@ select throws_ok(
     su1(),
     su1()::text
   ),
-  '42501',
+  '42501'::char(5),
   null,
   'storage: user cannot INSERT under another user''s path'
+);
+
+-- ===========================================================================
+-- 5. Owner can UPDATE own objects
+-- ===========================================================================
+-- su1 updates all visible objects (RLS limits to own rows only)
+select lives_ok(
+  format(
+    'update storage.objects set metadata = ''{"test":true}''::jsonb where bucket_id = ''attachments'' and name like ''%s/%%''',
+    su1()::text
+  ),
+  'storage: user can UPDATE own attachment objects'
+);
+
+-- ===========================================================================
+-- 6. User cannot UPDATE another user's objects
+-- ===========================================================================
+-- Verify from su2's context that su1's update did not modify su2's row
+select authenticate_as(su2());
+
+select is(
+  (select metadata from storage.objects
+   where bucket_id = 'attachments'
+   and name like current_setting('test.su2') || '/%'),
+  null::jsonb,
+  'storage: user cannot UPDATE another user''s attachment objects'
+);
+
+-- ===========================================================================
+-- 7. User cannot DELETE another user's objects
+-- ===========================================================================
+select authenticate_as(su1());
+
+-- su1 targets su2's path — RLS makes su2's rows invisible, 0 rows affected
+select lives_ok(
+  format(
+    'delete from storage.objects where bucket_id = ''attachments'' and name like ''%s/%%''',
+    current_setting('test.su2')
+  ),
+  'storage: DELETE targeting another user''s path affects zero rows'
+);
+
+-- Verify su2's row still exists
+select authenticate_as(su2());
+
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'attachments'),
+  1,
+  'storage: user cannot DELETE another user''s attachment objects'
+);
+
+-- ===========================================================================
+-- 9. Anon cannot access objects for modification
+-- ===========================================================================
+select authenticate_as_anon();
+
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'attachments'),
+  0,
+  'storage: anon cannot access attachment objects for modification'
+);
+
+-- ===========================================================================
+-- 10. Owner can DELETE own objects (destructive — last)
+-- ===========================================================================
+select authenticate_as(su1());
+
+select lives_ok(
+  format(
+    'delete from storage.objects where bucket_id = ''attachments'' and name like ''%s/%%''',
+    su1()::text
+  ),
+  'storage: user can DELETE own attachment objects'
 );
 
 select reset_role();
