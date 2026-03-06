@@ -32,7 +32,7 @@ export function DashboardShell({
         </a>
 
         {/* Desktop sidebar */}
-        <SidebarNav />
+        <SidebarNav displayName={displayName} />
 
         {/* Main content area */}
         <div className="flex min-w-0 flex-1 flex-col">
@@ -42,7 +42,7 @@ export function DashboardShell({
           </header>
 
           {/* Hero banner + page content */}
-          <main id="main-content" className="flex-1 overflow-x-hidden">
+          <main id="main-content" className="flex-1">
             <div className="px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
               <HeroBanner displayName={displayName} banner={banner} />
             </div>

@@ -7,7 +7,14 @@ const tourLauncherMock = vi.fn((props: { showTour: boolean }) => {
   return null;
 });
 
-// Mock child components to isolate shell behavior
+vi.mock("../profile-menu", () => ({
+  ProfileMenu: ({ displayName }: { displayName: string }) => (
+    <button data-testid="profile-menu" aria-label="Open profile menu">
+      {displayName}
+    </button>
+  ),
+}));
+
 vi.mock("../hero-banner", () => ({
   HeroBanner: ({
     displayName,
@@ -23,8 +30,8 @@ vi.mock("../hero-banner", () => ({
 }));
 
 vi.mock("../sidebar-nav", () => ({
-  SidebarNav: () => (
-    <nav data-testid="sidebar-nav" aria-label="Main navigation">
+  SidebarNav: ({ displayName }: { displayName: string }) => (
+    <nav data-testid="sidebar-nav" aria-label="Main navigation" data-display-name={displayName}>
       SidebarNav
     </nav>
   ),

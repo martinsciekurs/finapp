@@ -12,11 +12,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Drawer, DrawerTrigger } from "@/components/ui/drawer";
+import { SettingsDrawerContent } from "./settings-drawer-content";
 import { NAV_ITEMS, isNavItemActive } from "./nav-items";
 
-export function SidebarNav() {
+interface SidebarNavProps {
+  displayName: string;
+}
+
+export function SidebarNav({ displayName }: SidebarNavProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
 
   return (
@@ -110,51 +117,60 @@ export function SidebarNav() {
       </nav>
 
       {/* Settings */}
-      <div className="border-t border-sidebar-border p-3">
-        {(() => {
-          const isActive = pathname.startsWith("/dashboard/settings");
-          const settingsLink = (
-            <Link
-              href="/dashboard/settings"
-              className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                collapsed && "justify-center px-2",
-                isActive
-                  ? "text-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )}
-              aria-current={isActive ? "page" : undefined}
-              aria-label={collapsed ? "Settings" : undefined}
-            >
-              {isActive &&
-                (reduceMotion ? (
-                  <div className="absolute inset-0 rounded-lg bg-sidebar-accent" />
-                ) : (
-                  <motion.div
-                    className="absolute inset-0 rounded-lg bg-sidebar-accent"
-                    layoutId="sidebarNavActive"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                ))}
-              <Settings className="relative size-5 shrink-0" />
-              {!collapsed && <span className="relative">Settings</span>}
-            </Link>
-          );
-
-          if (collapsed) {
-            return (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>{settingsLink}</TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  Settings
-                </TooltipContent>
-              </Tooltip>
+      <Drawer open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <div className="border-t border-sidebar-border p-3">
+          {(() => {
+            const isHighlighted =
+              settingsOpen || pathname.startsWith("/dashboard/settings");
+            const settingsButton = (
+              <DrawerTrigger asChild>
+                <button
+                  className={cn(
+                    "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    collapsed && "justify-center px-2",
+                    isHighlighted
+                      ? "text-sidebar-primary"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                  aria-label={collapsed ? "Settings" : undefined}
+                >
+                  {isHighlighted &&
+                    (reduceMotion ? (
+                      <div className="absolute inset-0 rounded-lg bg-sidebar-accent" />
+                    ) : (
+                      <motion.div
+                        className="absolute inset-0 rounded-lg bg-sidebar-accent"
+                        layoutId="sidebarNavActive"
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 30,
+                        }}
+                      />
+                    ))}
+                  <Settings className="relative size-5 shrink-0" />
+                  {!collapsed && <span className="relative">Settings</span>}
+                </button>
+              </DrawerTrigger>
             );
-          }
 
-          return settingsLink;
-        })()}
-      </div>
+            if (collapsed) {
+              return (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>{settingsButton}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    Settings
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return settingsButton;
+          })()}
+        </div>
+
+        <SettingsDrawerContent displayName={displayName} />
+      </Drawer>
     </aside>
   );
 }
