@@ -32,6 +32,10 @@ import {
 } from "@/lib/validations/transaction";
 import { updateTransaction } from "@/app/dashboard/transactions/actions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
+import {
+  filterCategoriesByType,
+  parseAmountInput,
+} from "@/lib/utils/transactions";
 
 // ────────────────────────────────────────────
 // Props
@@ -77,9 +81,7 @@ export function EditTransactionDialog({
 
   const currentType = form.watch("type");
 
-  const filteredCategories = categories.filter(
-    (cat) => cat.type === currentType
-  );
+  const filteredCategories = filterCategoriesByType(categories, currentType);
 
   function handleTypeChange(type: "expense" | "income") {
     form.setValue("type", type);
@@ -143,8 +145,7 @@ export function EditTransactionDialog({
                       {...field}
                       value={field.value ?? ""}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === "" ? undefined : parseFloat(val));
+                        field.onChange(parseAmountInput(e.target.value));
                       }}
                     />
                   </FormControl>

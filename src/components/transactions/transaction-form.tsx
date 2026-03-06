@@ -26,6 +26,10 @@ import {
 } from "@/lib/validations/transaction";
 import { createTransaction } from "@/app/dashboard/transactions/actions";
 import type { CategoryOption } from "@/lib/types/transactions";
+import {
+  filterCategoriesByType,
+  parseAmountInput,
+} from "@/lib/utils/transactions";
 
 // ────────────────────────────────────────────
 // Props
@@ -59,9 +63,7 @@ export function TransactionForm({ categories }: TransactionFormProps) {
   const currentType = form.watch("type");
 
   // Filter categories to match the selected type
-  const filteredCategories = categories.filter(
-    (cat) => cat.type === currentType
-  );
+  const filteredCategories = filterCategoriesByType(categories, currentType);
 
   async function onSubmit(values: TransactionFormValues) {
     setIsSubmitting(true);
@@ -140,8 +142,7 @@ export function TransactionForm({ categories }: TransactionFormProps) {
                       {...field}
                       value={field.value ?? ""}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === "" ? undefined : parseFloat(val));
+                        field.onChange(parseAmountInput(e.target.value));
                       }}
                     />
                   </FormControl>

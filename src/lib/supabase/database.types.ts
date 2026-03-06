@@ -276,11 +276,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "reminders_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "fk_reminders_category"
+            columns: ["category_id", "user_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -317,11 +317,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "reminder_payments_reminder_id_fkey"
-            columns: ["reminder_id"]
+            foreignKeyName: "fk_reminder_payments_reminder_user"
+            columns: ["reminder_id", "user_id"]
             isOneToOne: false
             referencedRelation: "reminders"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "reminder_payments_user_id_fkey"
@@ -331,11 +331,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "reminder_payments_transaction_id_fkey"
-            columns: ["transaction_id"]
+            foreignKeyName: "fk_reminder_payments_transaction"
+            columns: ["transaction_id", "user_id"]
             isOneToOne: false
             referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
