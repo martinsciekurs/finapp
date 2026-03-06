@@ -6,6 +6,7 @@
  */
 
 import type { AttachmentData } from "@/lib/types/attachments";
+import type { TagData } from "@/lib/types/tags";
 
 // ────────────────────────────────────────────
 // Transaction display data
@@ -22,6 +23,7 @@ export interface TransactionData {
   categoryIcon: string;
   categoryColor: string | null;
   attachments: AttachmentData[];
+  tags: TagData[];
 }
 
 // ────────────────────────────────────────────

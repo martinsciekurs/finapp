@@ -19,13 +19,16 @@ import {
 } from "@/components/ui/form";
 import { CategoryCombobox } from "./category-combobox";
 import { TransactionTypeToggle } from "./transaction-type-toggle";
+import { TagInput } from "./tag-input";
 import { formatDateForInput } from "@/lib/utils/date";
 import {
   transactionFormSchema,
   type TransactionFormValues,
 } from "@/lib/validations/transaction";
 import { createTransaction } from "@/app/dashboard/transactions/actions";
+import { createTag, assignTagToTransaction } from "@/app/dashboard/transactions/tag-actions";
 import type { CategoryOption } from "@/lib/types/transactions";
+import type { TagData } from "@/lib/types/tags";
 import {
   filterCategoriesByType,
   parseAmountInput,
@@ -37,14 +40,16 @@ import {
 
 interface TransactionFormProps {
   categories: CategoryOption[];
+  userTags: TagData[];
 }
 
 // ────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────
 
-export function TransactionForm({ categories }: TransactionFormProps) {
+export function TransactionForm({ categories, userTags }: TransactionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingTags, setPendingTags] = useState<TagData[]>([]);
   const prefersReducedMotion = useReducedMotion();
 
   const today = formatDateForInput(new Date());
@@ -65,6 +70,23 @@ export function TransactionForm({ categories }: TransactionFormProps) {
   // Filter categories to match the selected type
   const filteredCategories = filterCategoriesByType(categories, currentType);
 
+  function handlePendingTagAdd(tag: TagData) {
+    setPendingTags((prev) => [...prev, tag]);
+  }
+
+  function handlePendingTagRemove(tagId: string) {
+    setPendingTags((prev) => prev.filter((t) => t.id !== tagId));
+  }
+
+  async function handleCreateTag(name: string, color: string): Promise<TagData | null> {
+    const result = await createTag({ name, color });
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Failed to create tag");
+      return null;
+    }
+    return { id: result.data.id, name, color };
+  }
+
   async function onSubmit(values: TransactionFormValues) {
     setIsSubmitting(true);
 
@@ -79,6 +101,14 @@ export function TransactionForm({ categories }: TransactionFormProps) {
         toast.error(result.error ?? "Failed to add transaction");
         return;
       }
+
+      if (result.data?.id && pendingTags.length > 0) {
+        const transactionId = result.data.id;
+        await Promise.all(
+          pendingTags.map((tag) => assignTagToTransaction(transactionId, tag.id))
+        );
+      }
+      setPendingTags([]);
 
       toast.success(
         `${values.type === "expense" ? "Expense" : "Income"} added`
@@ -205,6 +235,17 @@ export function TransactionForm({ categories }: TransactionFormProps) {
                 </FormItem>
               )}
             />
+
+            <div className="col-span-full">
+              <label className="text-sm font-medium">Tags</label>
+              <TagInput
+                selectedTags={pendingTags}
+                availableTags={userTags}
+                onTagAdd={handlePendingTagAdd}
+                onTagRemove={handlePendingTagRemove}
+                onCreateTag={handleCreateTag}
+              />
+            </div>
           </div>
 
           {/* Submit */}

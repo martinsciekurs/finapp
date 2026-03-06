@@ -240,8 +240,8 @@ export async function fetchRecentTransactions(
     return {
       id: tx.id,
       amount: tx.amount,
-      type: tx.type,
-      description: tx.description,
+      type: tx.type as "expense" | "income",
+      description: tx.description ?? "",
       date: tx.date,
       ...categoryDisplay,
     };

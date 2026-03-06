@@ -65,7 +65,7 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
     return {
       id: debt.id,
       counterparty: debt.counterparty,
-      type: debt.type,
+      type: debt.type as "i_owe" | "they_owe",
       categoryId: debt.category_id,
       categoryName: category?.name ?? null,
       categoryIcon: category?.icon ?? null,

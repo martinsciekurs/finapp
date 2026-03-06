@@ -26,6 +26,14 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
       const steps = getWelcomeTourSteps();
       const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+      function skipTour() {
+        void completeTour();
+        const activeDriver = driverRef.current;
+        if (!activeDriver) return;
+        driverRef.current = null;
+        activeDriver.destroy();
+      }
+
       driverRef.current = driver({
         showProgress: true,
         progressText: "{{current}} of {{total}}",
@@ -41,6 +49,14 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
         stageRadius: 12,
         popoverOffset: 12,
         steps,
+        onPopoverRender: (popover, { state }) => {
+          if (state.activeIndex === steps.length - 1) return;
+          const skipBtn = document.createElement("button");
+          skipBtn.innerText = "Skip";
+          skipBtn.className = "driver-popover-skip-btn";
+          skipBtn.addEventListener("click", skipTour);
+          popover.footerButtons.prepend(skipBtn);
+        },
         onNextClick: (_, __, { driver: driverInstance }) => {
           if (!driverInstance.hasNextStep()) {
             void completeTour();
@@ -51,6 +67,7 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
 
           driverInstance.moveNext();
         },
+        onCloseClick: skipTour,
         onDestroyStarted: () => {
           const activeDriver = driverRef.current;
           if (!activeDriver) return;

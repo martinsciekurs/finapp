@@ -194,10 +194,10 @@ export async function updateDebt(
     p_debt_id: parsed.data.id,
     p_counterparty: parsed.data.counterparty,
     p_type: parsed.data.type,
-    p_category_id: parsed.data.category_id ? parsed.data.category_id : null,
+    p_category_id: parsed.data.category_id || undefined,
     p_debt_date: parsed.data.debt_date,
     p_original_amount: parsed.data.original_amount,
-    p_description: parsed.data.description || null,
+    p_description: parsed.data.description || undefined,
   });
 
   if (updateError) {
@@ -258,7 +258,7 @@ export async function recordDebtPayment(
   const { data, error } = await supabase.rpc("record_debt_payment_atomic", {
     p_debt_id: parsed.data.debt_id,
     p_amount: parsed.data.amount,
-    p_note: parsed.data.note || null,
+    p_note: parsed.data.note || undefined,
     p_payment_date: parsed.data.payment_date,
   });
 
@@ -295,7 +295,7 @@ export async function updateDebtPayment(
   const { error } = await supabase.rpc("update_debt_payment_atomic", {
     p_payment_id: parsed.data.id,
     p_amount: parsed.data.amount,
-    p_note: parsed.data.note || null,
+    p_note: parsed.data.note || undefined,
     p_payment_date: parsed.data.payment_date,
   });
 
