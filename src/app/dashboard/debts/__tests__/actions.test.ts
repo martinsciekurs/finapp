@@ -157,14 +157,11 @@ describe("deleteDebt", () => {
     expect(result.success).toBe(false);
   });
 
-  it("returns not found when no rows deleted", async () => {
+  it("returns rpc not found error", async () => {
     mockAuthenticated();
-    const { chain } = chainable(undefined);
-    chain.select = vi.fn().mockResolvedValue({ data: [], error: null });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return chain;
-      return {};
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Debt not found" },
     });
 
     const result = await deleteDebt({ id: validUuid });
@@ -173,19 +170,30 @@ describe("deleteDebt", () => {
 
   it("deletes debt successfully", async () => {
     mockAuthenticated();
-    const { chain } = chainable(undefined);
-    chain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return chain;
-      return {};
-    });
+    mockRpc.mockResolvedValue({ data: { debt_id: validUuid }, error: null });
 
     const result = await deleteDebt({ id: validUuid });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_debt_atomic", {
+      p_debt_id: validUuid,
+      p_delete_linked_transactions: false,
+    });
+  });
+
+  it("passes delete_linked_transactions choice to rpc", async () => {
+    mockAuthenticated();
+    mockRpc.mockResolvedValue({ data: { debt_id: validUuid }, error: null });
+
+    const result = await deleteDebt({
+      id: validUuid,
+      delete_linked_transactions: true,
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_debt_atomic", {
+      p_debt_id: validUuid,
+      p_delete_linked_transactions: true,
+    });
   });
 });
 

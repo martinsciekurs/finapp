@@ -214,7 +214,7 @@ export async function updateDebt(
 export async function deleteDebt(values: DeleteDebtValues): Promise<ActionResult> {
   const auth = await requireAuth();
   if (!auth) return { success: false, error: "Not authenticated" };
-  const { supabase, userId } = auth;
+  const { supabase } = auth;
 
   const parsed = deleteDebtSchema.safeParse(values);
   if (!parsed.success) {
@@ -224,18 +224,16 @@ export async function deleteDebt(values: DeleteDebtValues): Promise<ActionResult
     };
   }
 
-  const { data: deleted, error } = await supabase
-    .from("debts")
-    .delete()
-    .eq("id", parsed.data.id)
-    .eq("user_id", userId)
-    .select("id");
+  const { error } = await supabase.rpc("delete_debt_atomic", {
+    p_debt_id: parsed.data.id,
+    p_delete_linked_transactions: parsed.data.delete_linked_transactions ?? false,
+  });
 
   if (error) {
-    return { success: false, error: "Failed to delete debt" };
-  }
-  if (!deleted || deleted.length === 0) {
-    return { success: false, error: "Debt not found" };
+    return {
+      success: false,
+      error: getRpcErrorMessage(error, "Failed to delete debt"),
+    };
   }
 
   revalidate();
