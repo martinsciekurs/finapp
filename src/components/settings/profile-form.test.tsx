@@ -17,7 +17,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { ProfileForm } from "../profile-form";
+import { ProfileForm } from "./profile-form";
 
 describe("ProfileForm", () => {
   beforeEach(() => {

@@ -17,7 +17,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { EmailForm } from "../email-form";
+import { EmailForm } from "./email-form";
 
 describe("EmailForm", () => {
   beforeEach(() => {
