@@ -1,4 +1,4 @@
-# FinApp — Agent Guidelines
+# Simplony — Agent Guidelines
 
 ## Project Overview
 

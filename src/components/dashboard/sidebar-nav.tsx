@@ -38,7 +38,7 @@ export function SidebarNav() {
       >
         {!collapsed && (
           <span className="font-serif text-lg font-bold text-sidebar-foreground">
-            FinApp
+            Simplony
           </span>
         )}
         <Button

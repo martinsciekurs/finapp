@@ -1,4 +1,4 @@
-# FinApp — Personal Finance Dashboard
+# Simplony — Personal Finance Dashboard
 
 Track expenses, manage budgets, and stay on top of your finances. Built with Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, and Supabase.
 

@@ -23,8 +23,8 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: {
-    default: "FinApp - Personal Finance Dashboard",
-    template: "%s | FinApp",
+    default: "Simplony - Personal Finance Dashboard",
+    template: "%s | Simplony",
   },
   description:
     "Track your expenses, manage budgets, and stay on top of your finances with AI-powered insights.",

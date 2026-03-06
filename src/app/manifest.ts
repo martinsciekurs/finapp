@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FinApp - Personal Finance Dashboard",
-    short_name: "FinApp",
+    name: "Simplony - Personal Finance Dashboard",
+    short_name: "Simplony",
     description:
       "Track your expenses, manage budgets, and stay on top of your finances.",
     start_url: "/dashboard",

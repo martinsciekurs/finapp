@@ -7,7 +7,7 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 md:px-12">
-        <h1 className="font-serif text-xl font-bold text-primary">FinApp</h1>
+        <h1 className="font-serif text-xl font-bold text-primary">Simplony</h1>
         <div className="flex gap-3">
           <Button variant="ghost" asChild>
             <Link href="/auth/login">Sign in</Link>

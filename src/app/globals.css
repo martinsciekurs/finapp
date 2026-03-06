@@ -187,7 +187,7 @@
   }
 }
 
-/* driver.js tour overrides — match FinApp design system */
+/* driver.js tour overrides — match Simplony design system */
 .driver-popover {
   background-color: var(--popover) !important;
   color: var(--popover-foreground) !important;

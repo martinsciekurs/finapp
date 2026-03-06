@@ -48,9 +48,9 @@ describe("SidebarNav", () => {
     }
   });
 
-  it("renders FinApp title", () => {
+  it("renders Simplony title", () => {
     render(<SidebarNav />);
-    expect(screen.getByText("FinApp")).toBeInTheDocument();
+    expect(screen.getByText("Simplony")).toBeInTheDocument();
   });
 
   it("marks active item with aria-current", () => {
@@ -72,7 +72,7 @@ describe("SidebarNav", () => {
       screen.getByRole("button", { name: "Collapse sidebar" })
     );
 
-    expect(screen.queryByText("FinApp")).not.toBeInTheDocument();
+    expect(screen.queryByText("Simplony")).not.toBeInTheDocument();
     const expandBtn = screen.getByRole("button", { name: "Expand sidebar" });
     expect(expandBtn).toHaveAttribute("aria-expanded", "false");
   });

@@ -370,7 +370,7 @@ describe("skipOnboarding", () => {
       name: string;
     }>;
     expect(insertedCategories.length).toBeGreaterThanOrEqual(2);
-    expect(insertedCategories.some((category) => category.name === "Emergency Fund")).toBe(true);
+    expect(insertedCategories.some((category) => category.name === "Savings")).toBe(true);
     expect(insertedCategories.some((category) => category.name === "Salary")).toBe(true);
 
     const profileUpdatePayload = profileUpdateSpy.mock.calls[0][0] as {

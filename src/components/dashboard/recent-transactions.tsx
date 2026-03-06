@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, Receipt } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -114,6 +115,14 @@ export function RecentTransactions({
           icon={Receipt}
           title="No transactions yet"
           description="Add your first transaction to start tracking your spending and income."
+          action={
+            <Button asChild>
+              <Link href="/dashboard/transactions">
+                <Plus className="size-4" />
+                Add transaction
+              </Link>
+            </Button>
+          }
         />
       </div>
     );
