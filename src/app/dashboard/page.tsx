@@ -4,6 +4,7 @@ import {
   fetchUserCurrency,
   fetchMonthlySummary,
   fetchBudgetOverviewData,
+  fetchBudgetHistoricalSpending,
   fetchRecentTransactions,
 } from "@/lib/queries/dashboard";
 import { fetchHasDebts } from "@/lib/queries/debts";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [currency, { summary, spentByCategory }, upcomingRemindersData, recentTransactions, tourState, hasDebts] =
+  const [currency, { summary, spentByCategory }, upcomingRemindersData, recentTransactions, tourState, hasDebts, historicalSpending] =
     await Promise.all([
       fetchUserCurrency(),
       fetchMonthlySummary(),
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
       fetchRecentTransactions(),
       fetchTourState(),
       fetchHasDebts(),
+      fetchBudgetHistoricalSpending(),
     ]);
 
   const budgetOverviewData = await fetchBudgetOverviewData(spentByCategory);
@@ -66,7 +68,7 @@ export default async function DashboardPage() {
         />
       )}
 
-      <BudgetOverview data={budgetOverviewData} currency={currency} />
+      <BudgetOverview data={budgetOverviewData} currency={currency} historicalData={historicalSpending} />
 
       {showDebtsTip && (
         <QuickTip

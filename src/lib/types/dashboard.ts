@@ -39,6 +39,14 @@ export interface BudgetOverviewData {
   unbudgetedCategories: UnbudgetedCategoryData[];
 }
 
+/** Historical monthly spending per category for sparkline visualizations. */
+export interface BudgetHistoricalData {
+  /** Monthly spending amounts per category (oldest first). Key: category ID */
+  spendingByCategory: Record<string, number[]>;
+  /** Short month labels, e.g. ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"] */
+  monthLabels: string[];
+}
+
 // ────────────────────────────────────────────
 // Recent Transactions
 // ────────────────────────────────────────────

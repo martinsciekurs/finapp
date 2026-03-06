@@ -17,6 +17,14 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("@/components/ui/sparkline-chart", () => ({
+  SparklineChart: ({ data, color, className }: { data: number[]; color?: string; className?: string }) => (
+    <svg data-testid="sparkline" data-color={color} className={className} aria-hidden="true">
+      <path d={`M${data.join(",")}`} />
+    </svg>
+  ),
+}));
+
 import { BudgetOverview } from "../budget-overview";
 
 // ────────────────────────────────────────────
@@ -333,5 +341,50 @@ describe("BudgetOverview", () => {
     expect(screen.getByText("Budget Overview")).toBeInTheDocument();
     expect(screen.getByText("Not Budgeted")).toBeInTheDocument();
     expect(screen.getByText("Coffee")).toBeInTheDocument();
+  });
+
+  // ──────────────────────────────────────────
+  // Sparklines, pace markers, and delta badges
+  // ──────────────────────────────────────────
+
+  const historicalData = {
+    spendingByCategory: {
+      "cat-1": [100, 200, 250, 300, 400, 350],
+      "cat-2": [150, 160, 170, 180, 100, 180],
+      "cat-3": [80, 90, 100, 120, 100, 160],
+    },
+    monthLabels: ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+  };
+
+  it("renders sparklines for categories with historical data", () => {
+    render(
+      <BudgetOverview
+        data={buildData()}
+        currency="USD"
+        historicalData={historicalData}
+      />
+    );
+
+    const sparklines = screen.getAllByTestId("sparkline");
+    expect(sparklines).toHaveLength(3);
+  });
+
+  it("does not render sparklines without historical data", () => {
+    render(<BudgetOverview data={buildData()} currency="USD" />);
+
+    expect(screen.queryByTestId("sparkline")).not.toBeInTheDocument();
+  });
+
+  it("renders pace markers with title tooltip", () => {
+    render(
+      <BudgetOverview
+        data={buildData()}
+        currency="USD"
+        historicalData={historicalData}
+      />
+    );
+
+    const paceMarkers = screen.getAllByTitle(/through the month/);
+    expect(paceMarkers).toHaveLength(3);
   });
 });

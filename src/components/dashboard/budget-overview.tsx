@@ -11,11 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CategoryIcon } from "@/components/ui/category-icon";
+import { SparklineChart } from "@/components/ui/sparkline-chart";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
 import type {
   BudgetCategoryData,
+  BudgetHistoricalData,
   BudgetOverviewData,
   UnbudgetedCategoryData,
 } from "@/lib/types/dashboard";
@@ -23,6 +25,7 @@ import type {
 interface BudgetOverviewProps {
   data: BudgetOverviewData;
   currency: string;
+  historicalData?: BudgetHistoricalData;
 }
 
 // ────────────────────────────────────────────
@@ -52,6 +55,13 @@ const progressTextColors = {
   over: "text-destructive",
 } as const;
 
+function getPacePercent(): number {
+  const now = new Date();
+  const day = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return (day / daysInMonth) * 100;
+}
+
 // ────────────────────────────────────────────
 // BudgetProgressRow
 // ────────────────────────────────────────────
@@ -60,15 +70,21 @@ function BudgetProgressRow({
   category,
   currency,
   index,
+  sparklineData,
+  pacePercent,
 }: {
   category: BudgetCategoryData;
   currency: string;
   index: number;
+  sparklineData?: number[];
+  pacePercent: number;
 }) {
   const prefersReducedMotion = useReducedMotion();
   const percent = getProgressPercent(category.spent, category.budgetLimit);
   const variant = getProgressVariant(percent);
   const isOver = category.spent > category.budgetLimit;
+
+  const hasSparkline = sparklineData && sparklineData.some((v) => v > 0);
 
   return (
     <motion.div
@@ -101,25 +117,48 @@ function BudgetProgressRow({
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div
-        className="h-2 w-full overflow-hidden rounded-full bg-muted"
-        role="progressbar"
-        aria-valuenow={Math.round(percent)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${category.name} budget: ${Math.round(percent)}% used`}
-      >
-        <motion.div
-          className={cn("h-full rounded-full", progressColors[variant])}
-          initial={prefersReducedMotion ? { width: `${percent}%` } : { width: "0%" }}
-          animate={{ width: `${percent}%` }}
-          transition={
-            prefersReducedMotion
-              ? { duration: 0 }
-              : { duration: 0.3, ease: "easeOut", delay: 0.1 + index * 0.05 }
-          }
-        />
+      <div className="flex items-center gap-2.5">
+        {hasSparkline && (
+          <SparklineChart
+            data={sparklineData}
+            width={72}
+            height={24}
+            color={category.color}
+          />
+        )}
+        <div className="relative flex-1">
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuenow={Math.round(percent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${category.name} budget: ${Math.round(percent)}% used`}
+          >
+            <motion.div
+              className={cn("h-full rounded-full", progressColors[variant])}
+              initial={prefersReducedMotion ? { width: `${percent}%` } : { width: "0%" }}
+              animate={{ width: `${percent}%` }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.3, ease: "easeOut", delay: 0.1 + index * 0.05 }
+              }
+            />
+          </div>
+          <motion.div
+            className="absolute top-1/2 h-2.5 w-[2px] rounded-full bg-foreground/30"
+            style={{ left: `${pacePercent}%`, transform: "translateX(-50%) translateY(-50%)" }}
+            title={`${Math.round(pacePercent)}% through the month`}
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0 }
+                : { duration: 0.3, delay: 0.3 + index * 0.05 }
+            }
+          />
+        </div>
       </div>
     </motion.div>
   );
@@ -210,13 +249,15 @@ function UnbudgetedRow({
  * 2. Per-category progress bars for budgeted expense categories
  * 3. Unbudgeted expense categories listed below a divider
  */
-export function BudgetOverview({ data, currency }: BudgetOverviewProps) {
+export function BudgetOverview({ data, currency, historicalData }: BudgetOverviewProps) {
   const {
     incomeTarget,
     totalBudgeted,
     budgetedCategories,
     unbudgetedCategories,
   } = data;
+
+  const pacePercent = getPacePercent();
 
   const hasContent =
     budgetedCategories.length > 0 || unbudgetedCategories.length > 0;
@@ -278,6 +319,8 @@ export function BudgetOverview({ data, currency }: BudgetOverviewProps) {
             category={category}
             currency={currency}
             index={index}
+            sparklineData={historicalData?.spendingByCategory[category.id]}
+            pacePercent={pacePercent}
           />
         ))}
 
