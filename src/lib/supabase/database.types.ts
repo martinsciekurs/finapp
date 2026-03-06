@@ -821,6 +821,13 @@ export type Database = {
         Args: { p_payment_id: string }
         Returns: Json
       }
+      delete_debt_atomic: {
+        Args: {
+          p_debt_id: string
+          p_delete_linked_transactions?: boolean
+        }
+        Returns: Json
+      }
       delete_category_with_reassign: {
         Args: { p_category_id: string; p_reassign_to?: string }
         Returns: undefined
