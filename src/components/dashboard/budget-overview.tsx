@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -143,7 +142,7 @@ function UnbudgetedRow({
 
   return (
     <motion.div
-      className="flex items-center justify-between text-sm"
+      className="space-y-1.5"
       initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={
@@ -152,21 +151,49 @@ function UnbudgetedRow({
           : { duration: 0.2, delay: index * 0.05 }
       }
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <CategoryIcon
-          name={category.icon}
-          className="size-4 shrink-0 text-muted-foreground/60"
-          aria-label={category.name}
-        />
-        <span className="truncate text-muted-foreground">
-          {category.name}
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <CategoryIcon
+            name={category.icon}
+            className="size-4 shrink-0 text-muted-foreground/60"
+            aria-label={category.name}
+          />
+          <span className="truncate text-muted-foreground">
+            {category.name}
+          </span>
+        </div>
+        <span className={cn(
+          "shrink-0 text-xs tabular-nums",
+          category.spent > 0 ? "text-destructive" : "text-muted-foreground"
+        )}>
+          {category.spent > 0
+            ? formatCurrency(category.spent, currency)
+            : "No budget"}
         </span>
       </div>
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-        {category.spent > 0
-          ? formatCurrency(category.spent, currency)
-          : "No budget"}
-      </span>
+
+      {/* Progress bar - always 100% wide and red when spending exists */}
+      {category.spent > 0 && (
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={100}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${category.name}: unbudgeted spending`}
+        >
+          <motion.div
+            className="h-full rounded-full bg-destructive"
+            initial={prefersReducedMotion ? { width: "100%" } : { width: "0%" }}
+            animate={{ width: "100%" }}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0 }
+                : { duration: 0.3, ease: "easeOut", delay: 0.1 + index * 0.05 }
+            }
+          />
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -235,14 +262,12 @@ export function BudgetOverview({ data, currency }: BudgetOverviewProps) {
             )}
           </div>
 
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0 px-2.5 text-xs"
+          <Link
+            href="/dashboard/budget"
+            className="shrink-0 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Link href="/dashboard/budget">View budget</Link>
-          </Button>
+            View budget
+          </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
