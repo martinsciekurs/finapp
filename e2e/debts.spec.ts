@@ -23,6 +23,8 @@ test.describe("Debts page", () => {
 
     await page.getByLabel("Counterparty").fill("John Doe");
     await page.getByLabel("Amount").fill("120");
+    await page.getByRole("dialog").getByRole("combobox").click();
+    await page.getByRole("option").first().click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Add Debt" })

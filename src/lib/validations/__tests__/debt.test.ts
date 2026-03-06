@@ -71,6 +71,11 @@ describe("updateDebtSchema", () => {
     const result = updateDebtSchema.safeParse({ ...validData, id: "bad" });
     expect(result.success).toBe(false);
   });
+
+  it("accepts empty category_id for deleted categories", () => {
+    const result = updateDebtSchema.safeParse({ ...validData, category_id: "" });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("createDebtPaymentSchema", () => {
