@@ -121,13 +121,14 @@ select is(
 -- ===========================================================================
 select authenticate_as(su1());
 
--- su1 targets su2's path — RLS makes su2's rows invisible, 0 rows affected
-select lives_ok(
+select throws_ok(
   format(
     'delete from storage.objects where bucket_id = ''attachments'' and name like ''%s/%%''',
     current_setting('test.su2')
   ),
-  'storage: DELETE targeting another user''s path affects zero rows'
+  '42501'::char(5),
+  null,
+  'storage: direct DELETE against attachment objects is blocked'
 );
 
 -- Verify su2's row still exists
@@ -153,16 +154,17 @@ select is(
 );
 
 -- ===========================================================================
--- 10. Owner can DELETE own objects (destructive — last)
 -- ===========================================================================
 select authenticate_as(su1());
 
-select lives_ok(
+select throws_ok(
   format(
     'delete from storage.objects where bucket_id = ''attachments'' and name like ''%s/%%''',
     su1()::text
   ),
-  'storage: user can DELETE own attachment objects'
+  '42501'::char(5),
+  null,
+  'storage: owner cannot directly DELETE attachment objects from storage.objects'
 );
 
 select reset_role();

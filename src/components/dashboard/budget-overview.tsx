@@ -196,11 +196,13 @@ export function BudgetOverview({ data, currency }: BudgetOverviewProps) {
 
   if (!hasContent) {
     return (
-      <EmptyState
-        icon={PieChart}
-        title="No budgets set"
-        description="Set budget limits on your expense categories to track your spending here."
-      />
+      <div data-tour="budget-overview">
+        <EmptyState
+          icon={PieChart}
+          title="No budgets set"
+          description="Set budget limits on your expense categories to track your spending here."
+        />
+      </div>
     );
   }
 
@@ -208,7 +210,7 @@ export function BudgetOverview({ data, currency }: BudgetOverviewProps) {
   const isOver = totalBudgeted > incomeTarget;
 
   return (
-    <Card>
+    <Card data-tour="budget-overview">
       <CardHeader className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">

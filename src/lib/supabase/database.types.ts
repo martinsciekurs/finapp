@@ -795,6 +795,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      append_tour_step: {
+        Args: {
+          profile_id: string
+          step: string
+        }
+        Returns: undefined
+      }
       batch_reorder_categories: {
         Args: { p_items: Json }
         Returns: undefined

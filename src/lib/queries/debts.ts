@@ -14,11 +14,13 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
       .select(
         "id, counterparty, type, category_id, debt_date, original_amount, remaining_amount, description, created_at, categories(name, icon, color)"
       )
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }),
     supabase
       .from("debt_payments")
       .select("id, debt_id, amount, note, transaction_id, created_at, transactions(date)")
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }),
   ]);
 
   if (debtsResult.error) {
@@ -104,4 +106,18 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
     theyOweActive,
     settled,
   };
+}
+
+export async function fetchHasDebts(): Promise<boolean> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("debts")
+    .select("id", { count: "exact", head: true })
+    .limit(1);
+
+  if (error) {
+    throw new Error(`Failed to check debts existence: ${error.message}`);
+  }
+
+  return (count ?? 0) > 0;
 }

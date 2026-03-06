@@ -42,7 +42,7 @@ describe("Attachments", () => {
     vi.clearAllMocks();
   });
 
-  it("renders empty state with attach file button", () => {
+  it("renders empty state with add button and label", () => {
     render(
       <Attachments
         recordType="transaction"
@@ -51,7 +51,8 @@ describe("Attachments", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /attach file/i })).toBeInTheDocument();
+    expect(screen.getByText("No attachments")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add/i })).toBeInTheDocument();
   });
 
   it("renders existing attachment with preview link", () => {

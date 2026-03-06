@@ -3,17 +3,20 @@ import { HeroBanner } from "./hero-banner";
 import { SidebarNav } from "./sidebar-nav";
 import { BottomNav } from "./bottom-nav";
 import { NotificationBell } from "./notification-bell";
+import { TourLauncher } from "@/components/tour/tour-launcher";
 import type { BannerData } from "@/lib/config/banners";
 
 interface DashboardShellProps {
   displayName: string;
   banner: BannerData | null;
+  showTour: boolean;
   children: React.ReactNode;
 }
 
 export function DashboardShell({
   displayName,
   banner,
+  showTour,
   children,
 }: DashboardShellProps) {
   return (
@@ -54,6 +57,8 @@ export function DashboardShell({
 
         {/* Mobile bottom nav */}
         <BottomNav />
+
+        {showTour ? <TourLauncher showTour={showTour} /> : null}
       </div>
     </TooltipProvider>
   );

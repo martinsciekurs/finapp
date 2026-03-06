@@ -1,6 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DashboardShell } from "../dashboard-shell";
+
+const tourLauncherMock = vi.fn((props: { showTour: boolean }) => {
+  void props;
+  return null;
+});
 
 // Mock child components to isolate shell behavior
 vi.mock("../hero-banner", () => ({
@@ -45,10 +50,18 @@ vi.mock("@/components/ui/tooltip", () => ({
   ),
 }));
 
+vi.mock("@/components/tour/tour-launcher", () => ({
+  TourLauncher: (props: { showTour: boolean }) => tourLauncherMock(props),
+}));
+
 describe("DashboardShell", () => {
+  beforeEach(() => {
+    tourLauncherMock.mockClear();
+  });
+
   it("renders all sub-components", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test content</p>
       </DashboardShell>
     );
@@ -61,7 +74,7 @@ describe("DashboardShell", () => {
 
   it("renders children in main content area", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test content</p>
       </DashboardShell>
     );
@@ -75,7 +88,7 @@ describe("DashboardShell", () => {
   it("passes props to HeroBanner", () => {
     const banner = { type: "color" as const, value: "#2d4a3e" };
     render(
-      <DashboardShell displayName="Alex" banner={banner}>
+      <DashboardShell displayName="Alex" banner={banner} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
@@ -90,7 +103,7 @@ describe("DashboardShell", () => {
 
   it("has skip-to-content link", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
@@ -101,12 +114,25 @@ describe("DashboardShell", () => {
 
   it("main element has id for skip link target", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
 
     const main = screen.getByRole("main");
     expect(main).toHaveAttribute("id", "main-content");
+  });
+
+  it("passes showTour=true to TourLauncher when tour should be shown", () => {
+    render(
+      <DashboardShell displayName="Alex" banner={null} showTour>
+        <p>Test</p>
+      </DashboardShell>
+    );
+
+    expect(tourLauncherMock).toHaveBeenCalledTimes(1);
+    expect(tourLauncherMock.mock.calls[0]?.[0]).toMatchObject({
+      showTour: true,
+    });
   });
 });

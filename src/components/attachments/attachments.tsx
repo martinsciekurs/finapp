@@ -98,21 +98,26 @@ export function Attachments({
       />
 
       {attachments.length === 0 ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          aria-controls={inputId}
-        >
-          {isUploading ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <Upload className="size-3" />
-          )}
-          Attach file
-        </Button>
+        <div className="flex items-center gap-2 py-0.5">
+          <FileText className="size-3 shrink-0 text-muted-foreground/50" />
+          <span className="text-xs text-muted-foreground">No attachments</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            aria-controls={inputId}
+          >
+            {isUploading ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Upload className="size-3" />
+            )}
+            Add
+          </Button>
+        </div>
       ) : (
         <div className="space-y-1">
           {attachments.map((attachment) => {
@@ -158,6 +163,7 @@ export function Attachments({
             );
           })}
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
