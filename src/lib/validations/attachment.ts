@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-const recordTypeSchema = z.enum(["transaction", "debt", "reminder"]);
+export const ALLOWED_RECORD_TYPES = ["transaction", "debt", "reminder"] as const;
+export type RecordType = (typeof ALLOWED_RECORD_TYPES)[number];
+
+const recordTypeSchema = z.enum(ALLOWED_RECORD_TYPES);
 
 export const uploadAttachmentSchema = z.object({
   record_type: recordTypeSchema,

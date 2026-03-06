@@ -14,13 +14,23 @@ function safeParseInt(value: string | undefined, fallback: number): number {
  * Allowed MIME types for file attachments.
  * Restricts uploads to safe, non-executable content types.
  */
-export const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+export const ALLOWED_ATTACHMENT_MIME_TYPES_LIST = [
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
   "application/pdf",
-]);
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+] as const;
+
+export const ALLOWED_ATTACHMENT_MIME_TYPES: ReadonlySet<string> = new Set(
+  ALLOWED_ATTACHMENT_MIME_TYPES_LIST
+);
 
 export const PLAN_LIMITS = {
   free: {
