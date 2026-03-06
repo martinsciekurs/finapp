@@ -250,7 +250,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
     // Generate occurrences for this reminder within the window
     const occurrenceDates = generateOccurrences(
       row.due_date,
-      row.frequency,
+      row.frequency as ReminderFrequency,
       rangeStart,
       rangeEnd
     );
@@ -268,7 +268,7 @@ export async function fetchReminders(): Promise<GroupedOccurrences> {
           title: row.title,
           amount: row.amount,
           due_date: dueDate,
-          frequency: row.frequency,
+          frequency: row.frequency as ReminderFrequency,
           auto_create_transaction: row.auto_create_transaction,
           category_id: row.category_id,
           category_name: cat?.name ?? "Uncategorized",
@@ -325,7 +325,7 @@ export async function fetchReminderTemplates(): Promise<ReminderData[]> {
       title: row.title,
       amount: row.amount,
       due_date: row.due_date,
-      frequency: row.frequency,
+      frequency: row.frequency as ReminderFrequency,
       auto_create_transaction: row.auto_create_transaction,
       category_id: row.category_id,
       category_name: cat?.name ?? "Uncategorized",
@@ -400,7 +400,7 @@ export async function fetchUpcomingRemindersData(): Promise<UpcomingRemindersDat
     // Generate occurrences from the overdue lookback to the furthest period end
     const occurrences = generateOccurrences(
       rem.due_date,
-      rem.frequency,
+      rem.frequency as ReminderFrequency,
       overdueStart,
       furthestEnd
     );

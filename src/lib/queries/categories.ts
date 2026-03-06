@@ -52,7 +52,7 @@ export async function fetchCategoriesWithGroups(
       name: cat.name,
       icon: cat.icon,
       color: cat.color,
-      type: cat.type,
+      type: cat.type as "expense" | "income",
       group_id: cat.group_id,
       sort_order: cat.sort_order,
     });
@@ -62,7 +62,7 @@ export async function fetchCategoriesWithGroups(
   return (groups ?? []).map((group) => ({
     id: group.id,
     name: group.name,
-    type: group.type,
+    type: group.type as "expense" | "income",
     sort_order: group.sort_order,
     categories: categoryMap.get(group.id) ?? [],
   }));

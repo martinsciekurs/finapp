@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/supabase/database.types";
 
-export type AttachmentRecordType =
-  Database["public"]["Enums"]["attachment_record_type"];
+export type AttachmentRecordType = "transaction" | "debt" | "reminder";
 
 export interface AttachmentData {
   id: string;
