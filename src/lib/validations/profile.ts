@@ -19,7 +19,7 @@ export const profileSchema = z.object({
 });
 
 export const emailSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
+  email: z.string().trim().email("Please enter a valid email"),
 });
 
 export type ProfileValues = z.infer<typeof profileSchema>;

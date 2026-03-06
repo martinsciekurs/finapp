@@ -53,7 +53,9 @@ describe("EmailForm", () => {
 
     await waitFor(() => {
       expect(mockUpdateEmail).toHaveBeenCalledWith({ email: "next@example.com" });
-      expect(mockToastSuccess).toHaveBeenCalledWith("Email updated");
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        "Confirmation email sent — please verify to complete the change"
+      );
     });
   });
 

@@ -12,11 +12,15 @@ import {
 } from "@/lib/validations/profile";
 
 export async function logout(): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signOut();
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  } catch {
+    return { success: false, error: "Failed to sign out" };
   }
 
   redirect("/auth/login");
@@ -25,38 +29,42 @@ export async function logout(): Promise<ActionResult> {
 export async function updateProfile(
   data: ProfileValues
 ): Promise<ActionResult> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
 
-  const parsed = profileSchema.safeParse(data);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Invalid profile data",
-    };
-  }
+    const parsed = profileSchema.safeParse(data);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid profile data",
+      };
+    }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      display_name: parsed.data.displayName,
-      currency: parsed.data.currency,
-    })
-    .eq("id", user.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        display_name: parsed.data.displayName,
+        currency: parsed.data.currency,
+      })
+      .eq("id", user.id);
 
-  if (error) {
+    if (error) {
+      return { success: false, error: "Failed to update profile" };
+    }
+
+    revalidatePath("/dashboard", "layout");
+    return { success: true };
+  } catch {
     return { success: false, error: "Failed to update profile" };
   }
-
-  revalidatePath("/dashboard", "layout");
-  return { success: true };
 }
 
 export async function updateEmail(data: EmailValues): Promise<ActionResult> {
