@@ -25,7 +25,7 @@ export default async function DashboardLayout({
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, hero_banner")
+    .select("display_name, hero_banner, tour_completed_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -35,9 +35,10 @@ export default async function DashboardLayout({
 
   const displayName = profile?.display_name || "there";
   const banner = parseBanner(profile?.hero_banner);
+  const showTour = !profile?.tour_completed_at;
 
   return (
-    <DashboardShell displayName={displayName} banner={banner}>
+    <DashboardShell displayName={displayName} banner={banner} showTour={showTour}>
       {children}
     </DashboardShell>
   );
