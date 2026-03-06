@@ -54,7 +54,11 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
           const skipBtn = document.createElement("button");
           skipBtn.innerText = "Skip";
           skipBtn.className = "driver-popover-skip-btn";
-          skipBtn.addEventListener("click", skipTour);
+          skipBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            skipTour();
+          });
           popover.footerButtons.prepend(skipBtn);
         },
         onNextClick: (_, __, { driver: driverInstance }) => {
