@@ -148,22 +148,9 @@ export async function updateDebt(
     };
   }
 
-  if (parsed.data.category_id) {
-    const categoryCheck = await verifyDebtCategory(
-      supabase,
-      userId,
-      parsed.data.category_id,
-      parsed.data.type
-    );
-
-    if (!categoryCheck.valid) {
-      return { success: false, error: categoryCheck.error };
-    }
-  }
-
   const { data: debt, error: debtError } = await supabase
     .from("debts")
-    .select("id, original_amount, remaining_amount, type")
+    .select("id, original_amount, remaining_amount, type, category_id")
     .eq("id", parsed.data.id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -173,6 +160,21 @@ export async function updateDebt(
   }
   if (!debt) {
     return { success: false, error: "Debt not found" };
+  }
+
+  const effectiveCategoryId = parsed.data.category_id || debt.category_id;
+
+  if (effectiveCategoryId) {
+    const categoryCheck = await verifyDebtCategory(
+      supabase,
+      userId,
+      effectiveCategoryId,
+      parsed.data.type
+    );
+
+    if (!categoryCheck.valid) {
+      return { success: false, error: categoryCheck.error };
+    }
   }
 
   const { count: paymentsCount, error: paymentsCountError } = await supabase
@@ -203,7 +205,7 @@ export async function updateDebt(
   const updatePayload: TablesUpdate<"debts"> = {
     counterparty: parsed.data.counterparty,
     type: parsed.data.type,
-    category_id: parsed.data.category_id || null,
+    category_id: effectiveCategoryId ?? null,
     debt_date: parsed.data.debt_date,
     original_amount: parsed.data.original_amount,
     remaining_amount: parsed.data.original_amount - paidAmount,

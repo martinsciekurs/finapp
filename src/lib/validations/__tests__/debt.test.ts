@@ -132,9 +132,29 @@ describe("delete schemas", () => {
     expect(deleteDebtSchema.safeParse({ id: validDebtId }).success).toBe(true);
   });
 
+  it("deleteDebtSchema rejects non-UUID id", () => {
+    expect(deleteDebtSchema.safeParse({ id: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("deleteDebtSchema rejects empty id", () => {
+    expect(deleteDebtSchema.safeParse({ id: "" }).success).toBe(false);
+  });
+
   it("deleteDebtPaymentSchema accepts valid id", () => {
     expect(
       deleteDebtPaymentSchema.safeParse({ id: validPaymentId }).success
     ).toBe(true);
+  });
+
+  it("deleteDebtPaymentSchema rejects non-UUID id", () => {
+    expect(
+      deleteDebtPaymentSchema.safeParse({ id: "not-a-uuid" }).success
+    ).toBe(false);
+  });
+
+  it("deleteDebtPaymentSchema rejects empty id", () => {
+    expect(
+      deleteDebtPaymentSchema.safeParse({ id: "" }).success
+    ).toBe(false);
   });
 });
