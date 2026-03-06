@@ -416,11 +416,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "debt_payments_debt_id_fkey"
-            columns: ["debt_id"]
+            foreignKeyName: "fk_debt_payments_debt"
+            columns: ["debt_id", "user_id"]
             isOneToOne: false
             referencedRelation: "debts"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "debt_payments_user_id_fkey"
@@ -430,11 +430,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "debt_payments_transaction_id_fkey"
-            columns: ["transaction_id"]
+            foreignKeyName: "fk_debt_payments_transaction"
+            columns: ["transaction_id", "user_id"]
             isOneToOne: false
             referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
