@@ -9,7 +9,7 @@ import {
 test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/auth/login");
-    await expect(page.getByText("FinApp")).toBeVisible();
+    await expect(page.getByText("Simplony")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(
@@ -22,7 +22,7 @@ test.describe("Authentication", () => {
 
   test("sign-up page renders correctly", async ({ page }) => {
     await page.goto("/auth/sign-up");
-    await expect(page.getByText("FinApp")).toBeVisible();
+    await expect(page.getByText("Simplony")).toBeVisible();
     await expect(page.getByLabel("Display Name")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();

@@ -2,7 +2,7 @@
 
 ## Item 36: Post-Onboarding Guided Tour (DONE)
 - [x] Installed `driver.js` (~5KB) for welcome tour with spotlight overlay
-- [x] CSS overrides in `globals.css` matching FinApp design system (oklch tokens, serif headings, rounded corners)
+- [x] CSS overrides in `globals.css` matching Simplony design system (oklch tokens, serif headings, rounded corners)
 - [x] `data-tour` attributes on 6 dashboard elements: hero-banner, summary-cards, budget-overview, recent-transactions, sidebar-nav, bottom-nav
 - [x] Tour step definitions with responsive selectors (sidebar on desktop, bottom nav on mobile)
 - [x] `TourLauncher` client component — launches on first dashboard visit, renders nothing visually

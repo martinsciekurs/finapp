@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Tags, User, Palette, Bell } from "lucide-react";
+import { LogoutButton } from "@/components/settings/logout-button";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -27,7 +28,7 @@ const SETTINGS_LINKS: SettingsLink[] = [
     label: "Profile",
     description: "Display name, currency, and account details.",
     icon: User,
-    available: false,
+    available: true,
   },
   {
     href: "/dashboard/settings/appearance",
@@ -96,6 +97,10 @@ export default function SettingsPage() {
             </Link>
           );
         })}
+      </div>
+
+      <div className="border-t pt-6">
+        <LogoutButton />
       </div>
     </div>
   );

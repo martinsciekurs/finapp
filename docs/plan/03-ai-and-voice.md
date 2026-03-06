@@ -131,10 +131,10 @@ Any non-command text is treated as a natural language input and routed to the AI
 
 **Account linking flow:**
 
-Account linking connects a Telegram `chat_id` to a finapp `user_id`. It happens once per user:
+Account linking connects a Telegram `chat_id` to a Simplony `user_id`. It happens once per user:
 
 1. User navigates to `/dashboard/settings` -> "Telegram" section -> clicks "Connect Telegram".
-2. App generates a random 6-character alphanumeric code, stores it in the `profiles` table (with a 10-minute expiry timestamp), and displays it to the user with instructions: "Send this code to @FinAppBot on Telegram."
+2. App generates a random 6-character alphanumeric code, stores it in the `profiles` table (with a 10-minute expiry timestamp), and displays it to the user with instructions: "Send this code to @SimplonyBot on Telegram."
 3. User opens Telegram, finds the bot, sends the code as a message.
 4. Bot webhook receives the code, looks up the matching profile, validates the code hasn't expired, and saves the `chat_id` to `telegram_sessions.chat_id` + `user_id`.
 5. Bot responds: "Connected! You can now add expenses by sending me a message."
