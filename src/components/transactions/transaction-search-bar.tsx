@@ -7,6 +7,37 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { TransactionData } from "@/lib/types/transactions";
 
+function fuzzyContains(haystack: string, needle: string): boolean {
+  if (haystack.includes(needle)) return true;
+  if (needle.length < 3) return false;
+
+  for (let i = 0; i < haystack.length - needle.length + 1; i++) {
+    let mismatches = 0;
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) {
+        mismatches++;
+        if (mismatches > 1) break;
+      }
+    }
+    if (mismatches <= 1) return true;
+  }
+
+  return false;
+}
+
+function wordMatchesTransaction(
+  word: string,
+  description: string,
+  categoryName: string,
+  formattedAmount: string
+): boolean {
+  return (
+    fuzzyContains(description, word) ||
+    fuzzyContains(categoryName, word) ||
+    formattedAmount.includes(word)
+  );
+}
+
 export function filterTransactions(
   transactions: TransactionData[],
   query: string,
@@ -15,15 +46,16 @@ export function filterTransactions(
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return transactions;
 
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return transactions;
+
   return transactions.filter((tx) => {
     const description = (tx.description ?? "").toLowerCase();
     const categoryName = tx.categoryName.toLowerCase();
     const formattedAmount = formatCurrency(tx.amount, currency).toLowerCase();
 
-    return (
-      description.includes(trimmed) ||
-      categoryName.includes(trimmed) ||
-      formattedAmount.includes(trimmed)
+    return words.every((word) =>
+      wordMatchesTransaction(word, description, categoryName, formattedAmount)
     );
   });
 }

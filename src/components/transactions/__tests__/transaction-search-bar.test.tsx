@@ -99,6 +99,40 @@ describe("filterTransactions", () => {
   it("returns empty array when input list is empty", () => {
     expect(filterTransactions([], "coffee")).toHaveLength(0);
   });
+
+  it("fuzzy matches with one-character typo in description", () => {
+    const result = filterTransactions(sampleTransactions, "coffea");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("tx-1");
+  });
+
+  it("fuzzy matches with one-character typo in category name", () => {
+    const result = filterTransactions(sampleTransactions, "grocaries");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("tx-2");
+  });
+
+  it("does not fuzzy match very short terms (< 3 chars)", () => {
+    const result = filterTransactions(sampleTransactions, "zz");
+    expect(result).toHaveLength(0);
+  });
+
+  it("multi-word query matches with AND logic", () => {
+    const result = filterTransactions(sampleTransactions, "morning coffee");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("tx-1");
+  });
+
+  it("multi-word query fails when one word does not match", () => {
+    const result = filterTransactions(sampleTransactions, "morning salary");
+    expect(result).toHaveLength(0);
+  });
+
+  it("multi-word query matches across different fields", () => {
+    const result = filterTransactions(sampleTransactions, "weekly groc");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("tx-2");
+  });
 });
 
 describe("TransactionSearchBar", () => {
