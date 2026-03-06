@@ -61,7 +61,11 @@ function chainable(terminalResult: unknown) {
 
 describe("uploadAttachment", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGetUser.mockReset();
+    mockFrom.mockReset();
+    mockStorageUpload.mockReset();
+    mockStorageRemove.mockReset();
+    mockCreateSignedUrl.mockReset();
   });
 
   it("returns error when not authenticated", async () => {
@@ -129,7 +133,7 @@ describe("uploadAttachment", () => {
 
     expect(result).toEqual({
       success: false,
-      error: "File type not supported. Allowed: PNG, JPG, WebP, GIF, PDF",
+      error: "File type not supported. Allowed: PNG, JPG, WebP, GIF, PDF, CSV, Excel, Word, TXT",
     });
     expect(mockStorageUpload).not.toHaveBeenCalled();
   });
@@ -190,7 +194,11 @@ describe("uploadAttachment", () => {
 
 describe("deleteAttachment", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGetUser.mockReset();
+    mockFrom.mockReset();
+    mockStorageUpload.mockReset();
+    mockStorageRemove.mockReset();
+    mockCreateSignedUrl.mockReset();
   });
 
   it("deletes file and metadata", async () => {

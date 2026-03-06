@@ -87,7 +87,7 @@ export async function uploadAttachment(
   if (!ALLOWED_ATTACHMENT_MIME_TYPES.has(file.type)) {
     return {
       success: false,
-      error: "File type not supported. Allowed: PNG, JPG, WebP, GIF, PDF",
+      error: "File type not supported. Allowed: PNG, JPG, WebP, GIF, PDF, CSV, Excel, Word, TXT",
     };
   }
 
@@ -202,17 +202,6 @@ export async function deleteAttachment(
     return { success: false, error: "Attachment not found" };
   }
 
-  const { error: storageDeleteError } = await supabase.storage
-    .from(ATTACHMENTS_BUCKET)
-    .remove([attachment.file_path]);
-
-  if (storageDeleteError) {
-    return {
-      success: false,
-      error: storageDeleteError.message || "Failed to delete file",
-    };
-  }
-
   const { data: deleted, error: dbDeleteError } = await supabase
     .from("attachments")
     .delete()
@@ -226,6 +215,16 @@ export async function deleteAttachment(
 
   if (!deleted || deleted.length === 0) {
     return { success: false, error: "Attachment not found" };
+  }
+
+  const { error: storageDeleteError } = await supabase.storage
+    .from(ATTACHMENTS_BUCKET)
+    .remove([attachment.file_path]);
+
+  if (storageDeleteError) {
+    console.error(
+      `Failed to delete storage object ${attachment.file_path}: ${storageDeleteError.message}`
+    );
   }
 
   revalidate();
