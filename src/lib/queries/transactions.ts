@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { parseCategoryJoin } from "@/lib/types/dashboard";
+import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
 
 // ────────────────────────────────────────────
@@ -28,7 +28,7 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
   }
 
   return (rows ?? []).map((tx) => {
-    const cat = parseCategoryJoin(tx.categories);
+    const categoryDisplay = getTransactionCategoryDisplay(tx.categories);
     return {
       id: tx.id,
       amount: tx.amount,
@@ -36,9 +36,7 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
       description: tx.description,
       date: tx.date,
       categoryId: tx.category_id,
-      categoryName: cat?.name ?? "Uncategorized",
-      categoryIcon: cat?.icon ?? "circle",
-      categoryColor: cat?.color ?? null,
+      ...categoryDisplay,
     };
   });
 }
@@ -92,5 +90,4 @@ export async function fetchUserCategories(): Promise<CategoryOption[]> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return parsed.map(({ _group_sort, _cat_sort, ...cat }) => cat);
 }
-
 

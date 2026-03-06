@@ -1,4 +1,5 @@
 import type { CategoryOption } from "@/lib/types/transactions";
+import { parseCategoryJoin } from "@/lib/types/dashboard";
 
 export type TransactionFormType = CategoryOption["type"];
 
@@ -16,4 +17,22 @@ export function parseAmountInput(value: string): number | undefined {
 
   const parsed = Number.parseFloat(value);
   return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+interface TransactionCategoryDisplay {
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string | null;
+}
+
+export function getTransactionCategoryDisplay(
+  rawCategory: unknown
+): TransactionCategoryDisplay {
+  const category = parseCategoryJoin(rawCategory);
+
+  return {
+    categoryName: category?.name ?? "Uncategorized",
+    categoryIcon: category?.icon ?? "circle",
+    categoryColor: category?.color ?? null,
+  };
 }

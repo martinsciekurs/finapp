@@ -6,6 +6,7 @@ import {
   getLast7DaysStart,
   formatDateForInput,
 } from "@/lib/utils/date";
+import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type {
   BudgetCategoryData,
   BudgetOverviewData,
@@ -233,16 +234,14 @@ export async function fetchRecentTransactions(
   }
 
   return (rows ?? []).map((tx) => {
-    const cat = parseCategoryJoin(tx.categories);
+    const categoryDisplay = getTransactionCategoryDisplay(tx.categories);
     return {
       id: tx.id,
       amount: tx.amount,
       type: tx.type,
       description: tx.description,
       date: tx.date,
-      categoryName: cat?.name ?? "Uncategorized",
-      categoryIcon: cat?.icon ?? "circle",
-      categoryColor: cat?.color ?? null,
+      ...categoryDisplay,
     };
   });
 }
