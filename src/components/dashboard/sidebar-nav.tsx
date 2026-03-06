@@ -140,7 +140,7 @@ export function SidebarNav({ displayName }: SidebarNavProps) {
                     ) : (
                       <motion.div
                         className="absolute inset-0 rounded-lg bg-sidebar-accent"
-                        layoutId="sidebarNavActive"
+                        layoutId="sidebarSettingsActive"
                         transition={{
                           type: "spring",
                           stiffness: 400,

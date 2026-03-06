@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Tags, User, Palette, Bell, LogOut, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DrawerClose,
@@ -12,6 +13,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { logout } from "@/app/dashboard/settings/actions";
+import { getInitials } from "@/lib/utils/get-initials";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -52,16 +54,6 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   },
 ];
 
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((word) => word[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 interface SettingsDrawerContentProps {
   displayName: string;
 }
@@ -77,7 +69,11 @@ export function SettingsDrawerContent({
     setIsLoggingOut(true);
     const result = await logout();
     if (!result.success) {
+      toast.error("Failed to log out", {
+        description: result.error ?? "Please try again.",
+      });
       setIsLoggingOut(false);
+      return;
     }
   }
 

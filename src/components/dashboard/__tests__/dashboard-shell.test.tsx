@@ -77,6 +77,11 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("sidebar-nav")).toBeInTheDocument();
     expect(screen.getByTestId("bottom-nav")).toBeInTheDocument();
     expect(screen.getByTestId("notification-bell")).toBeInTheDocument();
+    expect(screen.getByText("Alex")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-nav")).toHaveAttribute(
+      "data-display-name",
+      "Alex"
+    );
   });
 
   it("renders children in main content area", () => {

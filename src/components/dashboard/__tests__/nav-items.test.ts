@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { NAV_ITEMS, isNavItemActive } from "../nav-items";
 
 describe("NAV_ITEMS", () => {
-  it("contains exactly 6 navigation items", () => {
-    expect(NAV_ITEMS).toHaveLength(6);
+  it("contains exactly 5 navigation items", () => {
+    expect(NAV_ITEMS).toHaveLength(5);
   });
 
   it("all items have required properties", () => {
@@ -31,7 +31,6 @@ describe("NAV_ITEMS", () => {
     expect(labels).toContain("Budget");
     expect(labels).toContain("Reminders");
     expect(labels).toContain("Debts");
-    expect(labels).toContain("Settings");
   });
 
   it("Overview links to /dashboard root", () => {

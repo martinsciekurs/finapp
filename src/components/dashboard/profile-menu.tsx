@@ -3,20 +3,11 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Drawer, DrawerTrigger } from "@/components/ui/drawer";
+import { getInitials } from "@/lib/utils/get-initials";
 import { SettingsDrawerContent } from "./settings-drawer-content";
 
 interface ProfileMenuProps {
   displayName: string;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((word) => word[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 }
 
 export function ProfileMenu({ displayName }: ProfileMenuProps) {
