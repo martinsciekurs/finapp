@@ -182,9 +182,6 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html {
-    overflow-x: hidden;
-  }
   body {
     @apply bg-background text-foreground;
   }
@@ -307,12 +304,5 @@
 @media (prefers-reduced-motion: reduce) {
   .driver-popover {
     transition: none !important;
-  }
-}
-
-/* Sonner toaster fix — prevent mobile container from overflowing viewport */
-@media (max-width: 600px) {
-  [data-sonner-toaster] {
-    width: calc(100% - var(--mobile-offset-left, 16px) - var(--mobile-offset-right, 16px)) !important;
   }
 }
