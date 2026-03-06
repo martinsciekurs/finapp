@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Step-by-step guide to deploy FinApp publicly on Vercel + Supabase Cloud.
+Step-by-step guide to deploy Simplony publicly on Vercel + Supabase Cloud.
 
 ---
 
@@ -41,7 +41,7 @@ If you intentionally need a full remote reset (for example, wiping a staging/pro
 supabase db reset --linked
 ```
 
-> ⚠️ **Warning:** This drops user-created entities in the linked remote database. Do not run this unless you explicitly want to wipe remote data. Always ask for user confirmation if this being done by LLM.
+> ⚠️ **Warning:** This drops user-created entities in the linked remote database. Do not run this unless you explicitly want to wipe remote data. Always ask for user confirmation if this is being done by an LLM.
 
 Use normal migration deploys for day-to-day updates:
 
@@ -93,7 +93,7 @@ In the Vercel dashboard, go to **Settings > Environment Variables** and add:
 
 These four are the only variables needed for the current phase. Future integrations (Stripe, AI, Telegram, Resend, Cron) will require additional variables — see [05-infrastructure.md](plan/05-infrastructure.md#environment-variables) for the full list.
 
-## 6. Configure Supabase Auth URLs (activation/reset email links)
+## 6. Configure Supabase Auth URLs (password-reset and redirect flows)
 
 In Supabase Dashboard, go to **Authentication → URL Configuration**:
 
@@ -107,13 +107,14 @@ Example:
 
 Why this matters:
 
-- If your app code does not pass `emailRedirectTo`/`redirectTo`, Supabase uses **Site URL** as the default for confirmation/reset email links.
+- This project currently has `enable_confirmations = false` in `supabase/config.toml`, so signup activation/confirmation links are optional and not part of the default flow.
+- **Site URL** and **Additional Redirect URLs** are still required for password-reset links and any auth flow that uses `emailRedirectTo`/`redirectTo`.
 - `NEXT_PUBLIC_APP_URL` is app metadata in this project; it does **not** replace Supabase Auth URL Configuration.
 
-### Local vs remote confirmation behavior
+### Local vs remote auth behavior
 
-- Keep local CLI config as-is (`supabase/config.toml`) for local development behavior.
-- Configure email confirmation behavior in hosted Supabase Dashboard separately for remote environments.
+- Local behavior is controlled by `supabase/config.toml`.
+- Hosted Supabase URL settings (Authentication → URL Configuration) must still be configured for production redirect behavior.
 
 ## 7. Custom Domain (Optional)
 
