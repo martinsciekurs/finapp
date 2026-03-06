@@ -34,7 +34,8 @@ vi.mock("next/headers", () => ({
 }));
 
 // Import after mocks are set up
-import { completeOnboarding, updateOnboardingStep } from "../actions";
+import { completeOnboarding, skipOnboarding, updateOnboardingStep } from "../actions";
+import { DEFAULT_BANNER } from "@/lib/config/banners";
 import { redirect } from "next/navigation";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +70,7 @@ const mockCreatedGroups = [
   { id: "grp-lifestyle", name: "Lifestyle", type: "expense" },
   { id: "grp-health", name: "Health & Growth", type: "expense" },
   { id: "grp-financial", name: "Financial", type: "expense" },
+  { id: "grp-savings", name: "Savings & Investments", type: "expense" },
   { id: "grp-other", name: "Other", type: "expense" },
   { id: "grp-income", name: "Income", type: "income" },
 ];
@@ -323,4 +325,66 @@ describe("updateOnboardingStep", () => {
       expect(result).toEqual({ success: true });
     }
   );
+});
+
+describe("skipOnboarding", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns error when not authenticated", async () => {
+    mockUnauthenticated();
+    const result = await skipOnboarding();
+    expect(result).toEqual({ success: false, error: "Not authenticated" });
+  });
+
+  it("completes onboarding with defaults", async () => {
+    mockAuthenticated();
+
+    const categoriesUpsertSpy = vi.fn().mockResolvedValue({ error: null });
+    const profileUpdateSpy = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "category_groups") {
+        return {
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: mockCreatedGroups, error: null }),
+          }),
+        };
+      }
+      if (table === "categories") {
+        return { upsert: categoriesUpsertSpy };
+      }
+      if (table === "profiles") {
+        return { update: profileUpdateSpy };
+      }
+      return {};
+    });
+
+    await expect(skipOnboarding()).rejects.toThrow("NEXT_REDIRECT");
+
+    const insertedCategories = categoriesUpsertSpy.mock.calls[0][0] as Array<{
+      name: string;
+    }>;
+    expect(insertedCategories.length).toBeGreaterThanOrEqual(2);
+    expect(insertedCategories.some((category) => category.name === "Emergency Fund")).toBe(true);
+    expect(insertedCategories.some((category) => category.name === "Salary")).toBe(true);
+
+    const profileUpdatePayload = profileUpdateSpy.mock.calls[0][0] as {
+      hero_banner: { type: "color" | "gradient"; value: string };
+      onboarding_completed_steps: string[];
+      onboarding_completed_at: string;
+    };
+
+    expect(profileUpdatePayload.hero_banner).toEqual(DEFAULT_BANNER);
+    expect(profileUpdatePayload.onboarding_completed_steps).toEqual([
+      "welcome",
+      "categories",
+      "banner",
+    ]);
+    expect(profileUpdatePayload.onboarding_completed_at).toBeTypeOf("string");
+  });
 });

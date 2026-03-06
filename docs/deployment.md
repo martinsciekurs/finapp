@@ -33,6 +33,22 @@ supabase db push
 
 This applies all migration files in `supabase/migrations/` (schema, RLS policies, triggers).
 
+### Production reset command (destructive)
+
+If you intentionally need a full remote reset (for example, wiping a staging/prod project and replaying migrations), use:
+
+```bash
+supabase db reset --linked
+```
+
+> ⚠️ **Warning:** This drops user-created entities in the linked remote database. Do not run this unless you explicitly want to wipe remote data. Always ask for user confirmation if this being done by LLM.
+
+Use normal migration deploys for day-to-day updates:
+
+```bash
+supabase db push
+```
+
 After pushing, regenerate TypeScript types:
 
 ```bash
@@ -77,7 +93,29 @@ In the Vercel dashboard, go to **Settings > Environment Variables** and add:
 
 These four are the only variables needed for the current phase. Future integrations (Stripe, AI, Telegram, Resend, Cron) will require additional variables — see [05-infrastructure.md](plan/05-infrastructure.md#environment-variables) for the full list.
 
-## 6. Custom Domain (Optional)
+## 6. Configure Supabase Auth URLs (activation/reset email links)
+
+In Supabase Dashboard, go to **Authentication → URL Configuration**:
+
+1. Set **Site URL** to your real production domain (not localhost).
+2. Add production + local URLs in **Additional Redirect URLs**.
+
+Example:
+
+- `https://your-domain.vercel.app/**`
+- `http://localhost:3200/**`
+
+Why this matters:
+
+- If your app code does not pass `emailRedirectTo`/`redirectTo`, Supabase uses **Site URL** as the default for confirmation/reset email links.
+- `NEXT_PUBLIC_APP_URL` is app metadata in this project; it does **not** replace Supabase Auth URL Configuration.
+
+### Local vs remote confirmation behavior
+
+- Keep local CLI config as-is (`supabase/config.toml`) for local development behavior.
+- Configure email confirmation behavior in hosted Supabase Dashboard separately for remote environments.
+
+## 7. Custom Domain (Optional)
 
 1. In Vercel dashboard: **Settings > Domains > Add**.
 2. Update your DNS (CNAME or A record) as instructed by Vercel.
