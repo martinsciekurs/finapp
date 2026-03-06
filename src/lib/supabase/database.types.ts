@@ -817,6 +817,10 @@ export type Database = {
         Args: { p_name: string; p_type: string }
         Returns: string
       }
+      delete_debt_payment_atomic: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
       delete_category_with_reassign: {
         Args: { p_category_id: string; p_reassign_to?: string }
         Returns: undefined
@@ -828,6 +832,36 @@ export type Database = {
       is_admin: {
         Args: Record<string, never>
         Returns: boolean
+      }
+      record_debt_payment_atomic: {
+        Args: {
+          p_debt_id: string
+          p_amount: number
+          p_note?: string | null
+          p_payment_date?: string
+        }
+        Returns: Json
+      }
+      update_debt_atomic: {
+        Args: {
+          p_debt_id: string
+          p_counterparty: string
+          p_type: string
+          p_category_id?: string | null
+          p_debt_date?: string
+          p_original_amount?: number
+          p_description?: string | null
+        }
+        Returns: Json
+      }
+      update_debt_payment_atomic: {
+        Args: {
+          p_payment_id: string
+          p_amount: number
+          p_note?: string | null
+          p_payment_date?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
