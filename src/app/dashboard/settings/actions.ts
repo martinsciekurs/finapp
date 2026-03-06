@@ -4,18 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { profileSchema, emailSchema } from "@/lib/validations/profile";
+import type { ActionResult } from "@/lib/types/actions";
+import {
+  profileSchema,
+  emailSchema,
+  type ProfileValues,
+  type EmailValues,
+} from "@/lib/validations/profile";
 
-export async function logout() {
+export async function logout(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/auth/login");
 }
 
-export async function updateProfile(data: {
-  displayName: string;
-  currency: string;
-}) {
+export async function updateProfile(
+  data: ProfileValues
+): Promise<ActionResult> {
   const supabase = await createClient();
 
   const {
@@ -28,7 +33,10 @@ export async function updateProfile(data: {
 
   const parsed = profileSchema.safeParse(data);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid profile data",
+    };
   }
 
   const { error } = await supabase
@@ -47,7 +55,7 @@ export async function updateProfile(data: {
   return { success: true };
 }
 
-export async function updateEmail(data: { email: string }) {
+export async function updateEmail(data: EmailValues): Promise<ActionResult> {
   const supabase = await createClient();
 
   const {
@@ -60,7 +68,10 @@ export async function updateEmail(data: { email: string }) {
 
   const parsed = emailSchema.safeParse(data);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid email address",
+    };
   }
 
   if (parsed.data.email === user.email) {
@@ -73,7 +84,7 @@ export async function updateEmail(data: { email: string }) {
   });
 
   if (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to update email" };
   }
 
   revalidatePath("/dashboard/settings/profile");

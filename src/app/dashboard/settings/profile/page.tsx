@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/settings/profile-form";
@@ -17,8 +18,12 @@ export default async function ProfilePage() {
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (authError || !user) {
+  if (authError) {
     throw new Error("Failed to authenticate user");
+  }
+
+  if (!user) {
+    redirect("/auth/login");
   }
 
   const { data: profile, error: profileError } = await supabase
