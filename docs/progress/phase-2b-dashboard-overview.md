@@ -25,9 +25,6 @@
 - [x] `recent-transactions.test.tsx` — 9 tests (descriptions, categories, amounts, "View all", empty state)
 - [x] `hero-banner.test.tsx` — 10 tests (greetings, banner types, luminance, "Change cover")
 
-## Deferred
-- [ ] `fetchBudgetCategories()` returns `[]` — requires Phase 2D-ii (`category_budgets` table) to provide real data. `BudgetOverview` renders empty state until then.
-
 ## Test Summary
 - **Phase 2B tests**: 41 tests across 5 files
 - **Cumulative Vitest total**: 247 tests

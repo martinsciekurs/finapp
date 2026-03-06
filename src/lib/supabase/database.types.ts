@@ -345,6 +345,8 @@ export type Database = {
           user_id: string
           counterparty: string
           type: Database["public"]["Enums"]["debt_type"]
+          category_id: string | null
+          debt_date: string
           original_amount: number
           remaining_amount: number
           description: string | null
@@ -356,6 +358,8 @@ export type Database = {
           user_id: string
           counterparty: string
           type: Database["public"]["Enums"]["debt_type"]
+          category_id?: string | null
+          debt_date?: string
           original_amount: number
           remaining_amount: number
           description?: string | null
@@ -367,6 +371,8 @@ export type Database = {
           user_id?: string
           counterparty?: string
           type?: Database["public"]["Enums"]["debt_type"]
+          category_id?: string | null
+          debt_date?: string
           original_amount?: number
           remaining_amount?: number
           description?: string | null
@@ -380,6 +386,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_debts_category"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }

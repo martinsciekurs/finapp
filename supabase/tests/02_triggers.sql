@@ -18,7 +18,7 @@
 -- ===========================================================================
 
 begin;
-select plan(54);
+select plan(60);
 
 select reset_role();
 
@@ -450,6 +450,100 @@ select is(
   (select remaining_amount from public.debts where id = test_debt()),
   800::numeric,
   'debt_remaining: remaining unchanged after failed overpayment'
+);
+
+do $$
+declare
+  _uid uuid;
+  _exp uuid;
+  _inc uuid;
+begin
+  _uid := create_test_user('debt-category-trigger@test.com', 'Debt Category Trigger');
+  _exp := create_test_category(_uid, 'Debt Expense Cat', 'expense');
+  _inc := create_test_category(_uid, 'Debt Income Cat', 'income');
+  perform set_config('test.debt_cat_uid', _uid::text, true);
+  perform set_config('test.debt_cat_exp', _exp::text, true);
+  perform set_config('test.debt_cat_inc', _inc::text, true);
+end;
+$$;
+
+select lives_ok(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Valid I Owe'', 100, 100, ''i_owe'', %L)',
+    current_setting('test.debt_cat_uid')::uuid,
+    current_setting('test.debt_cat_exp')::uuid
+  ),
+  'check_debt_category_type: allows i_owe with expense category'
+);
+
+select throws_matching(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Invalid I Owe'', 100, 100, ''i_owe'', %L)',
+    current_setting('test.debt_cat_uid')::uuid,
+    current_setting('test.debt_cat_inc')::uuid
+  ),
+  'Debt type i_owe requires an expense category',
+  'check_debt_category_type: rejects i_owe with income category'
+);
+
+select throws_matching(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Invalid They Owe'', 100, 100, ''they_owe'', %L)',
+    current_setting('test.debt_cat_uid')::uuid,
+    current_setting('test.debt_cat_exp')::uuid
+  ),
+  'Debt type they_owe requires an income category',
+  'check_debt_category_type: rejects they_owe with expense category'
+);
+
+select lives_ok(
+  format(
+    'insert into public.debts (user_id, counterparty, original_amount, remaining_amount, type, category_id)
+     values (%L, ''Valid They Owe'', 100, 100, ''they_owe'', %L)',
+    current_setting('test.debt_cat_uid')::uuid,
+    current_setting('test.debt_cat_inc')::uuid
+  ),
+  'check_debt_category_type: allows they_owe with income category'
+);
+
+do $$
+declare
+  _uid uuid;
+  _did uuid;
+  _cat uuid;
+  _tid uuid;
+  _pid uuid;
+begin
+  _uid := create_test_user('debt-cleanup-trigger@test.com', 'Debt Cleanup Trigger');
+  _cat := create_test_category(_uid, 'Debt Cleanup Cat', 'expense');
+  _did := create_test_debt(_uid, 'Cleanup Trigger Peer', 250, 'i_owe');
+  _tid := create_test_transaction(_uid, _cat, 80, 'expense');
+
+  insert into public.debt_payments (user_id, debt_id, amount, transaction_id)
+  values (_uid, _did, 80, _tid)
+  returning id into _pid;
+
+  perform set_config('test.debt_cleanup_txn', _tid::text, true);
+  perform set_config('test.debt_cleanup_payment', _pid::text, true);
+end;
+$$;
+
+select is(
+  (select count(*)::int from public.transactions where id = current_setting('test.debt_cleanup_txn')::uuid),
+  1,
+  'cleanup_transaction_on_debt_payment_delete: linked transaction exists before delete'
+);
+
+delete from public.debt_payments
+where id = current_setting('test.debt_cleanup_payment')::uuid;
+
+select is(
+  (select count(*)::int from public.transactions where id = current_setting('test.debt_cleanup_txn')::uuid),
+  0,
+  'cleanup_transaction_on_debt_payment_delete: deletes linked transaction when payment is deleted'
 );
 
 -- ===========================================================================
