@@ -57,6 +57,22 @@ vi.mock("@/components/ui/tooltip", () => ({
   ),
 }));
 
+vi.mock("../ai-panel-provider", () => ({
+  AiPanelProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+vi.mock("../ai-panel-trigger", () => ({
+  AiPanelTrigger: () => (
+    <button data-testid="ai-panel-trigger">AiPanelTrigger</button>
+  ),
+}));
+
+vi.mock("../ai-panel", () => ({
+  AiPanel: () => <aside data-testid="ai-panel">AiPanel</aside>,
+}));
+
 vi.mock("@/components/tour/tour-launcher", () => ({
   TourLauncher: (props: { showTour: boolean }) => tourLauncherMock(props),
 }));

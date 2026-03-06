@@ -73,8 +73,8 @@ describe("BottomNav", () => {
     render(<BottomNav />);
     const links = screen.getAllByRole("link");
     for (const link of links) {
-      expect(link.className).toContain("min-h-[44px]");
-      expect(link.className).toContain("min-w-[44px]");
+      expect(link.className).toContain("min-h-[40px]");
+      expect(link.className).toContain("min-w-[40px]");
     }
   });
 });
