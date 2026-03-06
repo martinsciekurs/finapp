@@ -27,20 +27,27 @@ export async function fetchAttachmentsByRecordIds(
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch attachments: ${error.message}`);
+    console.error(`Failed to fetch attachments: ${error.message}`);
+    return byRecord;
   }
 
   const rows = data ?? [];
   const signedUrlMap = new Map<string, string | null>();
 
-  await Promise.all(
-    rows.map(async (row) => {
-      const { data: signed } = await supabase.storage
-        .from(ATTACHMENTS_BUCKET)
-        .createSignedUrl(row.file_path, 60 * 60);
-      signedUrlMap.set(row.file_path, signed?.signedUrl ?? null);
-    })
-  );
+  if (rows.length > 0) {
+    const filePaths = rows.map((row) => row.file_path);
+    const { data: signedUrls } = await supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .createSignedUrls(filePaths, 60 * 60);
+
+    if (signedUrls) {
+      for (const item of signedUrls) {
+        if (item.path && !item.error) {
+          signedUrlMap.set(item.path, item.signedUrl);
+        }
+      }
+    }
+  }
 
   for (const row of rows) {
     const item: AttachmentData = {

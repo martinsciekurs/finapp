@@ -6,7 +6,7 @@ const mockSelect = vi.fn();
 const mockEq = vi.fn();
 const mockIn = vi.fn();
 const mockOrder = vi.fn();
-const mockCreateSignedUrl = vi.fn();
+const mockCreateSignedUrls = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -30,7 +30,7 @@ vi.mock("@/lib/supabase/server", () => ({
     }),
     storage: {
       from: () => ({
-        createSignedUrl: (...args: unknown[]) => mockCreateSignedUrl(...args),
+        createSignedUrls: (...args: unknown[]) => mockCreateSignedUrls(...args),
       }),
     },
   }),
@@ -58,8 +58,12 @@ describe("fetchAttachmentsByRecordIds", () => {
     ];
 
     mockOrder.mockResolvedValue({ data: rows, error: null });
-    mockCreateSignedUrl.mockResolvedValue({
-      data: { signedUrl: "https://example.com/signed" },
+    mockCreateSignedUrls.mockResolvedValue({
+      data: [
+        { path: "u/transaction/r1/f1.pdf", signedUrl: "https://example.com/signed", error: null },
+        { path: "u/transaction/r1/f2.png", signedUrl: "https://example.com/signed", error: null },
+        { path: "u/transaction/r2/f3.jpg", signedUrl: "https://example.com/signed", error: null },
+      ],
       error: null,
     });
 
@@ -87,18 +91,24 @@ describe("fetchAttachmentsByRecordIds", () => {
     ];
 
     mockOrder.mockResolvedValue({ data: rows, error: null });
-    mockCreateSignedUrl.mockResolvedValue({ data: null, error: { message: "expired" } });
+    mockCreateSignedUrls.mockResolvedValue({
+      data: [{ path: "u/debt/r1/f.pdf", signedUrl: "", error: "expired" }],
+      error: null,
+    });
 
     const result = await fetchAttachmentsByRecordIds("debt", ["r1"]);
 
     expect(result.get("r1")![0].previewUrl).toBeNull();
   });
 
-  it("throws on supabase query error", async () => {
+  it("returns empty map on supabase query error", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockOrder.mockResolvedValue({ data: null, error: { message: "DB error" } });
 
-    await expect(
-      fetchAttachmentsByRecordIds("reminder", ["r1"])
-    ).rejects.toThrow("Failed to fetch attachments: DB error");
+    const result = await fetchAttachmentsByRecordIds("reminder", ["r1"]);
+
+    expect(result).toEqual(new Map());
+    expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch attachments: DB error");
+    consoleSpy.mockRestore();
   });
 });
