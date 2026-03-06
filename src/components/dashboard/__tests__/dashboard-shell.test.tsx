@@ -45,10 +45,14 @@ vi.mock("@/components/ui/tooltip", () => ({
   ),
 }));
 
+vi.mock("@/components/tour/tour-launcher", () => ({
+  TourLauncher: () => null,
+}));
+
 describe("DashboardShell", () => {
   it("renders all sub-components", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test content</p>
       </DashboardShell>
     );
@@ -61,7 +65,7 @@ describe("DashboardShell", () => {
 
   it("renders children in main content area", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test content</p>
       </DashboardShell>
     );
@@ -75,7 +79,7 @@ describe("DashboardShell", () => {
   it("passes props to HeroBanner", () => {
     const banner = { type: "color" as const, value: "#2d4a3e" };
     render(
-      <DashboardShell displayName="Alex" banner={banner}>
+      <DashboardShell displayName="Alex" banner={banner} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
@@ -90,7 +94,7 @@ describe("DashboardShell", () => {
 
   it("has skip-to-content link", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
@@ -101,7 +105,7 @@ describe("DashboardShell", () => {
 
   it("main element has id for skip link target", () => {
     render(
-      <DashboardShell displayName="Alex" banner={null}>
+      <DashboardShell displayName="Alex" banner={null} showTour={false}>
         <p>Test</p>
       </DashboardShell>
     );
