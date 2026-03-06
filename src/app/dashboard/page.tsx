@@ -6,6 +6,7 @@ import {
   fetchBudgetOverviewData,
   fetchRecentTransactions,
 } from "@/lib/queries/dashboard";
+import { fetchHasDebts } from "@/lib/queries/debts";
 import { fetchUpcomingRemindersData } from "@/lib/queries/reminders";
 import { fetchTourState } from "@/lib/queries/tour";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
@@ -18,13 +19,14 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [currency, { summary, spentByCategory }, upcomingRemindersData, recentTransactions, tourState] =
+  const [currency, { summary, spentByCategory }, upcomingRemindersData, recentTransactions, tourState, hasDebts] =
     await Promise.all([
       fetchUserCurrency(),
       fetchMonthlySummary(),
       fetchUpcomingRemindersData(),
       fetchRecentTransactions(),
       fetchTourState(),
+      fetchHasDebts(),
     ]);
 
   const budgetOverviewData = await fetchBudgetOverviewData(spentByCategory);
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
   const showBudgetTip =
     hasTransactions && !hasBudgets && !dismissed.includes("tip-budget");
   const showDebtsTip =
-    hasBudgets && !dismissed.includes("tip-debts");
+    hasBudgets && !hasDebts && !dismissed.includes("tip-debts");
 
   return (
     <div className="space-y-6">
