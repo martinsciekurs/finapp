@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Settings } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,53 @@ export function SidebarNav() {
           );
         })}
       </nav>
+
+      {/* Settings */}
+      <div className="border-t border-sidebar-border p-3">
+        {(() => {
+          const isActive = pathname.startsWith("/dashboard/settings");
+          const settingsLink = (
+            <Link
+              href="/dashboard/settings"
+              className={cn(
+                "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                collapsed && "justify-center px-2",
+                isActive
+                  ? "text-sidebar-primary"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+              aria-current={isActive ? "page" : undefined}
+              aria-label={collapsed ? "Settings" : undefined}
+            >
+              {isActive &&
+                (reduceMotion ? (
+                  <div className="absolute inset-0 rounded-lg bg-sidebar-accent" />
+                ) : (
+                  <motion.div
+                    className="absolute inset-0 rounded-lg bg-sidebar-accent"
+                    layoutId="sidebarNavActive"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                ))}
+              <Settings className="relative size-5 shrink-0" />
+              {!collapsed && <span className="relative">Settings</span>}
+            </Link>
+          );
+
+          if (collapsed) {
+            return (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>{settingsLink}</TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  Settings
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return settingsLink;
+        })()}
+      </div>
     </aside>
   );
 }

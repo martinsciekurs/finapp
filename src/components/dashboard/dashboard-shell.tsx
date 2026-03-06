@@ -3,6 +3,7 @@ import { HeroBanner } from "./hero-banner";
 import { SidebarNav } from "./sidebar-nav";
 import { BottomNav } from "./bottom-nav";
 import { NotificationBell } from "./notification-bell";
+import { ProfileMenu } from "./profile-menu";
 import { TourLauncher } from "@/components/tour/tour-launcher";
 import type { BannerData } from "@/lib/config/banners";
 
@@ -21,7 +22,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-dvh bg-background">
         {/* Skip to content link for keyboard users */}
         <a
           href="#main-content"
@@ -34,14 +35,14 @@ export function DashboardShell({
         <SidebarNav />
 
         {/* Main content area */}
-        <div className="flex flex-1 flex-col">
-          {/* Top bar with notification bell */}
-          <header className="flex h-14 items-center justify-end border-b border-border/50 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 items-center justify-between border-b border-border/50 px-4 sm:px-6 lg:px-8">
+            <ProfileMenu displayName={displayName} />
             <NotificationBell />
           </header>
 
           {/* Hero banner + page content */}
-          <main id="main-content" className="flex-1">
+          <main id="main-content" className="flex-1 overflow-x-hidden">
             <div className="px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
               <HeroBanner displayName={displayName} banner={banner} />
             </div>

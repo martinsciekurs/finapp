@@ -77,11 +77,11 @@ export function TransactionCategoryFilter({
         <Button
           variant="outline"
           size="sm"
-          className="gap-2"
+          className="max-w-full min-w-0 gap-2"
         >
           <Filter className="size-4" />
           {selected ? (
-            <span className="flex items-center gap-2 truncate">
+            <span className="flex min-w-0 items-center gap-2 truncate">
               <span
                 style={{ "--cat-color": selected.color } as React.CSSProperties}
                 className="text-[color:var(--cat-color)]"

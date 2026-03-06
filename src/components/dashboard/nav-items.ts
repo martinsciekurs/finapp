@@ -4,7 +4,6 @@ import {
   PieChart,
   Clock,
   Landmark,
-  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,5 +30,4 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Budget", href: "/dashboard/budget", icon: PieChart },
   { label: "Reminders", href: "/dashboard/reminders", icon: Clock },
   { label: "Debts", href: "/dashboard/debts", icon: Landmark },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];

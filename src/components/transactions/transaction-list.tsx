@@ -305,7 +305,7 @@ export function TransactionList({
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex-1">
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
           <TransactionSearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
         <TransactionCategoryFilter
