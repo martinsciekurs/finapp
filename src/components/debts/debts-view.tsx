@@ -833,8 +833,11 @@ function DebtSection({
 }) {
   if (debts.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-        No debts in this section.
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <div className="rounded-xl border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground">
+          No debts in this section.
+        </div>
       </div>
     );
   }

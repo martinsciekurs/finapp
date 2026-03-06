@@ -102,6 +102,7 @@ export function Attachments({
           <FileText className="size-3 shrink-0 text-muted-foreground/50" />
           <span className="text-xs text-muted-foreground">No attachments</span>
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
@@ -162,6 +163,7 @@ export function Attachments({
             );
           })}
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"

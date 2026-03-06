@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import type { ActionResult } from "@/lib/types/actions";
 
 const VALID_TOUR_STEPS = [
   "welcome-tour",
@@ -8,57 +9,71 @@ const VALID_TOUR_STEPS = [
   "tip-debts",
 ] as const;
 
-type TourStep = (typeof VALID_TOUR_STEPS)[number];
+export type TourStep = (typeof VALID_TOUR_STEPS)[number];
+export type QuickTipId = Exclude<TourStep, "welcome-tour">;
+type AuthState =
+  | {
+      supabase: Awaited<ReturnType<typeof createClient>>;
+      userId: string;
+    }
+  | {
+      error: string;
+    };
 
-export async function completeTour() {
+const WELCOME_TOUR_STEP: TourStep = VALID_TOUR_STEPS[0];
+
+async function requireAuth(): Promise<AuthState> {
   const supabase = await createClient();
-
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
+  if (error) {
+    return { error: "Failed to authenticate user" };
   }
 
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  return { supabase, userId: user.id };
+}
+
+export async function completeTour(): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if ("error" in auth) {
+    return { success: false, error: auth.error };
+  }
+
+  const { supabase, userId } = auth;
+
   const { error: rpcError } = await supabase.rpc("append_tour_step", {
-    profile_id: user.id,
-    step: "welcome-tour",
+    profile_id: userId,
+    step: WELCOME_TOUR_STEP,
   });
 
   if (rpcError) {
     return { success: false, error: "Failed to update tour step" };
   }
 
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ tour_completed_at: new Date().toISOString() })
-    .eq("id", user.id);
-
-  if (updateError) {
-    return { success: false, error: "Failed to mark tour complete" };
-  }
-
   return { success: true };
 }
 
-export async function dismissQuickTip(step: TourStep) {
+export async function dismissQuickTip(step: QuickTipId): Promise<ActionResult> {
   if (!VALID_TOUR_STEPS.includes(step)) {
     return { success: false, error: "Invalid tour step" };
   }
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
+  const auth = await requireAuth();
+  if ("error" in auth) {
+    return { success: false, error: auth.error };
   }
 
+  const { supabase, userId } = auth;
+
   const { error } = await supabase.rpc("append_tour_step", {
-    profile_id: user.id,
+    profile_id: userId,
     step,
   });
 

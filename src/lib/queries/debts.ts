@@ -110,9 +110,14 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
 
 export async function fetchHasDebts(): Promise<boolean> {
   const supabase = await createClient();
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("debts")
     .select("id", { count: "exact", head: true })
     .limit(1);
+
+  if (error) {
+    throw new Error(`Failed to check debts existence: ${error.message}`);
+  }
+
   return (count ?? 0) > 0;
 }

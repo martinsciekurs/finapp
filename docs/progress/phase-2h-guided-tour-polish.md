@@ -11,7 +11,7 @@
 - [x] Server actions: `completeTour()` + `dismissQuickTip()` in `tour-actions.ts`
 - [x] Tour query: `fetchTourState()` in `src/lib/queries/tour.ts`
 - [x] Layout integration: `tour_completed_at` fetched in dashboard layout, `showTour` passed through shell
-- [x] Tour auto-triggers 600ms after first dashboard paint, completes on final step or early close
+- [x] Tour auto-triggers 600ms after first dashboard paint, completes only on final step
 - [x] Respects `prefers-reduced-motion` via CSS override
 
 ## Item 36b: Contextual Quick Tips (DONE)
@@ -30,7 +30,7 @@
 
 ## Item 38: Tests (DONE)
 - [x] Unit tests: `src/components/tour/__tests__/quick-tip.test.tsx` (11 tests)
-- [x] Unit tests: `src/components/tour/__tests__/tour-steps.test.ts` (4 tests)
+- [x] Unit tests: `src/components/tour/__tests__/tour-steps.test.ts` (13 tests)
 - [x] Updated `dashboard-shell.test.tsx` for new `showTour` prop (5 call sites)
 - [x] Updated `attachments.test.tsx` for new empty state UI
 - [x] E2E: `e2e/guided-tour.spec.ts` — tour shows on first visit, dismisses, doesn't reappear

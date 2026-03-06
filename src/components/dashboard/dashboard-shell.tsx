@@ -58,7 +58,7 @@ export function DashboardShell({
         {/* Mobile bottom nav */}
         <BottomNav />
 
-        <TourLauncher showTour={showTour} />
+        {showTour ? <TourLauncher showTour={showTour} /> : null}
       </div>
     </TooltipProvider>
   );

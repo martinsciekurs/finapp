@@ -7,9 +7,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { dismissQuickTip } from "@/app/dashboard/tour-actions";
+import type { QuickTipId } from "@/app/dashboard/tour-actions";
 
 interface QuickTipProps {
-  tipId: "tip-budget" | "tip-debts";
+  tipId: QuickTipId;
   title: string;
   description: string;
   href?: string;

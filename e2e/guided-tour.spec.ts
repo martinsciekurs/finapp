@@ -39,11 +39,11 @@ test.describe("Guided Tour", () => {
       "Start by adding a transaction"
     );
 
-    await page.locator(".driver-popover-done-btn").click();
+    await popover.getByRole("button", { name: "Got it!" }).click();
     await expect(popover).not.toBeVisible({ timeout: 3000 });
   });
 
-  test("does not show tour on subsequent visits", async ({
+  test("does not show tour on subsequent visits after finishing the tour", async ({
     page,
     request,
   }) => {
@@ -56,15 +56,18 @@ test.describe("Guided Tour", () => {
 
     const popover = page.locator(".driver-popover");
     await expect(popover).toBeVisible({ timeout: 5000 });
-    await page.locator(".driver-popover-close-btn").click();
+    await page.locator(".driver-popover-next-btn").click();
+    await page.locator(".driver-popover-next-btn").click();
+    await page.locator(".driver-popover-next-btn").click();
+    await popover.getByRole("button", { name: "Got it!" }).click();
     await expect(popover).not.toBeVisible({ timeout: 3000 });
 
     await page.reload();
+    await page.waitForLoadState("networkidle");
     await expect(page.locator('[data-tour="hero-banner"]')).toBeVisible({
       timeout: 10000,
     });
-    await page.waitForTimeout(1500);
-    await expect(popover).not.toBeVisible();
+    await expect(popover).not.toBeVisible({ timeout: 3000 });
   });
 
   test("tour can be closed early via close button", async ({
@@ -83,5 +86,10 @@ test.describe("Guided Tour", () => {
 
     await page.locator(".driver-popover-close-btn").click();
     await expect(popover).not.toBeVisible({ timeout: 3000 });
+
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator('[data-tour="hero-banner"]')).toBeVisible({ timeout: 10000 });
+    await expect(popover).toBeVisible({ timeout: 5000 });
   });
 });
