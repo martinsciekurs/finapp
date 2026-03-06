@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: () => mockGetUser() },
     from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
 }));
 
@@ -209,43 +211,28 @@ describe("recordDebtPayment", () => {
     expect(result.success).toBe(false);
   });
 
-  it("returns error when debt not found", async () => {
+  it("returns rpc debt not found error", async () => {
     mockAuthenticated();
-    const { chain: debtsChain } = chainable({ data: null, error: null });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      return {};
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Debt not found" },
     });
 
     const result = await recordDebtPayment(validData);
     expect(result).toEqual({ success: false, error: "Debt not found" });
+    expect(mockRpc).toHaveBeenCalledWith("record_debt_payment_atomic", {
+      p_debt_id: validUuid,
+      p_amount: 50,
+      p_note: "Partial",
+      p_payment_date: "2026-03-06",
+    });
   });
 
-  it("rejects payment larger than remaining amount", async () => {
+  it("surfaces rpc overpayment error", async () => {
     mockAuthenticated();
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 20,
-        category_id: validUuid,
-      },
-      error: null,
-    });
-
-    const { chain: categoriesChain } = chainable(undefined);
-    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: validUuid, type: "expense" },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      if (table === "categories") return categoriesChain;
-      return {};
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Payment exceeds remaining amount" },
     });
 
     const result = await recordDebtPayment({ ...validData, amount: 100 });
@@ -255,24 +242,13 @@ describe("recordDebtPayment", () => {
     });
   });
 
-  it("returns error when no payment category exists", async () => {
+  it("surfaces missing category error", async () => {
     mockAuthenticated();
-
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 100,
-        category_id: null,
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        message: "Debt has no category. Edit debt and choose a category first.",
       },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      return {};
     });
 
     const result = await recordDebtPayment(validData);
@@ -282,93 +258,9 @@ describe("recordDebtPayment", () => {
     });
   });
 
-  it("returns error when linked transaction insert fails", async () => {
+  it("returns generic error when rpc payload is malformed", async () => {
     mockAuthenticated();
-
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 100,
-        category_id: validUuid,
-      },
-      error: null,
-    });
-
-    const { chain: categoriesChain } = chainable({ data: { id: validUuid, type: "expense" }, error: null });
-    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: validUuid, type: "expense" },
-      error: null,
-    });
-
-    const { chain: transactionsChain } = chainable(undefined);
-    transactionsChain.single = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: "insert failed" },
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      if (table === "categories") return categoriesChain;
-      if (table === "transactions") return transactionsChain;
-      return {};
-    });
-
-    const result = await recordDebtPayment(validData);
-    expect(result).toEqual({
-      success: false,
-      error: "Failed to create linked transaction",
-    });
-  });
-
-  it("rolls back transaction when debt payment insert fails", async () => {
-    mockAuthenticated();
-
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 100,
-        category_id: validUuid,
-      },
-      error: null,
-    });
-
-    const { chain: categoriesChain } = chainable({ data: { id: validUuid, type: "expense" }, error: null });
-    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: validUuid, type: "expense" },
-      error: null,
-    });
-
-    const { chain: transactionInsertChain } = chainable(undefined);
-    transactionInsertChain.single = vi.fn().mockResolvedValue({
-      data: { id: "tx-1" },
-      error: null,
-    });
-
-    const { chain: paymentChain } = chainable(undefined);
-    paymentChain.single = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: "payment failed" },
-    });
-
-    const { chain: rollbackChain } = chainable({ data: null, error: null });
-
-    let transactionCalls = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      if (table === "categories") return categoriesChain;
-      if (table === "transactions") {
-        transactionCalls += 1;
-        return transactionCalls === 1 ? transactionInsertChain : rollbackChain;
-      }
-      if (table === "debt_payments") return paymentChain;
-      return {};
-    });
+    mockRpc.mockResolvedValue({ data: { nope: true }, error: null });
 
     const result = await recordDebtPayment(validData);
     expect(result).toEqual({
@@ -377,106 +269,21 @@ describe("recordDebtPayment", () => {
     });
   });
 
-  it("returns support message when payment insert and rollback both fail", async () => {
+  it("records debt payment with linked transaction via rpc", async () => {
     mockAuthenticated();
-
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 100,
-        category_id: validUuid,
-      },
+    mockRpc.mockResolvedValue({
+      data: { payment_id: "payment-1", transaction_id: "tx-1" },
       error: null,
-    });
-
-    const { chain: categoriesChain } = chainable({ data: { id: validUuid, type: "expense" }, error: null });
-    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: validUuid, type: "expense" },
-      error: null,
-    });
-
-    const { chain: transactionInsertChain } = chainable(undefined);
-    transactionInsertChain.single = vi.fn().mockResolvedValue({
-      data: { id: "tx-1" },
-      error: null,
-    });
-
-    const { chain: paymentChain } = chainable(undefined);
-    paymentChain.single = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: "payment failed" },
-    });
-
-    const { chain: rollbackChain } = chainable({
-      data: null,
-      error: { message: "rollback failed" },
-    });
-
-    let transactionCalls = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      if (table === "categories") return categoriesChain;
-      if (table === "transactions") {
-        transactionCalls += 1;
-        return transactionCalls === 1 ? transactionInsertChain : rollbackChain;
-      }
-      if (table === "debt_payments") return paymentChain;
-      return {};
-    });
-
-    const result = await recordDebtPayment(validData);
-    expect(result).toEqual({
-      success: false,
-      error: "Failed to record payment and rollback failed. Please contact support.",
-    });
-  });
-
-  it("records debt payment with linked transaction", async () => {
-    mockAuthenticated();
-
-    const { chain: debtsChain } = chainable(undefined);
-    debtsChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        counterparty: "John",
-        type: "i_owe",
-        remaining_amount: 100,
-        category_id: validUuid,
-      },
-      error: null,
-    });
-
-    const { chain: categoriesChain } = chainable({ data: { id: validUuid, type: "expense" }, error: null });
-    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: validUuid, type: "expense" },
-      error: null,
-    });
-
-    const { chain: transactionInsertChain } = chainable(undefined);
-    transactionInsertChain.single = vi.fn().mockResolvedValue({
-      data: { id: "tx-1" },
-      error: null,
-    });
-
-    const { chain: paymentChain } = chainable(undefined);
-    paymentChain.single = vi.fn().mockResolvedValue({
-      data: { id: "payment-1" },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtsChain;
-      if (table === "categories") return categoriesChain;
-      if (table === "transactions") return transactionInsertChain;
-      if (table === "debt_payments") return paymentChain;
-      return {};
     });
 
     const result = await recordDebtPayment(validData);
     expect(result).toEqual({ success: true, data: { id: "payment-1" } });
+    expect(mockRpc).toHaveBeenCalledWith("record_debt_payment_atomic", {
+      p_debt_id: validUuid,
+      p_amount: 50,
+      p_note: "Partial",
+      p_payment_date: "2026-03-06",
+    });
   });
 });
 
@@ -521,16 +328,19 @@ describe("updateDebt", () => {
         original_amount: 100,
         remaining_amount: 100,
         type: "i_owe",
+        category_id: validUuid,
       },
       error: null,
     });
 
-    const { chain: paymentsCountChain } = chainable({ count: 1, error: null });
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Cannot change debt direction after payments have been logged" },
+    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "categories") return categoriesChain;
       if (table === "debts") return debtsChain;
-      if (table === "debt_payments") return paymentsCountChain;
       return {};
     });
 
@@ -557,16 +367,19 @@ describe("updateDebt", () => {
         original_amount: 100,
         remaining_amount: 20,
         type: "i_owe",
+        category_id: validUuid,
       },
       error: null,
     });
 
-    const { chain: paymentsCountChain } = chainable({ count: 0, error: null });
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Original amount cannot be below already paid amount" },
+    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "categories") return categoriesChain;
       if (table === "debts") return debtsChain;
-      if (table === "debt_payments") return paymentsCountChain;
       return {};
     });
 
@@ -577,7 +390,7 @@ describe("updateDebt", () => {
     });
   });
 
-  it("updates debt successfully", async () => {
+  it("validates existing category when type changes without new category_id", async () => {
     mockAuthenticated();
 
     const { chain: categoriesChain } = chainable(undefined);
@@ -593,31 +406,68 @@ describe("updateDebt", () => {
         original_amount: 100,
         remaining_amount: 100,
         type: "i_owe",
+        category_id: validUuid,
       },
       error: null,
     });
 
-    const { chain: paymentsCountChain } = chainable({ count: 0, error: null });
-
-    const { chain: debtUpdateChain } = chainable(undefined);
-    debtUpdateChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
-
-    let debtCalls = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "categories") return categoriesChain;
-      if (table === "debt_payments") return paymentsCountChain;
-      if (table === "debts") {
-        debtCalls += 1;
-        return debtCalls === 1 ? debtSelectChain : debtUpdateChain;
-      }
+      if (table === "debts") return debtSelectChain;
       return {};
     });
 
-    const result = await updateDebt(validData);
+    const result = await updateDebt({
+      ...validData,
+      type: "they_owe",
+      category_id: "",
+    });
+    expect(result).toEqual({
+      success: false,
+      error: "Debt type they_owe requires a income category",
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("passes null category_id to rpc so existing category is preserved", async () => {
+    mockAuthenticated();
+
+    const { chain: categoriesChain } = chainable(undefined);
+    categoriesChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: validUuid, type: "expense" },
+      error: null,
+    });
+
+    const { chain: debtSelectChain } = chainable(undefined);
+    debtSelectChain.maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: validUuid,
+        original_amount: 100,
+        remaining_amount: 100,
+        type: "i_owe",
+        category_id: validUuid,
+      },
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "categories") return categoriesChain;
+      if (table === "debts") return debtSelectChain;
+      return {};
+    });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const result = await updateDebt({ ...validData, category_id: "" });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("update_debt_atomic", {
+      p_debt_id: validUuid,
+      p_counterparty: "John",
+      p_type: "i_owe",
+      p_category_id: null,
+      p_debt_date: "2026-03-06",
+      p_original_amount: 100,
+      p_description: "Updated",
+    });
   });
 });
 
@@ -643,104 +493,35 @@ describe("updateDebtPayment", () => {
     expect(result.success).toBe(false);
   });
 
-  it("updates payment and linked transaction successfully", async () => {
+  it("updates payment atomically via rpc", async () => {
     mockAuthenticated();
-
-    const { chain: paymentFetchChain } = chainable(undefined);
-    paymentFetchChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        debt_id: "debt-uuid-1",
-        amount: 40,
-        note: "Old note",
-        transaction_id: "tx-1",
-      },
+    mockRpc.mockResolvedValue({
+      data: { payment_id: validUuid, transaction_id: "tx-1" },
       error: null,
-    });
-
-    const { chain: debtFetchChain } = chainable(undefined);
-    debtFetchChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { remaining_amount: 60, counterparty: "John", type: "i_owe" },
-      error: null,
-    });
-
-    const { chain: paymentUpdateChain } = chainable(undefined);
-    paymentUpdateChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
-
-    const { chain: transactionUpdateChain } = chainable({ error: null });
-
-    let debtPaymentCalls = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtFetchChain;
-      if (table === "transactions") return transactionUpdateChain;
-      if (table === "debt_payments") {
-        debtPaymentCalls += 1;
-        return debtPaymentCalls === 1 ? paymentFetchChain : paymentUpdateChain;
-      }
-      return {};
     });
 
     const result = await updateDebtPayment(validData);
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("update_debt_payment_atomic", {
+      p_payment_id: validUuid,
+      p_amount: 45,
+      p_note: "Updated payment",
+      p_payment_date: "2026-03-06",
+    });
   });
 
-  it("rolls back debt payment when linked transaction update fails", async () => {
+  it("surfaces rpc overpayment error", async () => {
     mockAuthenticated();
 
-    const { chain: paymentFetchChain } = chainable(undefined);
-    paymentFetchChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: validUuid,
-        debt_id: "debt-uuid-1",
-        amount: 40,
-        note: "Old note",
-        transaction_id: "tx-1",
-      },
-      error: null,
-    });
-
-    const { chain: debtFetchChain } = chainable(undefined);
-    debtFetchChain.maybeSingle = vi.fn().mockResolvedValue({
-      data: { remaining_amount: 60, counterparty: "John", type: "i_owe" },
-      error: null,
-    });
-
-    const { chain: paymentUpdateChain } = chainable(undefined);
-    paymentUpdateChain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
-      error: null,
-    });
-
-    const { chain: transactionUpdateChain } = chainable({
-      error: { message: "transaction update failed" },
-    });
-
-    const { chain: rollbackPaymentChain } = chainable({ data: null, error: null });
-
-    let debtPaymentCalls = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debts") return debtFetchChain;
-      if (table === "transactions") return transactionUpdateChain;
-      if (table === "debt_payments") {
-        debtPaymentCalls += 1;
-        if (debtPaymentCalls === 1) return paymentFetchChain;
-        if (debtPaymentCalls === 2) return paymentUpdateChain;
-        return rollbackPaymentChain;
-      }
-      return {};
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Payment exceeds remaining amount" },
     });
 
     const result = await updateDebtPayment(validData);
-    expect(rollbackPaymentChain.update).toHaveBeenCalledWith({
-      amount: 40,
-      note: "Old note",
-    });
     expect(result).toEqual({
       success: false,
-      error: "Failed to update linked transaction",
+      error: "Payment exceeds remaining amount",
     });
   });
 });
@@ -762,18 +543,15 @@ describe("deleteDebtPayment", () => {
 
   it("deletes payment successfully", async () => {
     mockAuthenticated();
-    const { chain } = chainable(undefined);
-    chain.select = vi.fn().mockResolvedValue({
-      data: [{ id: validUuid }],
+    mockRpc.mockResolvedValue({
+      data: { payment_id: validUuid, transaction_id: "tx-1", debt_id: "debt-1" },
       error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "debt_payments") return chain;
-      return {};
     });
 
     const result = await deleteDebtPayment({ id: validUuid });
     expect(result).toEqual({ success: true });
+    expect(mockRpc).toHaveBeenCalledWith("delete_debt_payment_atomic", {
+      p_payment_id: validUuid,
+    });
   });
 });
