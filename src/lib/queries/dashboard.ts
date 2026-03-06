@@ -3,12 +3,14 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
   getCurrentMonthRange,
+  getMonthRange,
   getLast7DaysStart,
   formatDateForInput,
 } from "@/lib/utils/date";
 import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type {
   BudgetCategoryData,
+  BudgetHistoricalData,
   BudgetOverviewData,
   UnbudgetedCategoryData,
   RecentTransactionData,
@@ -244,4 +246,59 @@ export async function fetchRecentTransactions(
       ...categoryDisplay,
     };
   });
+}
+
+/**
+ * Fetch last 6 months of expense spending grouped by category for sparkline charts.
+ * Includes the current (partial) month as the last data point.
+ */
+export async function fetchBudgetHistoricalSpending(): Promise<BudgetHistoricalData> {
+  const supabase = await createClient();
+  const now = new Date();
+
+  // Build 6 month windows: 5 completed + current partial
+  const months: { ym: string; label: string }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleString("en-US", { month: "short" });
+    months.push({ ym, label });
+  }
+
+  const { start: earliest } = getMonthRange(months[0]!.ym);
+  const { end: latest } = getMonthRange(months[months.length - 1]!.ym);
+
+  const { data: transactions, error } = await supabase
+    .from("transactions")
+    .select("amount, category_id, date")
+    .eq("type", "expense")
+    .gte("date", earliest)
+    .lt("date", latest);
+
+  if (error) {
+    throw new Error(`Failed to fetch historical spending: ${error.message}`);
+  }
+
+  // Group: categoryId → yearMonth → total
+  const spendingMap = new Map<string, Map<string, number>>();
+  for (const tx of transactions ?? []) {
+    const ym = tx.date.substring(0, 7);
+    let catSpending = spendingMap.get(tx.category_id);
+    if (!catSpending) {
+      catSpending = new Map();
+      spendingMap.set(tx.category_id, catSpending);
+    }
+    catSpending.set(ym, (catSpending.get(ym) ?? 0) + tx.amount);
+  }
+
+  // Flatten into arrays (one value per month, oldest first)
+  const spendingByCategory: Record<string, number[]> = {};
+  for (const [catId, catSpending] of spendingMap) {
+    spendingByCategory[catId] = months.map((m) => catSpending.get(m.ym) ?? 0);
+  }
+
+  return {
+    spendingByCategory,
+    monthLabels: months.map((m) => m.label),
+  };
 }
