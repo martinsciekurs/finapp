@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { formatDateForInput } from "@/lib/utils/date";
 import { isValidOccurrence } from "@/lib/utils/recurrence";
+import type { ReminderFrequency } from "@/lib/types/reminder";
 import { formatParseError } from "@/lib/utils/validation";
 import {
   createReminderSchema,
@@ -232,7 +233,7 @@ export async function markOccurrencePaid(
   if (
     !isValidOccurrence(
       reminder.due_date,
-      reminder.frequency,
+      reminder.frequency as ReminderFrequency,
       parsed.data.due_date
     )
   ) {

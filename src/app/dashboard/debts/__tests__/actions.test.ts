@@ -471,7 +471,7 @@ describe("updateDebt", () => {
       p_debt_id: validUuid,
       p_counterparty: "John",
       p_type: "i_owe",
-      p_category_id: null,
+      p_category_id: undefined,
       p_debt_date: "2026-03-06",
       p_original_amount: 100,
       p_description: "Updated",

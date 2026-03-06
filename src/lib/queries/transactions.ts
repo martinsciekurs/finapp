@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAttachmentsByRecordIds } from "@/lib/queries/attachments";
 import { getTransactionCategoryDisplay } from "@/lib/utils/transactions";
 import type { TransactionData, CategoryOption } from "@/lib/types/transactions";
+import type { TagData } from "@/lib/types/tags";
 
 interface CategoryGroupJoin {
   name: string;
@@ -52,22 +53,51 @@ export async function fetchTransactions(): Promise<TransactionData[]> {
     throw new Error(`Failed to fetch transactions: ${error.message}`);
   }
 
+  const transactionIds = (rows ?? []).map((row) => row.id);
+
+  if (transactionIds.length === 0) {
+    return [];
+  }
+
   const attachmentsByRecord = await fetchAttachmentsByRecordIds(
     "transaction",
-    (rows ?? []).map((row) => row.id)
+    transactionIds
   );
+
+  const { data: tagRows, error: tagError } = await supabase
+    .from("transaction_tags")
+    .select("transaction_id, tags(id, name, color)")
+    .in("transaction_id", transactionIds);
+
+  if (tagError) {
+    throw new Error(`Failed to fetch transaction tags: ${tagError.message}`);
+  }
+
+  const tagsByTransaction = new Map<string, TagData[]>();
+  for (const row of tagRows ?? []) {
+    const tag = row.tags as unknown as {
+      id: string;
+      name: string;
+      color: string;
+    } | null;
+    if (!tag) continue;
+    const existing = tagsByTransaction.get(row.transaction_id) ?? [];
+    existing.push({ id: tag.id, name: tag.name, color: tag.color });
+    tagsByTransaction.set(row.transaction_id, existing);
+  }
 
   return (rows ?? []).map((tx) => {
     const categoryDisplay = getTransactionCategoryDisplay(tx.categories);
     return {
       id: tx.id,
       amount: tx.amount,
-      type: tx.type,
-      description: tx.description,
+      type: tx.type as "expense" | "income",
+      description: tx.description ?? "",
       date: tx.date,
       categoryId: tx.category_id,
       ...categoryDisplay,
       attachments: attachmentsByRecord.get(tx.id) ?? [],
+      tags: tagsByTransaction.get(tx.id) ?? [],
     };
   });
 }
@@ -102,7 +132,7 @@ export async function fetchUserCategories(): Promise<CategoryOption[]> {
         name: cat.name,
         icon: cat.icon,
         color: cat.color,
-        type: cat.type,
+        type: cat.type as "expense" | "income",
         group_id: cat.group_id,
         group_name: group?.name ?? null,
       },
@@ -117,4 +147,23 @@ export async function fetchUserCategories(): Promise<CategoryOption[]> {
   });
 
   return parsed.map((item) => item.category);
+}
+
+// ────────────────────────────────────────────
+// Fetch user tags for tag management
+// ────────────────────────────────────────────
+
+export async function fetchUserTags(): Promise<TagData[]> {
+  const supabase = await createClient();
+
+  const { data: tags, error } = await supabase
+    .from("tags")
+    .select("id, name, color")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch tags: ${error.message}`);
+  }
+
+  return (tags ?? []).map((t) => ({ id: t.id, name: t.name, color: t.color }));
 }

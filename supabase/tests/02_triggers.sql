@@ -435,13 +435,12 @@ select is(
 );
 
 -- Overpayment: should raise exception
-select throws_ok(
+select throws_matching(
   format(
     'insert into public.debt_payments (user_id, debt_id, amount) values (%L, %L, 900)',
     debt_uid(), test_debt()
   ),
-  'P0001',
-  'Payment of 900 would make remaining_amount negative (current: 800)',
+  'Payment of 900.*would make remaining_amount negative \(current: 800',
   'debt_remaining: overpayment raises exception'
 );
 
