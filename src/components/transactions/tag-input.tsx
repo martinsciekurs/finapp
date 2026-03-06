@@ -144,7 +144,7 @@ export function TagInput({
                   onValueChange={setSearch}
                 />
                 <CommandList>
-                  <CommandEmpty>No tags found</CommandEmpty>
+                  <CommandEmpty>No tags found — type to create</CommandEmpty>
                   <CommandGroup>
                     {filteredTags.map((tag) => (
                       <CommandItem

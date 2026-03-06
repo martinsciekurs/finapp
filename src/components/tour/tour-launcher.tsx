@@ -26,12 +26,9 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
       const steps = getWelcomeTourSteps();
       const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      function skipTour() {
+      function dismissTour() {
         void completeTour();
-        const activeDriver = driverRef.current;
-        if (!activeDriver) return;
-        driverRef.current = null;
-        activeDriver.destroy();
+        driverRef.current?.destroy();
       }
 
       driverRef.current = driver({
@@ -57,27 +54,25 @@ export function TourLauncher({ showTour }: TourLauncherProps) {
           skipBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
-            skipTour();
+            dismissTour();
           });
           popover.footerButtons.prepend(skipBtn);
         },
         onNextClick: (_, __, { driver: driverInstance }) => {
           if (!driverInstance.hasNextStep()) {
             void completeTour();
-            driverRef.current = null;
             driverInstance.destroy();
             return;
           }
 
           driverInstance.moveNext();
         },
-        onCloseClick: skipTour,
+        onCloseClick: () => dismissTour(),
         onDestroyStarted: () => {
-          const activeDriver = driverRef.current;
-          if (!activeDriver) return;
-
+          const d = driverRef.current;
+          if (!d) return;
           driverRef.current = null;
-          activeDriver.destroy();
+          d.destroy();
         },
       });
 
