@@ -55,7 +55,7 @@ export default async function ProfilePage() {
       <div className="max-w-2xl space-y-6">
         <ProfileForm
           defaultValues={{
-            displayName: profile.display_name ?? "",
+            displayName: profile.display_name ?? undefined,
             currency: profile.currency,
           }}
         />

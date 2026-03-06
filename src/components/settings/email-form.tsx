@@ -47,7 +47,9 @@ export function EmailForm({ defaultEmail }: EmailFormProps) {
         toast.error(result.error ?? "Failed to update email");
         return;
       }
-      toast.success("Email updated");
+      toast.success(
+        "Confirmation email sent — please verify to complete the change"
+      );
     } catch {
       toast.error("Something went wrong");
     } finally {

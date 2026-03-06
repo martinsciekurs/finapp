@@ -36,7 +36,10 @@ import { updateProfile } from "@/app/dashboard/settings/actions";
 import { CURRENCIES } from "@/lib/config/currencies";
 
 interface ProfileFormProps {
-  defaultValues: ProfileValues;
+  defaultValues: {
+    displayName?: string;
+    currency: string;
+  };
 }
 
 export function ProfileForm({ defaultValues }: ProfileFormProps) {
