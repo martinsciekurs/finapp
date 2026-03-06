@@ -27,7 +27,7 @@ supabase start
 Then start the dev server:
 
 ```bash
-npm run dev             # http://localhost:3000
+npm run dev             # http://localhost:3200
 ```
 
 ## Scripts

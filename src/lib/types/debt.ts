@@ -6,6 +6,7 @@ export interface DebtPaymentData {
   amount: number;
   note: string | null;
   transactionId: string | null;
+  paymentDate: string;
   createdAt: string;
 }
 

@@ -16,7 +16,7 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
       .order("created_at", { ascending: false }),
     supabase
       .from("debt_payments")
-      .select("id, debt_id, amount, note, transaction_id, created_at")
+      .select("id, debt_id, amount, note, transaction_id, created_at, transactions(date)")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -29,12 +29,17 @@ export async function fetchDebtsPageData(): Promise<DebtsPageData> {
 
   const paymentsByDebt = new Map<string, DebtPaymentData[]>();
   for (const payment of paymentsResult.data ?? []) {
+    const txDate = Array.isArray(payment.transactions)
+      ? payment.transactions[0]?.date
+      : (payment.transactions as { date: string } | null)?.date;
+
     const item: DebtPaymentData = {
       id: payment.id,
       debtId: payment.debt_id,
       amount: payment.amount,
       note: payment.note,
       transactionId: payment.transaction_id,
+      paymentDate: txDate ?? payment.created_at.slice(0, 10),
       createdAt: payment.created_at,
     };
 

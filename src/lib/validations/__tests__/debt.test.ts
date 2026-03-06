@@ -77,6 +77,7 @@ describe("createDebtPaymentSchema", () => {
   const validData = {
     debt_id: validDebtId,
     amount: 20,
+    payment_date: "2026-03-06",
     note: "Partial payment",
   };
 
@@ -103,6 +104,7 @@ describe("updateDebtPaymentSchema", () => {
       updateDebtPaymentSchema.safeParse({
         id: validPaymentId,
         amount: 50,
+        payment_date: "2026-03-06",
         note: "Updated note",
       }).success
     ).toBe(true);
@@ -113,6 +115,7 @@ describe("updateDebtPaymentSchema", () => {
       updateDebtPaymentSchema.safeParse({
         id: "bad",
         amount: 50,
+        payment_date: "2026-03-06",
         note: "",
       }).success
     ).toBe(false);

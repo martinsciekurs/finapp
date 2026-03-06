@@ -66,6 +66,18 @@ language plpgsql
 as $$
 begin
   if OLD.transaction_id is not null then
+    -- Restrict deletion when the linked transaction is referenced elsewhere
+    if exists (
+      select 1 from public.debt_payments
+      where transaction_id = OLD.transaction_id
+        and id <> OLD.id
+    ) or exists (
+      select 1 from public.reminder_payments
+      where transaction_id = OLD.transaction_id
+    ) then
+      raise exception 'Cannot delete payment: its linked transaction is referenced by other records';
+    end if;
+
     delete from public.transactions
     where id = OLD.transaction_id
       and user_id = OLD.user_id;

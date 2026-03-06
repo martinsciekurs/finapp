@@ -73,11 +73,14 @@ async function verifyDebtCategory(
 
 function debtTransactionDescription(
   debtType: "i_owe" | "they_owe",
-  counterparty: string
+  counterparty: string,
+  note?: string
 ): string {
-  return debtType === "i_owe"
-    ? `Payment to ${counterparty}`
-    : `Repayment from ${counterparty}`;
+  const base =
+    debtType === "i_owe"
+      ? `Payment to ${counterparty}`
+      : `Repayment from ${counterparty}`;
+  return note ? `${base} — ${note}` : base;
 }
 
 export async function createDebt(
@@ -146,15 +149,17 @@ export async function updateDebt(
     };
   }
 
-  const categoryCheck = await verifyDebtCategory(
-    supabase,
-    userId,
-    parsed.data.category_id,
-    parsed.data.type
-  );
+  if (parsed.data.category_id) {
+    const categoryCheck = await verifyDebtCategory(
+      supabase,
+      userId,
+      parsed.data.category_id,
+      parsed.data.type
+    );
 
-  if (!categoryCheck.valid) {
-    return { success: false, error: categoryCheck.error };
+    if (!categoryCheck.valid) {
+      return { success: false, error: categoryCheck.error };
+    }
   }
 
   const { data: debt, error: debtError } = await supabase
@@ -199,7 +204,7 @@ export async function updateDebt(
   const updatePayload: TablesUpdate<"debts"> = {
     counterparty: parsed.data.counterparty,
     type: parsed.data.type,
-    category_id: parsed.data.category_id,
+    category_id: parsed.data.category_id || null,
     debt_date: parsed.data.debt_date,
     original_amount: parsed.data.original_amount,
     remaining_amount: parsed.data.original_amount - paidAmount,
@@ -318,8 +323,8 @@ export async function recordDebtPayment(
       category_id: debt.category_id,
       amount: parsed.data.amount,
       type: txType,
-      description: debtTransactionDescription(debt.type, debt.counterparty),
-      date: formatDateForInput(new Date()),
+      description: debtTransactionDescription(debt.type, debt.counterparty, parsed.data.note || undefined),
+      date: parsed.data.payment_date,
       source: "web",
       ai_generated: false,
     })
@@ -402,7 +407,7 @@ export async function updateDebtPayment(
 
   const { data: debt, error: debtFetchError } = await supabase
     .from("debts")
-    .select("remaining_amount")
+    .select("remaining_amount, counterparty, type")
     .eq("id", payment.debt_id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -442,7 +447,11 @@ export async function updateDebtPayment(
   if (payment.transaction_id) {
     const { error: txUpdateError } = await supabase
       .from("transactions")
-      .update({ amount: parsed.data.amount })
+      .update({
+        amount: parsed.data.amount,
+        date: parsed.data.payment_date,
+        description: debtTransactionDescription(debt.type, debt.counterparty, parsed.data.note || undefined),
+      })
       .eq("id", payment.transaction_id)
       .eq("user_id", userId);
 

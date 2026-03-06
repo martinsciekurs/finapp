@@ -4,11 +4,8 @@ import { completeOnboardingViaUI, createTestUser, loginViaUI } from "./helpers";
 test.describe("Debts page", () => {
   let testUser: { email: string; password: string; displayName: string };
 
-  test.beforeAll(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
     testUser = await createTestUser(request);
-  });
-
-  test.beforeEach(async ({ page }) => {
     await loginViaUI(page, testUser);
     await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 15000 });
 

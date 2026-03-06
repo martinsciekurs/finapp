@@ -6,10 +6,11 @@ const amountSchema = z
   .number({ message: "Amount is required" })
   .positive("Amount must be positive")
   .max(9999999999.99, "Amount exceeds allowed maximum")
-  .refine(
-    (value) => Math.abs(Math.round(value * 100) - value * 100) < 1e-8,
-    "Amount must have at most 2 decimal places"
-  );
+  .refine((value) => {
+    const cents = value * 100;
+    const tolerance = Math.max(1e-8, Number.EPSILON * Math.abs(cents));
+    return Math.abs(Math.round(cents) - cents) < tolerance;
+  }, "Amount must have at most 2 decimal places");
 
 const optionalText = z
   .string()
@@ -35,17 +36,22 @@ export const createDebtSchema = z.object({
 
 export const updateDebtSchema = createDebtSchema.extend({
   id: z.string().uuid("Invalid debt ID"),
+  category_id: z.string().uuid("Invalid category").or(z.literal("")),
 });
+
+const paymentDateSchema = z.string().date("Invalid payment date");
 
 export const createDebtPaymentSchema = z.object({
   debt_id: z.string().uuid("Invalid debt"),
   amount: amountSchema,
+  payment_date: paymentDateSchema,
   note: optionalText,
 });
 
 export const updateDebtPaymentSchema = z.object({
   id: z.string().uuid("Invalid payment ID"),
   amount: amountSchema,
+  payment_date: paymentDateSchema,
   note: optionalText,
 });
 

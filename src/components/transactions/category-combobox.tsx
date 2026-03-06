@@ -102,7 +102,7 @@ export function CategoryCombobox({
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search categories..." />
-          <CommandList>
+          <CommandList onWheel={(e) => e.stopPropagation()}>
             <CommandEmpty>{emptyLabel}</CommandEmpty>
             {grouped.map((group) => (
               <CommandGroup key={group.id} heading={group.name}>

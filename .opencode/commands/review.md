@@ -1,5 +1,5 @@
 ---
-description: PR review + auto-fix — parallel agents for quality, security, and cleanup
+description: PR review + auto-fix — parallel agents for quality, security, cleanup, and test coverage
 ---
 
 Review the current branch's changes. Base defaults to `origin/main`. Override: `/review <branch>` or `/review <remote>/<branch>`
@@ -31,15 +31,17 @@ Review the current branch's changes. Base defaults to `origin/main`. Override: `
 
 ## Phase 1: Review
 
-IMPORTANT: You MUST use the Task tool to launch exactly 3 subagents IN PARALLEL (all 3 in a single response). Do NOT review the code yourself. Delegate to:
+IMPORTANT: You MUST use the Task tool to launch exactly 4 subagents IN PARALLEL (all 4 in a single response). Do NOT review the code yourself. Delegate to:
 
 1. Task(subagent_type="review-quality") — pass it the changed file list. It reviews code quality, dead-end paths, and unused/dead code detection (authoritative owner of unused-code findings).
-2. Task(subagent_type="review-security") — pass it the changed file list AND specifically which migrations and test files changed (or didn't). It reviews security, SQL integrity, and DB test coverage.
+2. Task(subagent_type="review-security") — pass it the changed file list AND specifically which migrations changed (or didn't). It reviews security, auth, RLS, and SQL/data integrity. It does NOT own general test-coverage findings.
 3. Task(subagent_type="review-cleanup") — pass it the changed file list. It reviews redundancy and simplification opportunities only (not unused/dead code — that belongs to review-quality). Avoid duplicate findings.
+4. Task(subagent_type="review-tests") — pass it the changed file list AND specifically which migrations and test files changed (or didn't). It is the authoritative owner of test-coverage findings across Vitest, Playwright E2E, and pgTAP. It should focus on smoke coverage and major-risk flows, not 100% coverage.
 
 Include the full changed file list from the "Changed files" section in each Task prompt so the subagent knows what to read (this includes untracked files).
+Also include the "Migrations changed" section in the `review-security` and `review-tests` prompts, and the "Tests changed" section in the `review-tests` prompt, even when those lists are empty.
 
-Wait for all 3 to complete, then compile their findings:
+Wait for all 4 to complete, then compile their findings:
 
 ### Code Quality
 <review-quality findings>
@@ -49,6 +51,9 @@ Wait for all 3 to complete, then compile their findings:
 
 ### Simplification
 <review-cleanup findings>
+
+### Testing Coverage
+<review-tests findings>
 
 ---
 
@@ -75,7 +80,7 @@ Present these to the user and wait for explicit approval before applying:
 - Missing auth checks — add `supabase.auth.getUser()` guard
 - Missing RLS policies — write the SQL migration
 - Missing FK/CHECK/UNIQUE constraints — write migration
-- Missing pgTAP tests — write them following patterns in `supabase/tests/`
+- Missing critical Vitest, Playwright, or pgTAP coverage — add targeted tests for major flows
 - Repository-wide constraint changes
 
 ---
@@ -83,6 +88,18 @@ Present these to the user and wait for explicit approval before applying:
 ## Phase 3: Report
 
 After fixing, produce the final report:
+
+### Code Quality
+<remaining review-quality issues, or say "No issues found.">
+
+### Security & Data Integrity
+<remaining review-security issues, or say "No issues found.">
+
+### Simplification
+<remaining review-cleanup issues, or say "No issues found.">
+
+### Testing Coverage
+<summarize remaining high-value Vitest, Playwright, and pgTAP coverage gaps, or say "No issues found.">
 
 ### Fixes Applied
 <list each fix with file:line and what changed>

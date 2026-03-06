@@ -56,7 +56,7 @@ export const INCOME_CATEGORIES: CategoryPreset[] = [
   { name: "Scholarship", icon: "graduation-cap", color: "#6b8e7b", type: "income", defaultSelected: false },
   { name: "Gifts Received", icon: "gift", color: "#c97ba0", type: "income", defaultSelected: false },
   { name: "Refunds", icon: "rotate-ccw", color: "#7ab8a0", type: "income", defaultSelected: false },
-  { name: "Debt Repayment", icon: "banknote", color: "#8b6a3a", type: "income", defaultSelected: false },
+  { name: "Debt Repayment", icon: "banknote", color: "#8b6a3a", type: "income", defaultSelected: true },
   { name: "Other Income", icon: "circle-plus", color: "#9a9a9a", type: "income", defaultSelected: false },
 ];
 

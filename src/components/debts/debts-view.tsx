@@ -231,44 +231,44 @@ function AddDebtDialog({
               )}
             />
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Direction</FormLabel>
-                    <div className="inline-flex rounded-lg border bg-muted p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("i_owe")}
-                        className={cn(
-                          "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-                          field.value === "i_owe"
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        I owe
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("they_owe")}
-                        className={cn(
-                          "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-                          field.value === "they_owe"
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        They owe me
-                      </button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Direction</FormLabel>
+                  <div className="flex rounded-lg border bg-muted p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("i_owe")}
+                      className={cn(
+                        "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                        field.value === "i_owe"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      I owe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("they_owe")}
+                      className={cn(
+                        "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                        field.value === "they_owe"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      They owe me
+                    </button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="original_amount"
@@ -390,11 +390,13 @@ function LogPaymentDialog({
         ? {
             id: payment.id,
             amount: payment.amount,
+            payment_date: payment.paymentDate,
             note: payment.note ?? "",
           }
         : {
             debt_id: debt.id,
             amount: undefined,
+            payment_date: formatDateForInput(new Date()),
             note: "",
           }),
     },
@@ -407,6 +409,7 @@ function LogPaymentDialog({
       form.reset({
         id: payment.id,
         amount: payment.amount,
+        payment_date: payment.paymentDate,
         note: payment.note ?? "",
       });
       return;
@@ -415,6 +418,7 @@ function LogPaymentDialog({
     form.reset({
       debt_id: debt.id,
       amount: undefined,
+      payment_date: formatDateForInput(new Date()),
       note: "",
     });
   }, [debt.id, form, isEditing, open, payment]);
@@ -456,7 +460,7 @@ function LogPaymentDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Remaining: <span className="font-medium">{formatCurrency(debt.remainingAmount, currency)}</span>
+              Remaining: <span className="font-medium">{formatCurrency(debt.remainingAmount + (payment?.amount ?? 0), currency)}</span>
             </div>
 
             <FormField
@@ -470,7 +474,7 @@ function LogPaymentDialog({
                       type="number"
                       step="0.01"
                       min="0.01"
-                      max={debt.remainingAmount}
+                      max={debt.remainingAmount + (payment?.amount ?? 0)}
                       placeholder="0.00"
                       value={field.value ?? ""}
                       onChange={(e) => {
@@ -478,6 +482,20 @@ function LogPaymentDialog({
                         field.onChange(val === "" ? undefined : Number(val));
                       }}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="payment_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

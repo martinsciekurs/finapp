@@ -65,6 +65,7 @@ declare
   -- income categories
   _c_salary   uuid;
   _c_freelance uuid;
+  _c_debt_repayment uuid;
 
   -- reminder IDs (for seeding paid occurrences)
   _r_monthly_rent      uuid;
@@ -190,6 +191,10 @@ begin
   insert into public.categories (user_id, name, icon, color, type, group_id, sort_order)
   values (_uid, 'Freelance','laptop',    '#5b9a82', 'income', _g_income, 2)
   returning id into _c_freelance;
+
+  insert into public.categories (user_id, name, icon, color, type, group_id, sort_order)
+  values (_uid, 'Debt Repayment','banknote', '#8b6a3a', 'income', _g_income, 3)
+  returning id into _c_debt_repayment;
 
   -- -------------------------------------------------------
   -- Transactions — past 2 months + current month
@@ -326,7 +331,7 @@ begin
   returning id into _d_credit_card;
 
   insert into public.debts (user_id, counterparty, type, category_id, debt_date, original_amount, remaining_amount, description)
-  values (_uid, 'Marcus', 'they_owe', _c_freelance, (_today - interval '30 days')::date, 150, 150, 'Dinner + concert tickets from last month')
+  values (_uid, 'Marcus', 'they_owe', _c_debt_repayment, (_today - interval '30 days')::date, 150, 150, 'Dinner + concert tickets from last month')
   returning id into _d_marcus_loan;
 
   insert into public.transactions (user_id, category_id, amount, type, description, date, source, ai_generated)
@@ -337,7 +342,7 @@ begin
   values (_d_credit_card, _uid, 300, 'Scheduled monthly payment', _tx_credit_card);
 
   insert into public.transactions (user_id, category_id, amount, type, description, date, source, ai_generated)
-  values (_uid, _c_freelance, 150, 'income', 'Repayment from Marcus', (_today - interval '5 days')::date, 'web', false)
+  values (_uid, _c_debt_repayment, 150, 'income', 'Repayment from Marcus — Paid back in full', (_today - interval '5 days')::date, 'web', false)
   returning id into _tx_marcus_loan;
 
   insert into public.debt_payments (debt_id, user_id, amount, note, transaction_id)
