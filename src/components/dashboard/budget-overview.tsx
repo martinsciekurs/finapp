@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { PieChart } from "lucide-react";
@@ -61,6 +61,20 @@ function getPacePercent(): number {
   const day = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return (day / daysInMonth) * 100;
+}
+
+let cachedPacePercent: number | null = null;
+const noopSubscribe = () => () => {};
+function getClientSnapshot() {
+  cachedPacePercent ??= getPacePercent();
+  return cachedPacePercent;
+}
+function getServerSnapshot() {
+  return null;
+}
+
+function usePacePercent() {
+  return useSyncExternalStore(noopSubscribe, getClientSnapshot, getServerSnapshot);
 }
 
 // ────────────────────────────────────────────
@@ -260,10 +274,7 @@ export function BudgetOverview({ data, currency, historicalData }: BudgetOvervie
     unbudgetedCategories,
   } = data;
 
-  const [pacePercent, setPacePercent] = useState<number | null>(null);
-  useEffect(() => {
-    setPacePercent(getPacePercent());
-  }, []);
+  const pacePercent = usePacePercent();
 
   const hasContent =
     budgetedCategories.length > 0 || unbudgetedCategories.length > 0;
