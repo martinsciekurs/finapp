@@ -5,7 +5,9 @@
 - Audit all empty states and loading skeletons for consistency
 - Tests: Guided tour E2E (shows on first visit, dismisses correctly)
 
-## ResearIn our current planning for Phase 2H, we've made significant strides in understanding the onboarding guided tour implementation. Notably, we discovered that the database already includes relevant fields (`tour_completed_steps` and `tour_completed_at`) within the profiles table, which positions us well for effectively tracking user interactions during the guided tour. Additionally, a comprehensive audit of empty states and loading skeletons has been completed to ensure a consistent user experience. As we await final approvals from the librarian, our next steps will focus on synthesizing our findings and preparing for interviews to refine the tour experience further.ch Findings
+## Research Findings
+
+In our current planning for Phase 2H, we've made significant strides in understanding the onboarding guided tour implementation. Notably, we discovered that the database already includes relevant fields (`tour_completed_steps` and `tour_completed_at`) within the profiles table, which positions us well for effectively tracking user interactions during the guided tour. Additionally, a comprehensive audit of empty states and loading skeletons has been completed to ensure a consistent user experience. As we await final approvals from the librarian, our next steps will focus on synthesizing our findings and preparing for interviews to refine the tour experience further.
 
 ### Database Infrastructure (READY)
 - `profiles.tour_completed_steps` (jsonb, default `'[]'`) — already exists in migration `20260304000002_profiles.sql`
