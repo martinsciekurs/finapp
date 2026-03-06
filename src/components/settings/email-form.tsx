@@ -82,7 +82,7 @@ export function EmailForm({ defaultEmail }: EmailFormProps) {
               )}
             />
           </CardContent>
-          <CardFooter>
+          <CardFooter className="pt-6">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
               Save
