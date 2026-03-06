@@ -45,11 +45,11 @@ begin
     end if;
 
     if p_type = 'i_owe' and v_category_type <> 'expense' then
-      raise exception 'Debt type i_owe requires a expense category';
+      raise exception 'Debt type i_owe requires an expense category';
     end if;
 
     if p_type = 'they_owe' and v_category_type <> 'income' then
-      raise exception 'Debt type they_owe requires a income category';
+      raise exception 'Debt type they_owe requires an income category';
     end if;
   end if;
 

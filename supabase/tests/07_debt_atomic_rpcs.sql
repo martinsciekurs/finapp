@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(29);
 
 select reset_role();
 
@@ -13,7 +13,11 @@ declare
   _debt_type_change uuid;
   _debt_record uuid;
   _debt_overpay uuid;
+  _debt_keep uuid;
+  _debt_delete uuid;
   _tx_id uuid;
+  _keep_tx_id uuid;
+  _delete_tx_id uuid;
 begin
   _u1 := create_test_user('debt-rpc-u1@test.com', 'Debt RPC User 1');
   _u2 := create_test_user('debt-rpc-u2@test.com', 'Debt RPC User 2');
@@ -53,6 +57,26 @@ begin
          debt_date = current_date
    where id = _debt_overpay;
 
+  _debt_keep := create_test_debt(_u1, 'Keep Tx User', 80, 'i_owe');
+  update public.debts
+     set category_id = _expense_cat,
+         debt_date = current_date
+   where id = _debt_keep;
+
+  _keep_tx_id := create_test_transaction(_u1, _expense_cat, 20, 'expense');
+  insert into public.debt_payments (debt_id, user_id, amount, note, transaction_id)
+  values (_debt_keep, _u1, 20, 'Keep linked transaction', _keep_tx_id);
+
+  _debt_delete := create_test_debt(_u1, 'Delete Tx User', 80, 'i_owe');
+  update public.debts
+     set category_id = _expense_cat,
+         debt_date = current_date
+   where id = _debt_delete;
+
+  _delete_tx_id := create_test_transaction(_u1, _expense_cat, 20, 'expense');
+  insert into public.debt_payments (debt_id, user_id, amount, note, transaction_id)
+  values (_debt_delete, _u1, 20, 'Delete linked transaction', _delete_tx_id);
+
   perform set_config('test.debt_rpc_u1', _u1::text, true);
   perform set_config('test.debt_rpc_u2', _u2::text, true);
   perform set_config('test.debt_rpc_expense_cat', _expense_cat::text, true);
@@ -61,6 +85,10 @@ begin
   perform set_config('test.debt_rpc_type_change_debt', _debt_type_change::text, true);
   perform set_config('test.debt_rpc_record_debt', _debt_record::text, true);
   perform set_config('test.debt_rpc_overpay_debt', _debt_overpay::text, true);
+  perform set_config('test.debt_rpc_keep_debt', _debt_keep::text, true);
+  perform set_config('test.debt_rpc_delete_debt', _debt_delete::text, true);
+  perform set_config('test.debt_rpc_keep_tx', _keep_tx_id::text, true);
+  perform set_config('test.debt_rpc_delete_tx', _delete_tx_id::text, true);
 end;
 $$;
 
@@ -234,6 +262,50 @@ select is(
   (select remaining_amount from public.debts where id = current_setting('test.debt_rpc_record_debt')::uuid),
   120::numeric,
   'delete_debt_payment_atomic restores remaining_amount via the existing trigger'
+);
+
+select authenticate_as(current_setting('test.debt_rpc_u1')::uuid);
+
+select lives_ok(
+  format(
+    'select public.delete_debt_atomic(%L, false)',
+    current_setting('test.debt_rpc_keep_debt')::uuid
+  ),
+  'delete_debt_atomic can keep linked transactions when requested'
+);
+
+select reset_role();
+select is(
+  (select count(*)::int from public.debts where id = current_setting('test.debt_rpc_keep_debt')::uuid),
+  0,
+  'delete_debt_atomic removes the debt row when keeping transactions'
+);
+select is(
+  (select count(*)::int from public.transactions where id = current_setting('test.debt_rpc_keep_tx')::uuid),
+  1,
+  'delete_debt_atomic preserves linked transactions when requested'
+);
+
+select authenticate_as(current_setting('test.debt_rpc_u1')::uuid);
+
+select lives_ok(
+  format(
+    'select public.delete_debt_atomic(%L, true)',
+    current_setting('test.debt_rpc_delete_debt')::uuid
+  ),
+  'delete_debt_atomic deletes linked transactions when requested'
+);
+
+select reset_role();
+select is(
+  (select count(*)::int from public.debts where id = current_setting('test.debt_rpc_delete_debt')::uuid),
+  0,
+  'delete_debt_atomic removes the debt row when deleting transactions'
+);
+select is(
+  (select count(*)::int from public.transactions where id = current_setting('test.debt_rpc_delete_tx')::uuid),
+  0,
+  'delete_debt_atomic removes linked transactions when requested'
 );
 
 select authenticate_as(current_setting('test.debt_rpc_u2')::uuid);

@@ -44,11 +44,11 @@ begin
   end if;
 
   if v_debt.type = 'i_owe' and v_category_type <> 'expense' then
-    raise exception 'Debt type i_owe requires a expense category';
+    raise exception 'Debt type i_owe requires an expense category';
   end if;
 
   if v_debt.type = 'they_owe' and v_category_type <> 'income' then
-    raise exception 'Debt type they_owe requires a income category';
+    raise exception 'Debt type they_owe requires an income category';
   end if;
 
   if p_amount > v_debt.remaining_amount then
