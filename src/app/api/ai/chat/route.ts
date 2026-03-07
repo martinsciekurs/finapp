@@ -1,4 +1,5 @@
 import { generateText, gateway } from "ai";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { buildAiChatSystemPrompt } from "@/lib/ai/chat";
@@ -13,6 +14,22 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+function parseBooleanEnv(value: string | undefined, fallback: boolean): boolean {
+  if (!value) return fallback;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true") return true;
+  if (normalized === "0" || normalized === "false") return false;
+
+  return fallback;
+}
+
+function pseudonymizeUserId(userId: string): string {
+  return createHash("sha256").update(userId).digest("hex").slice(0, 16);
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!process.env.VERCEL && !process.env.AI_GATEWAY_API_KEY) {
@@ -95,6 +112,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     .map((category) => category.name);
 
   try {
+    const shouldRecordRawTelemetry = parseBooleanEnv(
+      process.env.AI_TELEMETRY_RECORD_CONTENT,
+      !isProduction
+    );
+
     const result = await generateText({
       model: gateway(process.env.AI_CHAT_MODEL ?? DEFAULT_MODEL),
       system: buildAiChatSystemPrompt({
@@ -107,9 +129,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       experimental_telemetry: {
         isEnabled: true,
         functionId: "ai-chat",
-        recordInputs: true,
-        recordOutputs: true,
-        metadata: { userId: user.id },
+        recordInputs: shouldRecordRawTelemetry,
+        recordOutputs: shouldRecordRawTelemetry,
+        metadata: {
+          userHash: pseudonymizeUserId(user.id),
+          environment: process.env.NODE_ENV,
+        },
       },
     });
 

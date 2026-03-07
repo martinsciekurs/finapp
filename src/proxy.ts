@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   const isObservabilityBypass = observabilityBypassRoutes.some((route) =>
-    pathname === route || pathname.startsWith(route + "/")
+    pathname === route || pathname === `${route}/`
   );
   if (isObservabilityBypass) {
     return NextResponse.next();

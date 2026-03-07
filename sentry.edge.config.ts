@@ -5,6 +5,15 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+function parseBooleanEnv(value: string | undefined): boolean {
+  if (!value) return false;
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
+const sendDefaultPii = parseBooleanEnv(process.env.SENTRY_SEND_DEFAULT_PII);
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
@@ -18,5 +27,5 @@ Sentry.init({
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii,
 });
