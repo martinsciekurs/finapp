@@ -1,10 +1,16 @@
-import { generateText, gateway } from "ai";
+import { generateObject, gateway } from "ai";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
 import { buildAiChatSystemPrompt } from "@/lib/ai/chat";
+import {
+  normalizeTransactionDraft,
+  parseCategoryContext,
+  splitCategoriesByType,
+} from "@/lib/ai/transaction-draft";
 import { createClient } from "@/lib/supabase/server";
 import {
+  aiAssistantResponseSchema,
   aiChatRequestSchema,
   aiInputSchema,
   type AiChatMessage,
@@ -81,7 +87,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       .maybeSingle(),
     supabase
       .from("categories")
-      .select("name, type")
+      .select("id, name, type")
       .order("sort_order", { ascending: true }),
   ]);
 
@@ -99,29 +105,44 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const categories = categoriesResult.data ?? [];
-  const expenseCategories = categories
-    .filter((category) => category.type === "expense")
-    .map((category) => category.name);
-  const incomeCategories = categories
-    .filter((category) => category.type === "income")
-    .map((category) => category.name);
+  const categories = parseCategoryContext(categoriesResult.data ?? []);
+  const { expenseCategories, incomeCategories } = splitCategoriesByType(categories);
 
   const shouldRecordRawTelemetry = parseBooleanEnv(
     process.env.AI_TELEMETRY_RECORD_CONTENT,
     !isProduction
   );
 
+  const systemPrompt = buildAiChatSystemPrompt({
+    displayName: profileResult.data?.display_name ?? null,
+    currency: profileResult.data?.currency ?? null,
+    expenseCategories,
+    incomeCategories,
+    currentDraft: parsed.data.currentDraft
+      ? {
+          type: parsed.data.currentDraft.type,
+          amount: parsed.data.currentDraft.amount,
+          category_name: parsed.data.currentDraft.category_name,
+          description: parsed.data.currentDraft.description,
+          date: parsed.data.currentDraft.date,
+        }
+      : null,
+  });
+
   try {
-    const result = await generateText({
-      model: gateway(process.env.AI_CHAT_MODEL ?? DEFAULT_MODEL),
-      system: buildAiChatSystemPrompt({
-        displayName: profileResult.data?.display_name ?? null,
-        currency: profileResult.data?.currency ?? null,
-        expenseCategories,
-        incomeCategories,
-      }),
+    const model = gateway(process.env.AI_CHAT_MODEL ?? DEFAULT_MODEL);
+    const result = await generateObject({
+      model,
+      system: [
+        systemPrompt,
+        "Use the draft object whenever a transaction draft is relevant.",
+        "Do not include JSON blobs, field lists, or markdown draft tables in the message text.",
+      ].join("\n"),
       messages: parsed.data.messages,
+      schema: aiAssistantResponseSchema,
+      schemaName: "ai_assistant_response",
+      schemaDescription:
+        "Response for Simplony AI chat with optional transaction draft payload.",
       experimental_telemetry: {
         isEnabled: true,
         functionId: "ai-chat",
@@ -130,11 +151,19 @@ export async function POST(request: Request): Promise<NextResponse> {
         metadata: {
           userId: user.id,
           environment: process.env.NODE_ENV,
+          mode: "structured-only",
         },
       },
     });
 
-    const text = result.text.trim();
+    const draft = normalizeTransactionDraft(result.object.draft, categories);
+    const missingFields = draft?.missing_fields ?? [];
+
+    const text = draft
+      ? missingFields.length === 0
+        ? "I prepared a draft. Confirm to save, or tell me what to change."
+        : `I drafted what I could. Please provide: ${missingFields.join(", ")}.`
+      : result.object.message.trim();
 
     if (!text) {
       return NextResponse.json(
@@ -148,6 +177,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         role: "assistant",
         content: text,
       } satisfies AiChatMessage,
+      draft,
     });
   } catch (error) {
     Sentry.captureException(error, {
@@ -169,9 +199,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          "The AI assistant is unavailable right now. Please try again in a moment.",
+          "The assistant could not produce a structured response. Please try again with a shorter, clearer message.",
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
