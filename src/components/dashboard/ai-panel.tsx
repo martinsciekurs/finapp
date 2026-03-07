@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUp, Loader2, Sparkles, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { aiInputSchema, type AiChatMessage } from "@/lib/validations/ai";
@@ -146,7 +148,15 @@ export function AiPanel() {
                     : "bg-muted text-foreground"
                 )}
               >
-                {message.content}
+                {message.role === "user" ? (
+                  message.content
+                ) : (
+                  <div className="space-y-2 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-background/70 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
             </div>
           ))}

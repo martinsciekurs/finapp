@@ -105,4 +105,31 @@ describe("AiPanel", () => {
       ],
     });
   });
+
+  it("renders markdown formatting in assistant replies", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: {
+          role: "assistant",
+          content:
+            "I can assist with **Budgeting tips** and **Saving ideas**.\n\n- Track subscriptions\n- Set a weekly limit",
+        },
+      }),
+    });
+
+    render(<AiPanel />);
+
+    await user.type(screen.getByLabelText("Ask AI Assistant"), "help");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Budgeting tips", { selector: "strong" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Track subscriptions")).toBeInTheDocument();
+    expect(screen.queryByText(/\*\*Budgeting tips\*\*/)).not.toBeInTheDocument();
+  });
 });
