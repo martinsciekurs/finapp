@@ -20,6 +20,21 @@ export const aiInputSchema = z.object({
     ),
 });
 
+export const aiChatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z
+    .string()
+    .transform((val) => val.trim())
+    .pipe(z.string().min(1, "Message cannot be empty").max(4000)),
+});
+
+export const aiChatRequestSchema = z.object({
+  messages: z
+    .array(aiChatMessageSchema)
+    .min(1, "At least one message is required")
+    .max(20, "Conversation is too long"),
+});
+
 export const aiSuggestionSchema = z.object({
   type: z.enum(["expense", "income"]),
   amount: z.number().positive().nullable(),
@@ -29,4 +44,6 @@ export const aiSuggestionSchema = z.object({
 });
 
 export type AiInput = z.infer<typeof aiInputSchema>;
+export type AiChatMessage = z.infer<typeof aiChatMessageSchema>;
+export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;
 export type AiSuggestion = z.infer<typeof aiSuggestionSchema>;

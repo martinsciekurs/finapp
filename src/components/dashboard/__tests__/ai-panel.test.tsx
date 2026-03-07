@@ -1,0 +1,108 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { AiPanel } from "../ai-panel";
+
+const closeMock = vi.fn();
+const fetchMock = vi.fn();
+
+vi.mock("../ai-panel-provider", () => ({
+  useAiPanel: () => ({
+    open: true,
+    close: closeMock,
+  }),
+}));
+
+describe("AiPanel", () => {
+  beforeEach(() => {
+    closeMock.mockClear();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("renders the starter assistant message", () => {
+    render(<AiPanel />);
+
+    expect(screen.getByText("AI Assistant")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Hi! Ask about budgeting, saving ideas, category choices, or how to use Simplony."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("renders a mobile overlay backdrop and closes from it", async () => {
+    const user = userEvent.setup();
+
+    render(<AiPanel />);
+
+    await user.click(screen.getByRole("button", { name: "Close AI panel overlay" }));
+
+    expect(closeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a validation error when the input is too long", async () => {
+    const user = userEvent.setup();
+
+    render(<AiPanel />);
+
+    await user.type(
+      screen.getByLabelText("Ask AI Assistant"),
+      Array.from({ length: 101 }, () => "word").join(" ")
+    );
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(
+      screen.getByText("Input must be at most 100 words")
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("submits a message and renders the assistant reply", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: {
+          role: "assistant",
+          content: "Try reviewing your Food and Transport categories first.",
+        },
+      }),
+    });
+
+    render(<AiPanel />);
+
+    await user.type(screen.getByLabelText("Ask AI Assistant"), "How can I cut spending?");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Try reviewing your Food and Transport categories first.")
+      ).toBeInTheDocument();
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/ai/chat");
+    expect(requestInit).toMatchObject({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+      messages: [
+        {
+          role: "assistant",
+          content:
+            "Hi! Ask about budgeting, saving ideas, category choices, or how to use Simplony.",
+        },
+        {
+          role: "user",
+          content: "How can I cut spending?",
+        },
+      ],
+    });
+  });
+});
