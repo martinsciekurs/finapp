@@ -217,6 +217,7 @@ export async function loginAndOpenTransactions(
 export async function openAiAssistant(page: Page): Promise<void> {
   const trigger = page.getByRole("button", { name: "AI Assistant" }).first();
   await trigger.waitFor({ state: "visible" });
-  await trigger.click({ force: true });
+  await trigger.scrollIntoViewIfNeeded();
+  await trigger.click();
   await page.getByLabel("Ask AI Assistant").waitFor();
 }
