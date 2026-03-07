@@ -30,7 +30,7 @@ export function SidebarNav({ displayName }: SidebarNavProps) {
     <aside
       data-tour="sidebar-nav"
       className={cn(
-        "hidden lg:flex lg:flex-col lg:border-r lg:border-sidebar-border lg:bg-sidebar",
+        "hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:border-r lg:border-sidebar-border lg:bg-sidebar",
         collapsed ? "lg:w-[68px]" : "lg:w-[240px]"
       )}
       style={{ transition: reduceMotion ? "none" : "width 0.2s ease" }}
@@ -65,7 +65,7 @@ export function SidebarNav({ displayName }: SidebarNavProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-3" aria-label="Main navigation">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Main navigation">
         {NAV_ITEMS.map((item) => {
           const isActive = isNavItemActive(item.href, pathname);
 

@@ -180,7 +180,6 @@ export function TransactionForm({ categories, userTags }: TransactionFormProps) 
                       step="0.01"
                       min="0.01"
                       placeholder="0.00"
-                      autoFocus
                       {...field}
                       value={field.value ?? ""}
                       onChange={(e) => {

@@ -16,7 +16,7 @@ export default function GlobalError({
 
   return (
     <html>
-      <body>
+      <body className="font-sans">
         <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
           <h1 className="font-serif text-4xl font-bold text-destructive">
             Something went wrong

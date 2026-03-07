@@ -12,16 +12,34 @@ function parseBooleanEnv(value: string | undefined): boolean {
   return normalized === "1" || normalized === "true";
 }
 
+function parseSampleRate(
+  value: string | undefined,
+  fallback: number
+): number {
+  if (!value) return fallback;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return fallback;
+  return parsed;
+}
+
+const isDevelopment = process.env.NODE_ENV === "development";
 const sendDefaultPii = parseBooleanEnv(process.env.SENTRY_SEND_DEFAULT_PII);
+const tracesSampleRate = parseSampleRate(
+  process.env.SENTRY_TRACES_SAMPLE_RATE,
+  isDevelopment ? 1.0 : 0.2
+);
+const enableLogs =
+  isDevelopment || parseBooleanEnv(process.env.SENTRY_ENABLE_LOGS);
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate,
 
   // Enable logs to be sent to Sentry
-  enableLogs: true,
+  enableLogs,
 
   integrations: [Sentry.vercelAIIntegration()],
 

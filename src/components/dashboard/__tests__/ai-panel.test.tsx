@@ -6,6 +6,11 @@ import { AiPanel } from "../ai-panel";
 
 const closeMock = vi.fn();
 const fetchMock = vi.fn();
+let pathnameMock = "/dashboard";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathnameMock,
+}));
 
 vi.mock("../ai-panel-provider", () => ({
   useAiPanel: () => ({
@@ -18,6 +23,7 @@ describe("AiPanel", () => {
   beforeEach(() => {
     closeMock.mockClear();
     fetchMock.mockReset();
+    pathnameMock = "/dashboard";
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -57,6 +63,40 @@ describe("AiPanel", () => {
       screen.getByText("Input must be at most 100 words")
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("autofocuses the input on open, after response, and on route change", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: {
+          role: "assistant",
+          content: "Got it.",
+        },
+      }),
+    });
+
+    const { rerender } = render(<AiPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Ask AI Assistant")).toHaveFocus();
+    });
+
+    await user.type(screen.getByLabelText("Ask AI Assistant"), "Help me budget");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Ask AI Assistant")).toHaveFocus();
+    });
+
+    pathnameMock = "/dashboard/transactions";
+    rerender(<AiPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Ask AI Assistant")).toHaveFocus();
+    });
   });
 
   it("submits a message and renders the assistant reply", async () => {

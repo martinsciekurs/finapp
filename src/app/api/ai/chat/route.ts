@@ -1,6 +1,6 @@
 import { generateText, gateway } from "ai";
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { buildAiChatSystemPrompt } from "@/lib/ai/chat";
 import { createClient } from "@/lib/supabase/server";
@@ -25,10 +25,6 @@ function parseBooleanEnv(value: string | undefined, fallback: boolean): boolean 
   if (normalized === "0" || normalized === "false") return false;
 
   return fallback;
-}
-
-function pseudonymizeUserId(userId: string): string {
-  return createHash("sha256").update(userId).digest("hex").slice(0, 16);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -111,12 +107,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     .filter((category) => category.type === "income")
     .map((category) => category.name);
 
-  try {
-    const shouldRecordRawTelemetry = parseBooleanEnv(
-      process.env.AI_TELEMETRY_RECORD_CONTENT,
-      !isProduction
-    );
+  const shouldRecordRawTelemetry = parseBooleanEnv(
+    process.env.AI_TELEMETRY_RECORD_CONTENT,
+    !isProduction
+  );
 
+  try {
     const result = await generateText({
       model: gateway(process.env.AI_CHAT_MODEL ?? DEFAULT_MODEL),
       system: buildAiChatSystemPrompt({
@@ -132,7 +128,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         recordInputs: shouldRecordRawTelemetry,
         recordOutputs: shouldRecordRawTelemetry,
         metadata: {
-          userHash: pseudonymizeUserId(user.id),
+          userId: user.id,
           environment: process.env.NODE_ENV,
         },
       },
@@ -154,6 +150,20 @@ export async function POST(request: Request): Promise<NextResponse> {
       } satisfies AiChatMessage,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        functionId: "ai-chat",
+      },
+      extra: {
+        userId: user.id,
+        environment: process.env.NODE_ENV,
+        telemetry: {
+          recordInputs: shouldRecordRawTelemetry,
+          recordOutputs: shouldRecordRawTelemetry,
+        },
+      },
+    });
+
     console.error("AI chat request failed", error);
 
     return NextResponse.json(
