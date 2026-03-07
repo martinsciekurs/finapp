@@ -104,6 +104,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         incomeCategories,
       }),
       messages: parsed.data.messages,
+      experimental_telemetry: {
+        isEnabled: true,
+        functionId: "ai-chat",
+        recordInputs: true,
+        recordOutputs: true,
+        metadata: { userId: user.id },
+      },
     });
 
     const text = result.text.trim();

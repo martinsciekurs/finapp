@@ -38,6 +38,32 @@ AI_GATEWAY_API_KEY=your-vercel-ai-gateway-key
 AI_CHAT_MODEL=google/gemini-3-flash
 ```
 
+For error monitoring and AI observability, add Sentry credentials to `.env.local`:
+
+```bash
+NEXT_PUBLIC_SENTRY_DSN=your-sentry-dsn
+SENTRY_DSN=your-sentry-dsn
+# Required for source map uploads in production builds:
+# SENTRY_AUTH_TOKEN=your-auth-token
+```
+
+### Verify Sentry is working
+
+1. Start the app: `npm run dev`
+2. Trigger a server-side test event:
+
+```bash
+curl -i http://localhost:3200/api/sentry-test
+```
+
+3. Confirm a new issue appears in Sentry (`javascript-nextjs` project)
+
+For a browser-side test, open DevTools console and run:
+
+```js
+throw new Error("Sentry client test error");
+```
+
 ## Scripts
 
 | Command | Description |
