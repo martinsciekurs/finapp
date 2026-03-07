@@ -5,6 +5,7 @@ import {
   getDraftFromMessages,
   getLatestPendingDraftIndex,
   isAffirmativeConfirmation,
+  parseStoredMessage,
   restoreStoredMessages,
 } from "../ai-panel-model";
 
@@ -58,6 +59,25 @@ describe("ai-panel-model", () => {
   it("detects affirmative confirmation variants", () => {
     expect(isAffirmativeConfirmation("yes")).toBe(true);
     expect(isAffirmativeConfirmation(" Save it ")).toBe(true);
+    expect(isAffirmativeConfirmation("yes!")).toBe(true);
+    expect(isAffirmativeConfirmation(" ok. ")).toBe(true);
+    expect(isAffirmativeConfirmation("looks good!")).toBe(true);
     expect(isAffirmativeConfirmation("change category")).toBe(false);
+  });
+
+  it("drops draft status when the stored draft is invalid", () => {
+    const parsed = parseStoredMessage({
+      role: "assistant",
+      content: "Broken draft",
+      draft: { type: "expense", amount: "not-a-number" },
+      draftStatus: "pending",
+    });
+
+    expect(parsed).toEqual({
+      role: "assistant",
+      content: "Broken draft",
+      draft: null,
+      draftStatus: null,
+    });
   });
 });

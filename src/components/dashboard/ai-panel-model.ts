@@ -45,7 +45,8 @@ export function parseStoredMessage(raw: unknown): AiPanelMessage | null {
   }
 
   const draftStatus =
-    candidate.draftStatus === "pending" || candidate.draftStatus === "confirmed"
+    draft !== null &&
+    (candidate.draftStatus === "pending" || candidate.draftStatus === "confirmed")
       ? candidate.draftStatus
       : null;
 
@@ -104,7 +105,12 @@ export function getDraftFromMessages(
 }
 
 export function isAffirmativeConfirmation(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/^[\s.,!?;:]+|[\s.,!?;:]+$/g, "")
+    .replace(/\s+/g, " ");
+
   return [
     "yes",
     "y",
