@@ -234,6 +234,26 @@ describe("aiTransactionDraftSchema", () => {
       expect(result.data.missing_fields).toEqual([]);
     }
   });
+
+  it("normalizes empty optional fields to null", () => {
+    const result = aiTransactionDraftSchema.safeParse({
+      type: "expense",
+      amount: "",
+      category_id: "   ",
+      category_name: null,
+      description: "Coffee",
+      date: null,
+      confidence: 0.41,
+      missing_fields: ["amount", "category_id", "date"],
+      needs_confirmation: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amount).toBeNull();
+      expect(result.data.category_id).toBeNull();
+    }
+  });
 });
 
 describe("aiAssistantResponseSchema", () => {
@@ -288,6 +308,30 @@ describe("aiChatRequestSchema", () => {
         date: null,
         confidence: 0.5,
         missing_fields: ["amount", "category_id", "date"],
+        needs_confirmation: true,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts currentDraft category ids that are not UUIDs", () => {
+    const result = aiChatRequestSchema.safeParse({
+      messages: [
+        {
+          role: "user",
+          content: "Log my lunch",
+        },
+      ],
+      currentDraft: {
+        type: "expense",
+        amount: 12.5,
+        category_id: "dining-out",
+        category_name: "Dining Out",
+        description: "Lunch",
+        date: "2026-03-07",
+        confidence: 0.8,
+        missing_fields: [],
         needs_confirmation: true,
       },
     });

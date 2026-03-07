@@ -90,7 +90,7 @@ export const aiChatRequestSchema = z.object({
     .object({
       type: z.enum(["expense", "income"]),
       amount: z.number().positive().nullable(),
-      category_id: z.string().uuid().nullable(),
+      category_id: z.string().min(1).nullable(),
       category_name: z.string().min(1).max(100).nullable(),
       description: z.string().min(1).max(500).nullable(),
       date: z.string().date("Invalid date").nullable(),
