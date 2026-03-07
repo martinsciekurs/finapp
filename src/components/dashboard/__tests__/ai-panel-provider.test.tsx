@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AiPanelProvider, useAiPanel } from "../ai-panel-provider";
@@ -35,7 +35,7 @@ describe("AiPanelProvider", () => {
     expect(screen.getByTestId("open-state")).toHaveTextContent("false");
   });
 
-  it("hydrates open state from localStorage", () => {
+  it("hydrates open state from localStorage", async () => {
     window.localStorage.setItem("dashboard.aiPanel.open", "true");
 
     render(
@@ -44,7 +44,9 @@ describe("AiPanelProvider", () => {
       </AiPanelProvider>
     );
 
-    expect(screen.getByTestId("open-state")).toHaveTextContent("true");
+    await waitFor(() => {
+      expect(screen.getByTestId("open-state")).toHaveTextContent("true");
+    });
   });
 
   it("persists open state changes", async () => {

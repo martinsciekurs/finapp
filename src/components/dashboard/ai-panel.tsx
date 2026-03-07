@@ -1,31 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowUp, Loader2, Sparkles, X } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles, Trash2, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
+import { createTransaction } from "@/app/dashboard/transactions/actions";
 import { Button } from "@/components/ui/button";
-import { aiInputSchema, type AiChatMessage } from "@/lib/validations/ai";
+import { aiInputSchema, type AiChatMessage, type AiTransactionDraft } from "@/lib/validations/ai";
 import { cn } from "@/lib/utils";
+import {
+  AI_CHAT_STORAGE_KEY,
+  MAX_STORED_MESSAGES,
+  STARTER_MESSAGE,
+  getDraftFromMessages,
+  getLatestPendingDraftIndex,
+  isAffirmativeConfirmation,
+  restoreStoredMessages,
+  type AiPanelMessage,
+} from "./ai-panel-model";
+import { AiPanelMessageView } from "./ai-panel-message";
 import { useAiPanel } from "./ai-panel-provider";
-
-const STARTER_MESSAGE: AiChatMessage = {
-  role: "assistant",
-  content:
-    "Hi! Ask about budgeting, saving ideas, category choices, or how to use Simplony.",
-};
 
 export function AiPanel() {
   const { open, close } = useAiPanel();
   const pathname = usePathname();
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<AiChatMessage[]>([STARTER_MESSAGE]);
+  const [messages, setMessages] = useState<AiPanelMessage[]>([STARTER_MESSAGE]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingDraftIndex, setConfirmingDraftIndex] = useState<number | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isConfirmingRef = useRef(false);
+  const hasHydratedMessagesRef = useRef(false);
+
+  const latestPendingDraftIndex = getLatestPendingDraftIndex(messages);
 
   const focusInput = useCallback(() => {
     if (!open || isSubmitting) return;
@@ -54,6 +64,47 @@ export function AiPanel() {
     focusInput();
   }, [focusInput, pathname, messages]);
 
+  useEffect(() => {
+    if (!hasHydratedMessagesRef.current) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        AI_CHAT_STORAGE_KEY,
+        JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
+      );
+    } catch {
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(AI_CHAT_STORAGE_KEY);
+      const restoredMessages = restoreStoredMessages(stored);
+
+      if (restoredMessages.length > 0) {
+        setMessages(restoredMessages);
+      }
+    } catch {
+    } finally {
+      hasHydratedMessagesRef.current = true;
+    }
+  }, []);
+
+  function handleClearChat() {
+    setMessages([STARTER_MESSAGE]);
+    setInput("");
+    setError(null);
+    setConfirmingDraftIndex(null);
+    isConfirmingRef.current = false;
+
+    try {
+      window.localStorage.removeItem(AI_CHAT_STORAGE_KEY);
+    } catch {
+    }
+  }
+
   async function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
@@ -67,7 +118,34 @@ export function AiPanel() {
       role: "user",
       content: parsed.data.text,
     };
-    const nextMessages = [...messages, nextUserMessage];
+
+    if (
+      latestPendingDraftIndex !== null &&
+      isAffirmativeConfirmation(parsed.data.text)
+    ) {
+      setMessages((current) => [
+        ...current,
+        {
+          ...nextUserMessage,
+          draft: null,
+          draftStatus: null,
+        },
+      ]);
+      setInput("");
+      setError(null);
+      await handleConfirmDraft(latestPendingDraftIndex);
+      return;
+    }
+
+    const nextMessages: AiPanelMessage[] = [
+      ...messages,
+      {
+        ...nextUserMessage,
+        draft: null,
+        draftStatus: null,
+      },
+    ];
+    const currentDraft = getDraftFromMessages(messages);
 
     setMessages(nextMessages);
     setInput("");
@@ -80,11 +158,21 @@ export function AiPanel() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({
+          messages: nextMessages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+          currentDraft,
+        }),
       });
 
       const data = (await response.json().catch(() => null)) as
-        | { error?: string; message?: AiChatMessage }
+        | {
+            error?: string;
+            message?: AiChatMessage;
+            draft?: AiTransactionDraft | null;
+          }
         | null;
       const assistantMessage = data?.message;
 
@@ -93,11 +181,88 @@ export function AiPanel() {
         return;
       }
 
-      setMessages((current) => [...current, assistantMessage]);
+      setMessages((current) => [
+        ...current,
+        {
+          ...assistantMessage,
+          draft: data?.draft ?? null,
+          draftStatus: data?.draft ? "pending" : null,
+        },
+      ]);
     } catch {
       setError("Failed to send message");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleConfirmDraft(index: number) {
+    if (isConfirmingRef.current) {
+      return;
+    }
+
+    const message = messages[index];
+    const draft = message?.draft;
+
+    if (!message || !draft) {
+      setError("Draft no longer available");
+      return;
+    }
+
+    if (
+      draft.amount === null ||
+      draft.category_id === null ||
+      draft.date === null ||
+      index !== latestPendingDraftIndex
+    ) {
+      setError("Please resolve missing details in the latest draft first");
+      return;
+    }
+
+    setConfirmingDraftIndex(index);
+    isConfirmingRef.current = true;
+    setError(null);
+
+    try {
+      const result = await createTransaction({
+        category_id: draft.category_id,
+        amount: draft.amount,
+        type: draft.type,
+        description: draft.description ?? "",
+        date: draft.date,
+        source: "web",
+        ai_generated: true,
+      });
+
+      if (!result.success) {
+        setError(result.error ?? "Failed to create transaction");
+        return;
+      }
+
+      toast.success("Transaction added");
+
+      setMessages((current) => {
+        const next = [...current];
+        const target = next[index];
+        if (target) {
+          next[index] = {
+            ...target,
+            draftStatus: "confirmed",
+          };
+        }
+        next.push({
+          role: "assistant",
+          content: "Saved. Want to add another one?",
+          draft: null,
+          draftStatus: null,
+        });
+        return next;
+      });
+    } catch {
+      setError("Failed to create transaction");
+    } finally {
+      setConfirmingDraftIndex(null);
+      isConfirmingRef.current = false;
     }
   }
 
@@ -133,15 +298,28 @@ export function AiPanel() {
               AI Assistant
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-            aria-label="Close AI panel"
-            onClick={close}
-          >
-            <X className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground/80 hover:bg-muted/70 hover:text-foreground"
+              aria-label="Clear chat history"
+              onClick={handleClearChat}
+              disabled={isSubmitting || confirmingDraftIndex !== null}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              aria-label="Close AI panel"
+              onClick={close}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}
@@ -150,32 +328,14 @@ export function AiPanel() {
           className="flex flex-1 flex-col gap-4 overflow-y-auto bg-muted/15 px-4 py-5"
         >
           {messages.map((message, index) => (
-            <div
+            <AiPanelMessageView
               key={`${message.role}-${index}`}
-              className={cn(
-                "flex",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              <div
-                className={cn(
-                  "max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-relaxed shadow-sm",
-                  message.role === "user"
-                    ? "border-primary/70 bg-primary text-primary-foreground"
-                    : "border-border/60 bg-card text-foreground"
-                )}
-              >
-                {message.role === "user" ? (
-                  message.content
-                ) : (
-                  <div className="space-y-2 break-words [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-background/70 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                )}
-              </div>
-            </div>
+              message={message}
+              index={index}
+              latestPendingDraftIndex={latestPendingDraftIndex}
+              confirmingDraftIndex={confirmingDraftIndex}
+              onConfirmDraft={handleConfirmDraft}
+            />
           ))}
 
           {isSubmitting ? (
