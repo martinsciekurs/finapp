@@ -64,6 +64,52 @@ export async function createTestUser(
   return { email, password, displayName };
 }
 
+export async function fetchUserCategories(
+  request: APIRequestContext,
+  credentials: { email: string; password: string }
+): Promise<Array<{ id: string; name: string; type: "expense" | "income" }>> {
+  const { url, anonKey } = getSupabaseConfig();
+
+  const authResponse = await request.post(`${url}/auth/v1/token?grant_type=password`, {
+    data: {
+      email: credentials.email,
+      password: credentials.password,
+    },
+    headers: { apikey: anonKey },
+  });
+
+  if (!authResponse.ok()) {
+    throw new Error(`Failed to authenticate test user: ${await authResponse.text()}`);
+  }
+
+  const authBody = (await authResponse.json()) as { access_token?: string };
+  const accessToken = authBody.access_token;
+
+  if (!accessToken) {
+    throw new Error("Auth response missing access token");
+  }
+
+  const categoriesResponse = await request.get(
+    `${url}/rest/v1/categories?select=id,name,type&order=sort_order.asc`,
+    {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!categoriesResponse.ok()) {
+    throw new Error(`Failed to fetch user categories: ${await categoriesResponse.text()}`);
+  }
+
+  return (await categoriesResponse.json()) as Array<{
+    id: string;
+    name: string;
+    type: "expense" | "income";
+  }>;
+}
+
 // ── UI Helpers ─────────────────────────────────────────────
 
 /**
@@ -151,4 +197,26 @@ export async function completeOnboardingViaUI(page: Page): Promise<void> {
 
 export async function skipOnboardingViaUI(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Skip for now" }).click();
+}
+
+export async function loginAndOpenTransactions(
+  page: Page,
+  credentials: { email: string; password: string }
+): Promise<void> {
+  await loginViaUI(page, credentials);
+  await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 15000 });
+
+  if (page.url().includes("/onboarding")) {
+    await completeOnboardingViaUI(page);
+    await page.waitForURL(/\/dashboard/, { timeout: 20000 });
+  }
+
+  await page.goto("/dashboard/transactions");
+}
+
+export async function openAiAssistant(page: Page): Promise<void> {
+  const trigger = page.getByRole("button", { name: "AI Assistant" }).first();
+  await trigger.waitFor({ state: "visible" });
+  await trigger.click({ force: true });
+  await page.getByLabel("Ask AI Assistant").waitFor();
 }
