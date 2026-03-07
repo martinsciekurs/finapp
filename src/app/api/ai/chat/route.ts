@@ -1,5 +1,6 @@
 import { generateText, gateway } from "ai";
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { buildAiChatSystemPrompt } from "@/lib/ai/chat";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,18 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+function parseBooleanEnv(value: string | undefined, fallback: boolean): boolean {
+  if (!value) return fallback;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true") return true;
+  if (normalized === "0" || normalized === "false") return false;
+
+  return fallback;
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!process.env.VERCEL && !process.env.AI_GATEWAY_API_KEY) {
@@ -94,6 +107,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     .filter((category) => category.type === "income")
     .map((category) => category.name);
 
+  const shouldRecordRawTelemetry = parseBooleanEnv(
+    process.env.AI_TELEMETRY_RECORD_CONTENT,
+    !isProduction
+  );
+
   try {
     const result = await generateText({
       model: gateway(process.env.AI_CHAT_MODEL ?? DEFAULT_MODEL),
@@ -104,6 +122,16 @@ export async function POST(request: Request): Promise<NextResponse> {
         incomeCategories,
       }),
       messages: parsed.data.messages,
+      experimental_telemetry: {
+        isEnabled: true,
+        functionId: "ai-chat",
+        recordInputs: shouldRecordRawTelemetry,
+        recordOutputs: shouldRecordRawTelemetry,
+        metadata: {
+          userId: user.id,
+          environment: process.env.NODE_ENV,
+        },
+      },
     });
 
     const text = result.text.trim();
@@ -122,6 +150,20 @@ export async function POST(request: Request): Promise<NextResponse> {
       } satisfies AiChatMessage,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        functionId: "ai-chat",
+      },
+      extra: {
+        userId: user.id,
+        environment: process.env.NODE_ENV,
+        telemetry: {
+          recordInputs: shouldRecordRawTelemetry,
+          recordOutputs: shouldRecordRawTelemetry,
+        },
+      },
+    });
+
     console.error("AI chat request failed", error);
 
     return NextResponse.json(

@@ -8,8 +8,17 @@ const webhookRoutes = [
   "/api/cron/",
 ];
 
-export async function proxy(request: NextRequest) {
+const observabilityBypassRoutes = ["/monitoring", "/api/sentry-test"];
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+
+  const isObservabilityBypass = observabilityBypassRoutes.some((route) =>
+    pathname === route || pathname === `${route}/`
+  );
+  if (isObservabilityBypass) {
+    return NextResponse.next();
+  }
 
   // Skip webhook/cron routes — they have their own auth
   const isWebhookRoute = webhookRoutes.some((route) =>

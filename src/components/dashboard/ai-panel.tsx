@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUp, Loader2, Sparkles, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { aiInputSchema, type AiChatMessage } from "@/lib/validations/ai";
@@ -16,11 +19,21 @@ const STARTER_MESSAGE: AiChatMessage = {
 
 export function AiPanel() {
   const { open, close } = useAiPanel();
+  const pathname = usePathname();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AiChatMessage[]>([STARTER_MESSAGE]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const focusInput = useCallback(() => {
+    if (!open || isSubmitting) return;
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [open, isSubmitting]);
 
   useEffect(() => {
     const container = scrollerRef.current;
@@ -36,6 +49,10 @@ export function AiPanel() {
 
     container.scrollTop = container.scrollHeight;
   }, [messages, isSubmitting]);
+
+  useEffect(() => {
+    focusInput();
+  }, [focusInput, pathname, messages]);
 
   async function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -99,17 +116,19 @@ export function AiPanel() {
         aria-label="AI Assistant"
         aria-hidden={!open}
         className={cn(
-          "fixed inset-y-0 right-0 z-[60] w-full max-w-full transform transition-transform duration-200 ease-in-out lg:static lg:inset-auto lg:z-auto lg:shrink-0 lg:overflow-hidden lg:transition-[width]",
+          "fixed inset-y-0 right-0 z-[60] w-full max-w-full transform transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:shrink-0 lg:overflow-hidden lg:transition-[width]",
           open
             ? "translate-x-0 lg:w-[380px] lg:border-l lg:border-border/50"
             : "translate-x-full lg:w-0 lg:translate-x-0"
         )}
       >
-        <div className="ml-auto flex h-dvh w-full flex-col bg-background shadow-xl sm:max-w-[380px] lg:w-[380px] lg:max-w-none lg:shadow-none">
+        <div className="ml-auto flex h-dvh w-full flex-col border-l border-border/60 bg-gradient-to-b from-background via-background to-muted/20 shadow-xl sm:max-w-[380px] lg:w-[380px] lg:max-w-none lg:shadow-none">
         {/* Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" />
+            <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary/15 text-primary">
+              <Sparkles className="size-4" />
+            </span>
             <span className="text-sm font-semibold text-foreground">
               AI Assistant
             </span>
@@ -117,7 +136,7 @@ export function AiPanel() {
           <Button
             variant="ghost"
             size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             aria-label="Close AI panel"
             onClick={close}
           >
@@ -128,7 +147,7 @@ export function AiPanel() {
         {/* Messages */}
         <div
           ref={scrollerRef}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-5"
+          className="flex flex-1 flex-col gap-4 overflow-y-auto bg-muted/15 px-4 py-5"
         >
           {messages.map((message, index) => (
             <div
@@ -140,20 +159,28 @@ export function AiPanel() {
             >
               <div
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                  "max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-relaxed shadow-sm",
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+                    ? "border-primary/70 bg-primary text-primary-foreground"
+                    : "border-border/60 bg-card text-foreground"
                 )}
               >
-                {message.content}
+                {message.role === "user" ? (
+                  message.content
+                ) : (
+                  <div className="space-y-2 break-words [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-background/70 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
             </div>
           ))}
 
           {isSubmitting ? (
             <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card px-3 py-2 text-sm text-muted-foreground shadow-sm">
                 <Loader2 className="size-4 animate-spin" />
                 Thinking...
               </div>
@@ -162,10 +189,11 @@ export function AiPanel() {
         </div>
 
         {/* Input */}
-        <div className="shrink-0 border-t border-border/50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-border/60 bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <form onSubmit={handleSubmit} className="space-y-2">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1">
+            <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-1.5 shadow-sm transition-colors focus-within:border-primary/40">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(event) => {
@@ -175,7 +203,7 @@ export function AiPanel() {
                   }
                 }}
                 placeholder="Ask anything..."
-                className="flex-1 bg-transparent py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                className="flex-1 bg-transparent py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
                 aria-label="Ask AI Assistant"
                 disabled={isSubmitting}
               />
@@ -183,7 +211,7 @@ export function AiPanel() {
                 type="submit"
                 variant="ghost"
                 size="icon-xs"
-                className="shrink-0 text-muted-foreground hover:text-foreground"
+                className="shrink-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                 aria-label="Send message"
                 disabled={isSubmitting || !input.trim()}
               >
