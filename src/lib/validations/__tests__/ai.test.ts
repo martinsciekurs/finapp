@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { aiInputSchema, aiSuggestionSchema } from "../ai";
+import {
+  aiAssistantResponseSchema,
+  aiChatRequestSchema,
+  aiInputSchema,
+  aiSuggestionSchema,
+  aiTransactionDraftSchema,
+} from "../ai";
 
 describe("aiInputSchema", () => {
   it("accepts valid input", () => {
@@ -172,5 +178,164 @@ describe("aiSuggestionSchema", () => {
       confidence: 0.5,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("aiTransactionDraftSchema", () => {
+  it("accepts a complete draft", () => {
+    const result = aiTransactionDraftSchema.safeParse({
+      type: "expense",
+      amount: 24.5,
+      category_id: "550e8400-e29b-41d4-a716-446655440000",
+      category_name: "Food",
+      description: "Lunch",
+      date: "2026-03-07",
+      confidence: 0.85,
+      missing_fields: [],
+      needs_confirmation: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a partial draft with missing fields", () => {
+    const result = aiTransactionDraftSchema.safeParse({
+      type: "expense",
+      amount: null,
+      category_id: null,
+      category_name: null,
+      description: "Coffee",
+      date: null,
+      confidence: 0.41,
+      missing_fields: ["amount", "category_id", "date"],
+      needs_confirmation: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("coerces flexible model output for type, amount, and category id", () => {
+    const result = aiTransactionDraftSchema.safeParse({
+      type: "Expense",
+      amount: "50.00 USD",
+      category_id: "dining-out",
+      category_name: "Dining Out",
+      description: "Latte",
+      date: "2026-03-06",
+      confidence: 0.9,
+      needs_confirmation: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe("expense");
+      expect(result.data.amount).toBe(50);
+      expect(result.data.category_id).toBe("dining-out");
+      expect(result.data.missing_fields).toEqual([]);
+    }
+  });
+
+  it("normalizes empty optional fields to null", () => {
+    const result = aiTransactionDraftSchema.safeParse({
+      type: "expense",
+      amount: "",
+      category_id: "   ",
+      category_name: null,
+      description: "Coffee",
+      date: null,
+      confidence: 0.41,
+      missing_fields: ["amount", "category_id", "date"],
+      needs_confirmation: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amount).toBeNull();
+      expect(result.data.category_id).toBeNull();
+    }
+  });
+});
+
+describe("aiAssistantResponseSchema", () => {
+  it("accepts a response with a draft", () => {
+    const result = aiAssistantResponseSchema.safeParse({
+      message: "I drafted this transaction for you.",
+      draft: {
+        type: "income",
+        amount: 500,
+        category_id: "550e8400-e29b-41d4-a716-446655440000",
+        category_name: "Salary",
+        description: "March salary",
+        date: "2026-03-07",
+        confidence: 0.9,
+        missing_fields: [],
+        needs_confirmation: true,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a plain assistant response without a draft", () => {
+    const result = aiAssistantResponseSchema.safeParse({
+      message: "You spent the most on food this month.",
+      draft: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("aiChatRequestSchema", () => {
+  it("accepts messages with currentDraft", () => {
+    const result = aiChatRequestSchema.safeParse({
+      messages: [
+        {
+          role: "assistant",
+          content: "Share the amount and date.",
+        },
+        {
+          role: "user",
+          content: "It was 15 yesterday",
+        },
+      ],
+      currentDraft: {
+        type: "expense",
+        amount: null,
+        category_id: null,
+        category_name: null,
+        description: "Coffee",
+        date: null,
+        confidence: 0.5,
+        missing_fields: ["amount", "category_id", "date"],
+        needs_confirmation: true,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts currentDraft category ids that are not UUIDs", () => {
+    const result = aiChatRequestSchema.safeParse({
+      messages: [
+        {
+          role: "user",
+          content: "Log my lunch",
+        },
+      ],
+      currentDraft: {
+        type: "expense",
+        amount: 12.5,
+        category_id: "dining-out",
+        category_name: "Dining Out",
+        description: "Lunch",
+        date: "2026-03-07",
+        confidence: 0.8,
+        missing_fields: [],
+        needs_confirmation: true,
+      },
+    });
+
+    expect(result.success).toBe(true);
   });
 });
