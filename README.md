@@ -30,6 +30,14 @@ Then start the dev server:
 npm run dev             # http://localhost:3200
 ```
 
+For the AI assistant panel, add a Vercel AI Gateway key to `.env.local`:
+
+```bash
+AI_GATEWAY_API_KEY=your-vercel-ai-gateway-key
+# Optional:
+AI_CHAT_MODEL=google/gemini-3-flash
+```
+
 ## Scripts
 
 | Command | Description |
